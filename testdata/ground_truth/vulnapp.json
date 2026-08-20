@@ -1,0 +1,38 @@
+[
+    {
+        "finding_id": "VULN-A",
+        "type": "SQLInjection",
+        "source_code": "testdata/vulnapp",
+        "description": "GET /api/search query parameter `q` flows unsanitized through main.search -> db.find_orders -> db.build_search_query, where it is concatenated into a LIKE clause, then executed by cur.execute(sql) in db.py. Three hops from entry point to sink. Classic string-concatenation SQL injection; no parameterization anywhere on the path."
+    },
+    {
+        "finding_id": "VULN-B",
+        "type": "SQLInjection",
+        "source_code": "testdata/vulnapp",
+        "description": "GET /api/search query parameter `status` follows the same path as VULN-A and is concatenated into the WHERE clause of the same query in db.build_search_query. A distinct injection point sharing one sink; a scanner that reports only one of the two has collapsed findings."
+    },
+    {
+        "finding_id": "VULN-C",
+        "type": "PathTraversal",
+        "source_code": "testdata/vulnapp",
+        "description": "GET /api/invoice query parameter `name` flows through main.invoice -> files.fetch_invoice -> files._invoice_path, which calls os.path.join(INVOICE_DIR, name) with no canonicalization, then open(path). Because os.path.join discards the base when given an absolute path, both `../` traversal and an absolute path escape the invoice directory."
+    },
+    {
+        "finding_id": "VULN-D",
+        "type": "CommandInjection",
+        "source_code": "testdata/vulnapp",
+        "description": "GET /api/invoice/render query parameter `src` is concatenated into a shell command string in files.render_invoice and passed to os.system(). Unauthenticated remote command execution via shell metacharacters (`;`, `$()`, backticks)."
+    },
+    {
+        "finding_id": "VULN-E",
+        "type": "BrokenAccessControl",
+        "source_code": "testdata/vulnapp",
+        "description": "GET /api/orders/<order_id> checks only that a session exists (`if 'uid' not in session`) and performs no per-resource ownership check before calling db.get_order_by_id(order_id). Any authenticated user can read any order by enumerating IDs. The SQL itself is correctly parameterized, so this is an authorization defect, not an injection one — a scanner that reports SQLi here is wrong."
+    },
+    {
+        "finding_id": "DECOY-1",
+        "type": "NotAVulnerability",
+        "source_code": "testdata/vulnapp",
+        "description": "NEGATIVE CONTROL — must NOT be reported. GET /api/users query parameter `email` reaches db.find_user_safe, which uses a correctly parameterized query (`WHERE email = ?` with a bound tuple). Any finding claiming injection on this path is a false positive and should count against precision."
+    }
+]

@@ -1,0 +1,20 @@
+vhlocal
+=======
+
+This project is a stdlib-only local runner for the VulnHunter vulnerability-hunting
+methodology, targeting a self-hosted LLM (Ollama or any OpenAI-compatible server
+such as mlx_lm / vLLM) instead of Claude Code.
+
+Portions of this project are derived from VulnHunter by Capital One:
+
+    VulnHunter
+    Copyright Capital One Services, LLC
+    https://github.com/capitalone/VulnHunter
+    Licensed under the Apache License, Version 2.0
+
+In particular, the vulnerability-hunting phase methodology bundled under
+`skill/` (SKILL.md and `skill/phases/*.md`) originates from VulnHunter and
+remains under the Apache License, Version 2.0. Some phase prompts have been
+modified for the self-hosted, single-GPU execution model.
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
