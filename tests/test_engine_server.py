@@ -20,6 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from vhlocal.engine import (  # noqa: E402
     ScanError,
     ScanSpec,
+    _make_phase_clients,
+    _role_client_config,
     model_tag,
     resolve_results_dir,
     select_phases,
@@ -33,6 +35,92 @@ from vhlocal.jobs import (  # noqa: E402
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+class TestPerRoleModels(unittest.TestCase):
+    def _spec(self, **kw):
+        return ScanSpec(repo=Path("/x"), skill_dir=Path("/y"), **kw)
+
+    def test_roles_fall_back_to_hunt(self):
+        s = self._spec(backend="ollama", model="gpt-oss:120b", host="h")
+        for role in ("recon", "hunt", "verify", "reproduce"):
+            self.assertEqual(_role_client_config(s, role),
+                             ("ollama", "gpt-oss:120b", "h"))
+
+    def test_role_overrides_and_backend_pinning(self):
+        s = self._spec(backend="openrouter", model="kimi", host="",
+                       recon_model="gpt-oss", recon_backend="ollama", recon_host="oh",
+                       verify_model="qwen", verify_backend="ollama",
+                       reproduce_model="cheap", reproduce_backend="openai",
+                       reproduce_host="ah")
+        self.assertEqual(_role_client_config(s, "recon"), ("ollama", "gpt-oss", "oh"))
+        self.assertEqual(_role_client_config(s, "hunt"), ("openrouter", "kimi", ""))
+        # verify pins backend but inherits the hunt host (its own host unset)
+        self.assertEqual(_role_client_config(s, "verify"), ("ollama", "qwen", ""))
+        self.assertEqual(_role_client_config(s, "reproduce"),
+                         ("openai", "cheap", "ah"))
+
+    def test_make_phase_clients_dedup_and_no_3d_client(self):
+        # hunt + verify share the default client; recon overrides → 2 distinct.
+        s = self._spec(backend="ollama", model="gpt-oss:120b", host="h",
+                       recon_model="m2", recon_backend="openai", recon_host="oh",
+                       sweep_mode="deterministic")
+        by_phase, distinct = _make_phase_clients(s, select_phases("all"))
+        self.assertEqual(len(distinct), 2)
+        self.assertIs(by_phase["2"], by_phase["2b"])   # same (backend,model,host)
+        self.assertIsNot(by_phase["1"], by_phase["2"])  # recon differs
+        self.assertNotIn("3d", by_phase)               # deterministic sweep: no model
+
+
+class TestDashboardStats(unittest.TestCase):
+    def test_aggregate_and_usage_denominator(self):
+        from vhlocal.server import aggregate_stats
+        s = aggregate_stats([
+            (5, {"prompt_tokens": 100, "completion_tokens": 20, "seconds": 60}, "gpt-oss"),
+            (3, {}, "kimi"),   # died before recording usage
+            (7, {"prompt_tokens": 900, "completion_tokens": 80, "seconds": 30}, "gpt-oss"),
+        ])
+        self.assertEqual(s["scans"], 3)
+        self.assertEqual(s["total_tokens"], 1100)
+        self.assertEqual(s["findings"], 15)
+        # token/time averages divide by scans WITH usage (2), not 3
+        self.assertEqual(s["avg_tokens_per_scan"], 550)
+        self.assertEqual(s["avg_seconds_per_scan"], 45)
+        # findings average divides by all scans
+        self.assertEqual(s["avg_findings_per_scan"], 5.0)
+        self.assertEqual(s["by_model"]["gpt-oss"]["scans"], 2)
+        self.assertEqual(s["by_model"]["kimi"]["tokens"], 0)
+
+    def test_empty(self):
+        from vhlocal.server import aggregate_stats
+        s = aggregate_stats([])
+        self.assertEqual(s["scans"], 0)
+        self.assertEqual(s["avg_tokens_per_scan"], 0)
+
+
+class TestLiveStats(unittest.TestCase):
+    def _store(self):
+        return JobStore(Path(tempfile.mkdtemp()) / "jobs.json", auto_start=False)
+
+    def test_tokens_findings_and_model_captured(self):
+        st = self._store()
+        j = Job(id="j", spec={"model": "kimi"})
+        st._jobs["j"] = j
+        st._update_progress("j", {"type": "agent_start", "label": "p1",
+                                  "model": "gpt-oss:120b", "index": 1, "total": 1})
+        st._update_progress("j", {"type": "agent_done",
+                                  "prompt_tokens": 278739, "completion_tokens": 6752})
+        st._update_progress("j", {"type": "findings", "count": 7, "stage": "confirmed"})
+        p = j.public()
+        self.assertEqual(p["current_model"], "gpt-oss:120b")
+        self.assertEqual(p["prompt_tokens"], 278739)
+        self.assertEqual(p["findings_count"], 7)
+        self.assertEqual(p["findings_stage"], "confirmed")
+        # final supersedes confirmed; a later confirmed must NOT regress it
+        st._update_progress("j", {"type": "findings", "count": 5, "stage": "final"})
+        st._update_progress("j", {"type": "findings", "count": 99, "stage": "confirmed"})
+        self.assertEqual(j.findings_count, 5)
+        self.assertEqual(j.findings_stage, "final")
 
 
 class TestScanSpec(unittest.TestCase):
@@ -258,9 +346,14 @@ class TestWebAssets(unittest.TestCase):
         idx = REPO_ROOT / "vhlocal" / "web" / "index.html"
         self.assertTrue(idx.exists(), "web/index.html missing")
         html = idx.read_text(encoding="utf-8")
-        # A CSP-free offline page must not reach for a CDN.
-        for bad in ("https://", "http://cdn", "unpkg", "jsdelivr", "googleapis"):
-            self.assertNotIn(bad, html, "external reference {0!r} in UI".format(bad))
+        # A CSP-free offline page must not FETCH an external resource. Ban the
+        # actual fetch vectors, not a bare scheme string — a backend host in a
+        # JS config value or a warning message (e.g. the OpenRouter URL) is not a
+        # fetched resource, and the page still loads nothing off-host.
+        for bad in ('src="http', "src='http", 'href="http', "href='http",
+                    "@import", "url(http", "http://cdn", "unpkg", "jsdelivr",
+                    "googleapis"):
+            self.assertNotIn(bad, html, "external resource {0!r} in UI".format(bad))
 
 
 if __name__ == "__main__":
@@ -436,6 +529,57 @@ class TestReportIndex(unittest.TestCase):
         self.assertEqual(r.model_reported, "claude-opus-4-8")
 
 
+class TestReportDelete(unittest.TestCase):
+    """Deleting a report is guarded: resolved against the enumerated set (no
+    traversal), must sit inside the reports tree, and can't be an active scan."""
+
+    def setUp(self):
+        import vhlocal.server as S
+        from vhlocal.jobs import JobStore
+        self.S = S
+        self.base = Path(tempfile.mkdtemp()).resolve()
+        for n in ("a_VULNHUNT_RESULTS_m_2026-01-01-000000",
+                  "b_VULNHUNT_RESULTS_m_2026-01-02-000000"):
+            d = self.base / n
+            d.mkdir()
+            (d / "scan_meta.json").write_text("{}", encoding="utf-8")
+            (d / "README.md").write_text("# x", encoding="utf-8")
+        self.store = JobStore(self.base / "jobs.json", auto_start=False)
+        S.CFG = S.Config(skill_dir=self.base, allow_roots=[self.base],
+                         store=self.store, host="127.0.0.1", port=0,
+                         reports_dir=self.base, ollama_host="http://x")
+
+    def _handler(self):
+        class H:
+            def _json(self, o, s=200):
+                self.out = ("json", o, s)
+
+            def _err(self, m, s=400):
+                self.out = ("err", m, s)
+        H._delete_report = self.S.Handler._delete_report
+        return H()
+
+    def test_deletes_a_report(self):
+        from vhlocal.reports import list_reports, resolve_report
+        self.assertEqual(len(list_reports(self.base)), 2)
+        rid = list_reports(self.base)[0].id
+        h = self._handler()
+        h._delete_report(rid, resolve_report(self.base, rid))
+        self.assertEqual(h.out[0], "json")
+        self.assertEqual(len(list_reports(self.base)), 1)
+
+    def test_refuses_outside_reports_dir(self):
+        h = self._handler()
+        h._delete_report("x", Path("/etc"))
+        self.assertEqual(h.out[0], "err")
+        self.assertEqual(h.out[2], 403)
+
+    def test_refuses_reports_dir_itself(self):
+        h = self._handler()
+        h._delete_report("root", self.base)
+        self.assertEqual(h.out[2], 403)
+
+
 class TestWebUiIntegrity(unittest.TestCase):
     """The engine UI is one hand-edited file with a large inline <script>.
 
@@ -448,10 +592,13 @@ class TestWebUiIntegrity(unittest.TestCase):
         return (REPO_ROOT / "vhlocal" / "web" / "index.html").read_text(encoding="utf-8")
 
     def _inline_js(self):
+        # The page has more than one inline <script> (a tiny pre-paint theme
+        # setter in <head>, plus the main app script). Validate the largest one —
+        # that is the application logic this suite exists to protect.
         import re
-        m = re.search(r"<script>(.*?)</script>", self._ui(), re.S)
-        self.assertIsNotNone(m, "no inline <script> found")
-        return m.group(1)
+        blocks = re.findall(r"<script>(.*?)</script>", self._ui(), re.S)
+        self.assertTrue(blocks, "no inline <script> found")
+        return max(blocks, key=len)
 
     def test_inline_script_parses(self):
         import shutil, subprocess, tempfile

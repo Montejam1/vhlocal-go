@@ -57,6 +57,12 @@ class Job:
     agent_label: Optional[str] = None
     agent_index: int = 0
     agent_total: int = 0
+    # Live dashboard stats (running totals from events; 0 until first update).
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    findings_count: int = 0
+    findings_stage: str = ""   # "" | "confirmed" | "final"
+    current_model: str = ""    # model of the most recent agent (per-phase)
 
     def public(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -229,6 +235,17 @@ class JobStore:
             job.agent_label = ev.get("label")
             job.agent_index = int(ev.get("index") or 0)
             job.agent_total = int(ev.get("total") or 0)
+            if ev.get("model"):
+                job.current_model = ev.get("model")
+        if "prompt_tokens" in ev:
+            job.prompt_tokens = int(ev.get("prompt_tokens") or 0)
+            job.completion_tokens = int(ev.get("completion_tokens") or 0)
+        if t == "findings":
+            # "final" supersedes "confirmed"; never let a later confirmed
+            # (there is only one) regress the final count.
+            if job.findings_stage != "final":
+                job.findings_count = int(ev.get("count") or 0)
+                job.findings_stage = ev.get("stage") or job.findings_stage
 
     def _run_worker(self) -> None:
         while not self._stopping.is_set():

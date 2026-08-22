@@ -26,6 +26,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("dirs", nargs="*", help="Results directories")
     ap.add_argument("--all", action="store_true",
                     help="Process every report under --reports-dir")
+    ap.add_argument("--delete", action="store_true",
+                    help="Delete the given results directories instead of "
+                         "regenerating them (each must be under --reports-dir)")
+    ap.add_argument("--yes", action="store_true",
+                    help="Skip the delete confirmation prompt")
     ap.add_argument("--reports-dir", default=str(DEFAULT_REPORTS_DIR))
     args = ap.parse_args(argv)
 
@@ -34,6 +39,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         targets += [Path(r.path) for r in list_reports(Path(args.reports_dir).expanduser())]
     if not targets:
         ap.error("give at least one results directory, or --all")
+
+    if args.delete:
+        return _delete(targets, Path(args.reports_dir).expanduser().resolve(),
+                       assume_yes=args.yes)
 
     rc = 0
     for d in targets:
@@ -49,6 +58,35 @@ def main(argv: Optional[List[str]] = None) -> int:
             continue
         note = "" if (d / SCAN_META_FILE).exists() else "  (no scan_meta.json — metadata limited)"
         print("wrote {0}{1}".format(md, note))
+    return rc
+
+
+def _delete(targets: List[Path], reports_dir: Path, assume_yes: bool = False) -> int:
+    """Delete report directories, refusing anything outside the reports tree."""
+    import shutil
+    rc = 0
+    for d in targets:
+        rd = d.expanduser().resolve()
+        if rd == reports_dir or not str(rd).startswith(str(reports_dir) + "/"):
+            print("refusing to delete outside {0}: {1}".format(reports_dir, rd),
+                  file=sys.stderr)
+            rc = 1
+            continue
+        if not rd.is_dir():
+            print("skip (not a directory): {0}".format(rd), file=sys.stderr)
+            rc = 1
+            continue
+        if not assume_yes:
+            ans = input("delete {0} and all its artifacts? [y/N] ".format(rd.name))
+            if ans.strip().lower() not in ("y", "yes"):
+                print("skipped {0}".format(rd.name))
+                continue
+        try:
+            shutil.rmtree(rd)
+            print("deleted {0}".format(rd))
+        except OSError as exc:
+            print("failed to delete {0}: {1}".format(rd, exc), file=sys.stderr)
+            rc = 1
     return rc
 
 

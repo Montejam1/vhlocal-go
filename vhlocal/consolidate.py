@@ -24,6 +24,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from .knowledge import apply_knowledge
+from .lifecycle import reconcile as reconcile_lifecycle
 from .phases import normalize_text
 
 SCAN_REPORT_FILE = "SCAN_REPORT.md"
@@ -159,6 +161,23 @@ class Finding:
     test_status: str = ""
     validation_method: str = ""
     finding_state: str = ""
+    # Deterministic CWE knowledge (set by knowledge.apply_knowledge). `cve` is
+    # deliberately "N/A" for first-party code findings — see knowledge.py.
+    description: str = ""
+    exploitability: str = ""
+    reference: str = ""
+    cve: str = ""
+    # Standardized labels: canonical family + deterministic severity. The
+    # model's reported cwe/severity above are preserved; these are the stable,
+    # cross-run-comparable layer used for display and ranking.
+    normalized_cwe: str = ""
+    cwe_family: str = ""
+    canonical_name: str = ""
+    normalized_severity: str = ""
+    reported_severity: str = ""   # the model's original severity, preserved
+    # Cross-run lifecycle (set by lifecycle.reconcile — Mode A): new / persisting
+    # / regressed relative to the most recent prior report of the same target.
+    finding_lifecycle: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -301,10 +320,46 @@ def _confirmed_spine(results_dir: Path) -> List[Finding]:
     return findings
 
 
+# A "title" that is really an entry-point URL, a verdict fragment, or just the
+# id — nothing an analyst can recognise the vulnerability from. When the spine's
+# source-file enrichment fails (broken source links in the handoff), the title
+# falls back to the entry point (e.g. "POST /ops/bundle/dispatch-thaw-172"); the
+# Phase-4 README usually has the real name ("Pickle deserialization RCE").
+_WEAK_TITLE = re.compile(
+    r"^(GET|POST|PUT|PATCH|DELETE|WS)\b|^/|dispatch-|^(yes|no|n/?a)\b|"
+    r"^\d+\s*/\s*\d+\b|^\(see source\)$",
+    re.IGNORECASE)
+
+
+def _is_weak_title(title: str, fid: str) -> bool:
+    t = (title or "").strip()
+    return (not t) or t.upper() == (fid or "").upper() or bool(_WEAK_TITLE.search(t))
+
+
+_ROUTE_RE = re.compile(r"/[\w{}./-]+")
+
+
+def _route_key(f: "Finding") -> str:
+    """A normalized route (e.g. ``/ops/xml/dispatch-fold-450``) pulled from a
+    finding's entry point, title, or data flow — the stable cross-stage handle
+    when the ids don't align. The spine's weak title IS the route, and the
+    README's entry point carries it too."""
+    for src in (f.entry_point, f.title, f.data_flow):
+        m = _ROUTE_RE.search((src or "").replace("`", ""))
+        if m and len(m.group(0)) > 4:
+            return m.group(0).rstrip("/").lower()
+    return ""
+
+
 def _enrich_spine_from_report(spine: List[Finding], results_dir: Path) -> None:
-    """Overlay Phase 3/4 detail (PoC, fix, better titles, entry points) onto the
-    confirmed spine, matched by CWE + normalized location so it works despite
-    the ids not aligning perfectly across stages."""
+    """Overlay Phase 3/4 detail (better titles, locations, PoC, fix) onto the
+    confirmed spine.
+
+    Matches by global id first — the handoff assigns ids that Phase 3/4 follow,
+    so VULN-005 is the same finding across stages — falling back to CWE +
+    location when the ids don't align. A weak spine title (an entry-point URL
+    from failed source enrichment) is replaced by the report's descriptive one.
+    """
     detail_findings: List[Finding] = []
     for name in ("README.md", "phase3_output.md"):
         p = results_dir / name
@@ -321,14 +376,43 @@ def _enrich_spine_from_report(spine: List[Finding], results_dir: Path) -> None:
     if not detail_findings:
         return
     by_key: Dict[Tuple[str, str], Finding] = {}
+    by_id: Dict[str, Finding] = {}
+    by_route: Dict[Tuple[str, str], Finding] = {}
     for d in detail_findings:
-        by_key[(d.cwe.upper(), _norm_loc(d.location))] = d
+        by_key.setdefault((d.cwe.upper(), _norm_loc(d.location)), d)
+        by_id.setdefault(d.id.upper(), d)
+        rk = _route_key(d)
+        if rk:
+            by_route.setdefault((d.cwe.upper(), rk), d)
+    used: set = set()   # a report finding enriches at most one spine finding
     for f in spine:
-        d = by_key.get((f.cwe.upper(), _norm_loc(f.location)))
+        # Prefer an id match, but only when the CWEs are compatible (guards
+        # against a mis-numbered report clobbering the wrong finding); then fall
+        # back to CWE+location, then CWE+route (survives id misalignment across
+        # stages — the spine's weak title is itself the route). Each report
+        # finding is consumed once, so two spine findings can't both map to it
+        # and become identical.
+        candidates = [
+            by_id.get(f.id.upper()),
+            by_key.get((f.cwe.upper(), _norm_loc(f.location))),
+            by_route.get((f.cwe.upper(), _route_key(f))) if _route_key(f) else None,
+        ]
+        d = None
+        for c in candidates:
+            if c is None or id(c) in used:
+                continue
+            if c is by_id.get(f.id.upper()) and c.cwe and f.cwe \
+                    and c.cwe.upper() != f.cwe.upper():
+                continue
+            d = c
+            break
         if not d:
             continue
-        if d.title and (not f.title or f.title == f.id):
+        used.add(id(d))
+        if d.title and _is_weak_title(f.title, f.id) and not _is_weak_title(d.title, d.id):
             f.title = d.title
+        if not f.location and d.location:
+            f.location = d.location
         for attr in ("entry_point", "data_flow", "fix", "poc", "exploit_test"):
             if not getattr(f, attr) and getattr(d, attr):
                 setattr(f, attr, getattr(d, attr))
@@ -378,21 +462,28 @@ def parse_findings(results_dir: Path) -> List[Finding]:
     """
     results_dir = Path(results_dir)
 
-    # Old README/phase-table path (what a good Phase 4 produces, richest fields).
+    # Phase-4 report path (what a good Phase 4 produces: distinct, well-titled
+    # findings with locations and detail).
     report_findings = _drop_placeholders(_parse_report_tables(results_dir))
 
-    # Confirmed spine (complete, enriched from source files).
+    # Confirmed spine (from Phase 2b), enriched from source files / the report.
     spine = _confirmed_spine(results_dir)
     if spine:
         _enrich_spine_from_report(spine, results_dir)
         spine = _drop_placeholders(spine)
 
-    # Use whichever is more complete. The spine wins when Phase 3/4 dropped
-    # findings (its whole reason for existing); the report path wins when it is
-    # at least as complete (a good Phase 4 with hand-written detail).
-    if spine and len(spine) > len(report_findings):
+    # The spine is the RECOVERY mechanism for when Phase 3/4 dropped findings
+    # (a run confirming 20 that writes up only 7). It should only override a
+    # complete Phase-4 report when it recovers *substantially* more — otherwise
+    # the report is better-formed (descriptive titles, distinct findings that the
+    # spine's weaker identity can over-cluster). The margin keeps a well-titled
+    # 14-finding report from being replaced by a 15-finding spine full of URLs.
+    RECOVERY_MARGIN = 2
+    if spine and len(spine) > len(report_findings) + RECOVERY_MARGIN:
         return spine
-    return report_findings
+    if report_findings:
+        return report_findings
+    return spine or []
 
 
 def _parse_report_tables(results_dir: Path) -> List[Finding]:
@@ -659,6 +750,19 @@ def rank(findings: List[Finding]) -> List[Finding]:
     return sorted(findings, key=lambda f: (f.severity_rank, f.cwe or "zzz", f.id))
 
 
+def apply_normalized_severity(findings: List[Finding]) -> None:
+    """Make the deterministic family severity canonical, so counts, the meter,
+    and ranking are stable run-to-run. The model's original tier is preserved as
+    ``reported_severity`` and surfaced in the report when it differs. Run after
+    ``knowledge.apply_knowledge`` (which sets ``normalized_severity``) and before
+    ``rank``."""
+    for f in findings:
+        ns = getattr(f, "normalized_severity", "")
+        if ns and ns != f.severity:
+            f.reported_severity = f.severity
+            f.severity_rank, f.severity = _sev_key(ns)
+
+
 def apply_validation(findings: List[Finding], meta: Dict[str, Any]) -> None:
     """Set harness-owned validation state on each finding.
 
@@ -824,7 +928,11 @@ def render(results_dir: Path) -> str:
     findings = parse_findings(results_dir)
     flag_duplicates(findings)
     apply_validation(findings, meta)
+    apply_knowledge(findings)
+    apply_normalized_severity(findings)
     findings = rank(findings)
+    # Mode A: label each finding new/persisting/regressed vs the prior report.
+    lifecycle = reconcile_lifecycle(findings, results_dir, meta)
     ledger = coverage_ledger(results_dir, meta, findings)
     rs = compute_run_status(meta, ledger=ledger)
 
@@ -869,7 +977,42 @@ def render(results_dir: Path) -> str:
         meta.get("verify_model") or meta.get("model") or "—"))
     A("| Inference host | {0} |".format(meta.get("host") or "—"))
     A("| Results directory | `{0}` |".format(meta.get("results_dir") or str(results_dir)))
+    if meta.get("git_commit"):
+        commit = meta["git_commit"][:12]
+        if meta.get("git_branch"):
+            commit += " ({0})".format(meta["git_branch"])
+        if meta.get("git_dirty"):
+            commit += " +uncommitted changes"
+        A("| Commit scanned | `{0}` |".format(commit))
     A("")
+    # Mode A — how this run compares to the previous report of the same target.
+    if lifecycle.get("has_prior"):
+        A("### Change since previous scan")
+        A("")
+        A("Compared against `{0}`{1}.".format(
+            lifecycle["prior_report"],
+            " (commit `{0}`)".format(lifecycle["prior_commit"][:12])
+            if lifecycle.get("prior_commit") else ""))
+        A("")
+        A("| Lifecycle | Count |")
+        A("|---|---|")
+        A("| 🆕 New this scan | {0} |".format(lifecycle["new"]))
+        A("| ➡️ Persisting | {0} |".format(lifecycle["persisting"]))
+        A("| 🔁 Regressed (returned after being fixed) | {0} |".format(
+            lifecycle["regressed"]))
+        A("| ✅ Fixed since last scan | {0} |".format(lifecycle["fixed"]))
+        A("")
+    else:
+        A("> **Baseline scan** — no prior report of this target was found, so "
+          "there is nothing to compare against yet. The next scan will track "
+          "new / persisting / fixed findings against this one.")
+        A("")
+    if meta.get("seeded_from_prior"):
+        A("> **Seeded run (Mode B).** Phase 1 was seeded with the findings of "
+          "`{0}` as hot spots to re-verify. This run is therefore **correlated "
+          "with that prior scan and is not an independent sample** — exclude it "
+          "from union-recall benchmarking.".format(meta["seeded_from_prior"]))
+        A("")
     if rs["coverage_degraded_reasons"]:
         A("> **Coverage is degraded — treat coverage-dependent numbers as "
           "provisional.** " + "; ".join(rs["coverage_degraded_reasons"]) + ".")
@@ -995,7 +1138,7 @@ def render(results_dir: Path) -> str:
         A("|---|---|---|---|---|---|")
         for i, f in enumerate(unique, start=1):
             A("| {0} | {1} | **{2}** | {3} | {4} | {5} |".format(
-                i, f.id, f.severity, f.cwe or "—",
+                i, f.id, f.severity, f.normalized_cwe or f.cwe or "—",
                 (f.title or "—")[:70],
                 "`{0}`".format(_clean(f.location)) if f.location else "—"))
         A("")
@@ -1008,8 +1151,32 @@ def render(results_dir: Path) -> str:
             A("| Field | Value |")
             A("|---|---|")
             A("| Finding ID | {0} |".format(f.id))
-            A("| Severity | **{0}** |".format(f.severity))
+            # Severity is the deterministic family baseline (stable across runs);
+            # the model's own tier is preserved beside it when it differed.
+            if f.reported_severity and f.reported_severity != f.severity:
+                A("| Severity | **{0}** (scanner-assessed: {1}) |".format(
+                    f.severity, f.reported_severity))
+            else:
+                A("| Severity | **{0}** |".format(f.severity))
+            # CWE: the model's reported CWE, then the canonical family roll-up used
+            # for cross-run comparison when it differs.
             A("| CWE | {0} |".format(f.cwe or "—"))
+            if f.normalized_cwe and f.normalized_cwe != f.cwe:
+                fam = " ({0})".format(f.canonical_name) if f.canonical_name else ""
+                A("| Normalized CWE | {0}{1} |".format(f.normalized_cwe, fam))
+            elif f.canonical_name:
+                A("| Family | {0} |".format(f.canonical_name))
+            if f.description:
+                A("| Description | {0} |".format(f.description))
+            if f.exploitability:
+                # Class-level exploitability paired with this finding's own
+                # static-confirmation basis, so nothing overstates what was proven.
+                basis = ("statically confirmed (source→sink); not runtime-tested"
+                         if f.validation_method == VALIDATION_STATIC
+                         else "runtime-verified" if f.validation_method == VALIDATION_DYNAMIC
+                         else "static reasoning")
+                A("| Exploitability | {0} — basis: {1} |".format(
+                    f.exploitability, basis))
             if f.location:
                 A("| Location | `{0}` |".format(_clean(f.location)))
             if f.entry_point:
@@ -1035,12 +1202,41 @@ def render(results_dir: Path) -> str:
                 else "static reasoning"))
             A("| Finding state | {0} |".format(
                 f.finding_state.replace("_", " ") or "statically supported"))
+            if f.finding_lifecycle:
+                A("| Lifecycle | {0} |".format({
+                    "new": "🆕 new this scan",
+                    "persisting": "➡️ persisting since last scan",
+                    "regressed": "🔁 regressed (returned after being fixed)",
+                }.get(f.finding_lifecycle, f.finding_lifecycle)))
             reported = " / ".join(
                 x for x in (_clean(f.status), _clean(f.exploit_test))
                 if x and x.lower() not in ("—", "n/a"))
             if reported:
                 A("| Scanner-reported (unverified) | {0} |".format(reported))
+            if f.reference:
+                A("| Reference | {0} |".format(f.reference))
+            # CVE is deliberately N/A for first-party code findings — a CVE names
+            # a released product's vuln, not application source (see knowledge.py).
+            A("| CVE | {0} |".format(f.cve or "—"))
             A("")
+
+    # Findings present in the prior report and absent now — resolved or no longer
+    # detected. Listed so a fix (or a detection regression) is visible, not silent.
+    fixed = lifecycle.get("fixed_findings") or []
+    if fixed:
+        A("## 5a. Fixed since previous scan")
+        A("")
+        A("These were reported in `{0}` and are not present in this scan — "
+          "resolved, or no longer detected. If one reappears later it will be "
+          "flagged **regressed**.".format(lifecycle.get("prior_report", "the prior report")))
+        A("")
+        A("| Prior ID | Title | CWE | Location |")
+        A("|---|---|---|---|")
+        for ff in fixed:
+            A("| {0} | {1} | {2} | `{3}` |".format(
+                ff.get("id") or "—", (ff.get("title") or "—")[:70],
+                ff.get("cwe") or "—", _clean(ff.get("location") or "") or "—"))
+        A("")
 
     if dupes:
         A("## 6. Duplicate findings (clustered)")
@@ -1146,7 +1342,10 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     findings = parse_findings(results_dir)
     flag_duplicates(findings)
     apply_validation(findings, meta)
+    apply_knowledge(findings)
+    apply_normalized_severity(findings)
     findings = rank(findings)
+    lifecycle = reconcile_lifecycle(findings, results_dir, meta)
 
     report_md = render(results_dir)
     md = results_dir / SCAN_REPORT_FILE
@@ -1207,6 +1406,10 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
             "complete": ledger.complete,
         } if ledger is not None else None,
         "counts": _counts(findings),
+        # Mode A cross-run lifecycle: new/persisting/regressed vs the prior
+        # report, the now-fixed findings, and the fixed keys the next run reads
+        # back to detect regressions.
+        "lifecycle": lifecycle,
         "findings": [f.to_dict() for f in findings],
     }, indent=2), encoding="utf-8")
     return md, js

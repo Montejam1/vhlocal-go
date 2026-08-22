@@ -32,11 +32,14 @@ import re as _re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from .knowledge import apply_knowledge
+from .lifecycle import reconcile as reconcile_lifecycle
 from .consolidate import (
     SEVERITY_ORDER,
     VALIDATION_DYNAMIC,
     Finding,
     _clean,
+    apply_normalized_severity,
     apply_validation,
     compute_run_status,
     coverage_ledger,
@@ -52,7 +55,7 @@ SCAN_REPORT_HTML = "SCAN_REPORT.html"
 # pick up. SCAN_REPORT.html is a generated snapshot, so without a stamp an
 # improvement silently applies only to *new* scans and every older report keeps
 # rendering with whatever version wrote it.
-RENDERER_VERSION = "7"
+RENDERER_VERSION = "10"
 _STAMP = '<meta name="generator" content="vhlocal-report/{0}">'.format(RENDERER_VERSION)
 
 # Status palette — fixed, never themed. Same hexes in both modes.
@@ -179,6 +182,12 @@ h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.08em;
   background:var(--surface-1);white-space:nowrap}
 .ftitle{font-weight:600;flex:1;min-width:200px}
 .fcwe{font-size:12px;color:var(--text-secondary)}
+/* Lifecycle chips — state encoded by label + colour (never colour alone). */
+.flc{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;
+  border:1px solid var(--line);white-space:nowrap}
+.flc-new{color:var(--accent);border-color:var(--accent)}
+.flc-persisting{color:var(--text-secondary)}
+.flc-regressed{color:var(--crit);border-color:var(--crit)}
 .floc{font-size:12px;color:var(--text-muted)}
 .fbody{padding:2px 16px 16px;border-top:1px solid var(--line)}
 .fbody dl{display:grid;grid-template-columns:150px 1fr;gap:8px 16px;margin:14px 0 0}
@@ -458,7 +467,10 @@ def render_html(results_dir: Path) -> str:
     findings = parse_findings(results_dir)
     flag_duplicates(findings)
     apply_validation(findings, meta)
+    apply_knowledge(findings)
+    apply_normalized_severity(findings)
     findings = rank(findings)
+    lifecycle = reconcile_lifecycle(findings, results_dir, meta)
     ledger = coverage_ledger(results_dir, meta, findings)
     rs = compute_run_status(meta, ledger=ledger)
 
@@ -602,6 +614,33 @@ def render_html(results_dir: Path) -> str:
                   style, _sev_glyph(lbl), _e(lbl), n))
         A('</div>')
 
+    # ---------------- change since last scan (Mode A) ----------------
+    if lifecycle.get("has_prior"):
+        prior_c = lifecycle.get("prior_commit") or ""
+        A('<h2>Change since last scan</h2>')
+        A('<div class="kpis">')
+        for k, lbl in (("new", "New this scan"), ("persisting", "Persisting"),
+                       ("regressed", "Regressed"), ("fixed", "Fixed")):
+            A('<div class="tile"><div class="k">{0}</div>'
+              '<div class="v">{1}</div></div>'.format(_e(lbl), lifecycle.get(k, 0)))
+        A('</div>')
+        A('<div class="printnote">Compared against <span class="mono">{0}</span>{1}.'
+          '</div>'.format(
+              _e(lifecycle.get("prior_report", "the prior report")),
+              " (commit <span class=\"mono\">{0}</span>)".format(_e(prior_c[:12]))
+              if prior_c else ""))
+        fixed = lifecycle.get("fixed_findings") or []
+        if fixed:
+            A('<details class="finding"><summary><span class="ftitle">'
+              'Fixed since previous scan ({0})</span></summary>'
+              '<div class="fbody"><dl>'.format(len(fixed)))
+            for ff in fixed:
+                A('<dt class="mono">{0}</dt><dd>{1} <span style="color:'
+                  'var(--text-muted)">{2}</span></dd>'.format(
+                      _e(ff.get("id") or "—"), _e(ff.get("title") or "—"),
+                      _e(ff.get("cwe") or "")))
+            A('</dl></div></details>')
+
     # ---------------- findings ----------------
     A('<h2>Findings <span style="text-transform:none;letter-spacing:0">'
       '(<span id="shown">{0}</span> shown)</span></h2>'.format(total))
@@ -635,10 +674,43 @@ def render_html(results_dir: Path) -> str:
                 _e(f.severity), _e(hay)))
             A('<summary><span class="rank">{0}</span>{1}'.format(i, _sev_badge(f.severity)))
             A('<span class="ftitle">{0}</span>'.format(_e(f.title or f.id)))
-            if f.cwe:
-                A('<span class="fcwe">{0}</span>'.format(_e(f.cwe)))
+            chip_cwe = f.normalized_cwe or f.cwe
+            if chip_cwe:
+                A('<span class="fcwe">{0}</span>'.format(_e(chip_cwe)))
+            lc_chip = {"new": ("🆕 new", "new"),
+                       "persisting": ("➡️ persisting", "persisting"),
+                       "regressed": ("🔁 regressed", "regressed")}.get(
+                           f.finding_lifecycle)
+            if lc_chip:
+                A('<span class="flc flc-{1}">{0}</span>'.format(
+                    lc_chip[0], lc_chip[1]))
             A('</summary><div class="fbody"><dl>')
             A('<dt>Finding ID</dt><dd class="mono">{0}</dd>'.format(_e(f.id)))
+            # Deterministic family severity is what the badge shows; surface the
+            # model's own tier when it differed, so nothing is hidden.
+            if f.reported_severity and f.reported_severity != f.severity:
+                A('<dt>Severity</dt><dd>{0} <span style="color:var(--text-muted)">'
+                  '(scanner-assessed: {1})</span></dd>'.format(
+                      _e(f.severity), _e(f.reported_severity)))
+            # CWE: model-reported, plus the canonical family roll-up used for
+            # cross-run comparison when it differs.
+            if f.cwe or f.normalized_cwe:
+                A('<dt>CWE</dt><dd>{0}</dd>'.format(_e(f.cwe or "—")))
+                if f.normalized_cwe and f.normalized_cwe != f.cwe:
+                    fam = " ({0})".format(f.canonical_name) if f.canonical_name else ""
+                    A('<dt>Normalized CWE</dt><dd>{0}{1}</dd>'.format(
+                        _e(f.normalized_cwe), _e(fam)))
+                elif f.canonical_name:
+                    A('<dt>Family</dt><dd>{0}</dd>'.format(_e(f.canonical_name)))
+            if f.description:
+                A('<dt>Description</dt><dd>{0}</dd>'.format(_e(f.description)))
+            if f.exploitability:
+                basis = ("statically confirmed (source→sink); not runtime-tested"
+                         if f.validation_method != VALIDATION_DYNAMIC
+                         else "runtime-verified")
+                A('<dt>Exploitability</dt><dd>{0}<br><span style="color:'
+                  'var(--text-muted)">Basis: {1}</span></dd>'.format(
+                      _e(f.exploitability), _e(basis)))
             for label, val, mono in (
                 ("Location", _clean(f.location), True),
                 ("Entry point", f.entry_point, False),
@@ -660,12 +732,34 @@ def render_html(results_dir: Path) -> str:
                 else "static reasoning")))
             A('<dt>Finding state</dt><dd>{0}</dd>'.format(_e(
                 (f.finding_state or "statically_supported").replace("_", " "))))
+            if f.finding_lifecycle:
+                A('<dt>Lifecycle</dt><dd>{0}</dd>'.format(_e({
+                    "new": "new this scan",
+                    "persisting": "persisting since last scan",
+                    "regressed": "regressed (returned after being fixed)",
+                }.get(f.finding_lifecycle, f.finding_lifecycle))))
             reported = " / ".join(
                 x for x in (_clean(f.status), _clean(f.exploit_test))
                 if x and x.lower() not in ("—", "n/a"))
             if reported:
                 A('<dt>Scanner-reported (unverified)</dt>'
                   '<dd>{0}</dd>'.format(_e(reported)))
+            if f.reference:
+                # Linkify the reference URL — a clickable anchor is navigation,
+                # not a fetched resource, so it keeps the report self-contained.
+                m = _re.search(r'https?://[^\s]+', f.reference)
+                if m:
+                    url = m.group(0)
+                    label = f.reference[:m.start()].rstrip(" —-")
+                    # Short anchor text (not the raw URL) so the URL lives only in
+                    # href — keeps the page free of loose external URLs.
+                    ref_html = '{0} — <a href="{1}" target="_blank" rel="noopener">MITRE ↗</a>'.format(
+                        _e(label), _e(url))
+                else:
+                    ref_html = _e(f.reference)
+                A('<dt>Reference</dt><dd>{0}</dd>'.format(ref_html))
+            # CVE deliberately N/A for first-party code findings (see knowledge.py).
+            A('<dt>CVE</dt><dd>{0}</dd>'.format(_e(f.cve or "—")))
             A('</dl></div></details>')
 
     if dupes:
@@ -809,8 +903,16 @@ def render_html(results_dir: Path) -> str:
     if skipped or (req and not set(req) <= done):
         A('<li><strong>Not every requested phase completed.</strong> Findings may '
           'be partial — see Checks enabled.</li>')
-    A('<li>Severities are as reported by the scanner and are <em>not</em> CVSS '
-      'scores.</li>')
+    if meta.get("seeded_from_prior"):
+        A('<li><strong>Seeded run (Mode B).</strong> Phase 1 was seeded with the '
+          'findings of <span class="mono">{0}</span> as hot spots to re-verify, '
+          'so this run is correlated with that prior scan and is <em>not</em> an '
+          'independent sample — exclude it from union-recall benchmarking.</li>'
+          .format(_e(meta["seeded_from_prior"])))
+    A('<li>Severities are the deterministic per-family baseline (adjusted one tier '
+      'down when exploitation requires a precondition such as authentication), '
+      'chosen for stable cross-run comparison — not CVSS scores. The scanner\'s '
+      'own tier is shown beside a finding when it differed.</li>')
     A('</ul>')
 
     A('<footer>Generated {0} by vhlocal{1} &middot; scan metadata is recorded by '

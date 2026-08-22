@@ -33,7 +33,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .client import DEFAULT_HOST, DEFAULT_MODEL, DEFAULT_NUM_CTX, OllamaClient, OllamaError
-from .engine import DEFAULT_REPORTS_DIR, ScanError, ScanSpec, select_phases
+from .engine import (
+    DEFAULT_REPORTS_DIR,
+    SCAN_META_FILE,
+    ScanError,
+    ScanSpec,
+    select_phases,
+)
 from .reports import list_reports, resolve_report
 from .jobs import JobStore
 from .logsetup import configure_logging
@@ -86,6 +92,127 @@ def _ollama_models(host: str) -> List[Dict[str, Any]]:
     return sorted(out, key=lambda m: m["name"] or "")
 
 
+def _openai_default_host() -> str:
+    from .openai_client import DEFAULT_OPENAI_HOST
+    return DEFAULT_OPENAI_HOST
+
+
+def _openai_models(host: str) -> List[Dict[str, Any]]:
+    """List models from an OpenAI-compatible server (mlx_lm / vLLM / LM Studio)
+    via ``/v1/models``. Returns the same ``name``-keyed shape as
+    ``_ollama_models`` so the UI can consume either identically."""
+    import urllib.request
+    from .openai_client import _base_url
+    url = _base_url(host) + "/v1/models"
+    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    key = os.environ.get("VHLOCAL_OPENAI_API_KEY", "")
+    if key:
+        req.add_header("Authorization", "Bearer " + key)
+    try:
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except Exception as exc:  # reuse OllamaError as the transport-error type
+        raise OllamaError(str(exc))
+    out = []
+    for m in data.get("data", []):
+        mid = m.get("id")
+        if mid:
+            out.append({"name": mid, "size": None, "family": None})
+    return sorted(out, key=lambda m: m["name"] or "")
+
+
+def aggregate_stats(entries: List[Tuple[int, Dict[str, Any], str]]) -> Dict[str, Any]:
+    """Pure aggregation for the dashboard. ``entries`` are (findings, usage-dict,
+    model) tuples — one per scan. Token/time averages divide by the count of
+    scans that actually recorded usage, so runs that died before writing usage
+    don't drag the average to zero."""
+    scans = with_usage = 0
+    prompt = completion = findings = 0
+    seconds = 0.0
+    by_model: Dict[str, Dict[str, int]] = {}
+    for fc, usage, model in entries:
+        scans += 1
+        findings += int(fc or 0)
+        u = usage or {}
+        pt = int(u.get("prompt_tokens") or 0)
+        ct = int(u.get("completion_tokens") or 0)
+        if pt or ct:
+            with_usage += 1
+            prompt += pt
+            completion += ct
+            seconds += float(u.get("seconds") or 0)
+        bm = by_model.setdefault(model or "unknown",
+                                 {"scans": 0, "tokens": 0, "findings": 0})
+        bm["scans"] += 1
+        bm["tokens"] += pt + ct
+        bm["findings"] += int(fc or 0)
+    total = prompt + completion
+    return {
+        "scans": scans,
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": total,
+        "avg_tokens_per_scan": round(total / with_usage) if with_usage else 0,
+        "findings": findings,
+        "avg_findings_per_scan": round(findings / scans, 1) if scans else 0,
+        "total_seconds": round(seconds),
+        "avg_seconds_per_scan": round(seconds / with_usage) if with_usage else 0,
+        "by_model": by_model,
+    }
+
+
+def _openrouter_default_host() -> str:
+    from .openai_client import DEFAULT_OPENROUTER_HOST
+    return DEFAULT_OPENROUTER_HOST
+
+
+def _openrouter_key_set() -> bool:
+    from .openai_client import get_openrouter_key
+    return bool(get_openrouter_key())
+
+
+def _price_tier(prompt_per_tok: float, completion_per_tok: float) -> str:
+    """Coarse $ tier from OpenRouter per-token USD pricing, keyed on the
+    completion price per 1M tokens — the dominant cost of a token-heavy scan."""
+    if prompt_per_tok == 0 and completion_per_tok == 0:
+        return "free"
+    c = completion_per_tok * 1_000_000
+    if c < 1:
+        return "$"
+    if c < 5:
+        return "$$"
+    if c < 20:
+        return "$$$"
+    return "$$$$"
+
+
+def _openrouter_models() -> List[Dict[str, Any]]:
+    """OpenRouter's catalogue, each tagged with a coarse cost tier. The listing
+    endpoint is public, so models can be browsed before a key is set."""
+    import urllib.request
+    url = _openrouter_default_host().rstrip("/") + "/v1/models"
+    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except Exception as exc:
+        raise OllamaError(str(exc))
+    out = []
+    for m in data.get("data", []):
+        mid = m.get("id")
+        if not mid:
+            continue
+        pr = m.get("pricing") or {}
+        try:
+            p = float(pr.get("prompt") or 0)
+            c = float(pr.get("completion") or 0)
+        except (TypeError, ValueError):
+            p = c = 0.0
+        out.append({"name": mid, "tier": _price_tier(p, c),
+                    "context": m.get("context_length")})
+    return sorted(out, key=lambda m: m["name"] or "")
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "vhlocal"
     protocol_version = "HTTP/1.1"
@@ -126,6 +253,10 @@ class Handler(BaseHTTPRequestHandler):
 
         if path in ("/", "/index.html"):
             return self._serve_web("index.html")
+        # The pre-2026 interface, kept alongside the redesign so it can be
+        # compared or reverted to without a file swap. See index.legacy.html.
+        if path in ("/legacy", "/legacy.html"):
+            return self._serve_web("index.legacy.html")
         if path.startswith("/static/"):
             return self._serve_web(path[len("/static/"):])
         if path == "/api/config":
@@ -135,20 +266,39 @@ class Handler(BaseHTTPRequestHandler):
                 "allow_roots": [str(p) for p in CFG.allow_roots],
                 "phases": [{"key": p.key, "title": p.title} for p in PHASES],
                 "defaults": {"model": DEFAULT_MODEL, "num_ctx": DEFAULT_NUM_CTX,
-                             "ollama_host": CFG.ollama_host},
+                             "ollama_host": CFG.ollama_host,
+                             "openai_host": _openai_default_host(),
+                             "openrouter_host": _openrouter_default_host(),
+                             "openrouter_key_set": _openrouter_key_set()},
             })
         if path == "/api/models":
-            host = (qs.get("host") or [CFG.ollama_host])[0]
+            backend = (qs.get("backend") or ["ollama"])[0]
+            if backend == "openrouter":
+                try:
+                    return self._json({"models": _openrouter_models()})
+                except OllamaError as exc:
+                    return self._err(
+                        "cannot reach OpenRouter: {0}".format(exc), 502)
+            default_host = (_openai_default_host() if backend == "openai"
+                            else CFG.ollama_host)
+            host = (qs.get("host") or [default_host])[0]
             try:
-                return self._json({"models": _ollama_models(host)})
+                models = (_openai_models(host) if backend == "openai"
+                          else _ollama_models(host))
+                return self._json({"models": models})
             except OllamaError as exc:
-                return self._err("cannot reach Ollama at {0}: {1}".format(host, exc), 502)
+                label = ("OpenAI-compatible server" if backend == "openai"
+                         else "Ollama")
+                return self._err(
+                    "cannot reach {0} at {1}: {2}".format(label, host, exc), 502)
         if path == "/api/reports":
             return self._json({
                 "reports_dir": str(CFG.reports_dir),
                 "reports": [r.to_dict() for r in list_reports(
                     CFG.reports_dir, self._job_result_dirs())],
             })
+        if path == "/api/stats":
+            return self._json(self._aggregate_stats())
         if path.startswith("/api/reports/"):
             rest = path[len("/api/reports/"):]
             parts = rest.split("/", 1)
@@ -188,6 +338,13 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         if path == "/api/scans":
             return self._create_scan(self._body())
+        if path == "/api/openrouter-key":
+            # Set the OpenRouter key in process memory only. It is never written
+            # to disk or echoed back — the response is just a boolean. Not logged.
+            from .openai_client import set_openrouter_key, get_openrouter_key
+            body = self._body() or {}
+            set_openrouter_key(body.get("api_key") or "")
+            return self._json({"key_set": bool(get_openrouter_key())})
         if path.startswith("/api/scans/") and path.endswith("/cancel"):
             job_id = path[len("/api/scans/"):-len("/cancel")]
             ok = CFG.store.cancel(job_id)
@@ -195,7 +352,44 @@ class Handler(BaseHTTPRequestHandler):
                 "job not cancellable", 409)
         return self._err("not found", 404)
 
+    def do_DELETE(self) -> None:  # noqa: N802
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        if path.startswith("/api/reports/"):
+            rid = urllib.parse.unquote(path[len("/api/reports/"):]).rstrip("/")
+            root = resolve_report(CFG.reports_dir, rid, self._job_result_dirs())
+            if root is None:
+                return self._err("no such report", 404)
+            return self._delete_report(rid, root)
+        return self._err("not found", 404)
+
     # ---------- endpoints ----------
+
+    def _delete_report(self, rid: str, root: Path) -> None:
+        """Delete a report directory. Guarded three ways: the id is resolved
+        against the enumerated set (never joined to a path, so no traversal); the
+        resolved directory must sit inside the reports tree; and a report that a
+        scan is still writing to cannot be deleted."""
+        import shutil
+        root = root.resolve()
+        reports_root = CFG.reports_dir.resolve()
+        if root != reports_root and not str(root).startswith(str(reports_root) + os.sep):
+            return self._err("refusing to delete a report outside the reports "
+                             "directory ({0})".format(reports_root), 403)
+        if root == reports_root:
+            return self._err("refusing to delete the reports directory itself", 403)
+        for j in CFG.store.list_jobs():
+            rd = j.get("results_dir")
+            if rd and Path(rd).resolve() == root and \
+                    j.get("status") in ("running", "queued"):
+                return self._err("this report belongs to an active scan — cancel "
+                                 "it first", 409)
+        try:
+            shutil.rmtree(root)
+        except OSError as exc:
+            return self._err("delete failed: {0}".format(exc), 500)
+        log.info("deleted report %s (%s)", rid, root)
+        return self._json({"deleted": rid})
 
     def _serve_web(self, name: str) -> None:
         target = (WEB_DIR / name).resolve()
@@ -250,6 +444,8 @@ class Handler(BaseHTTPRequestHandler):
             if backend == "openai":
                 from .openai_client import DEFAULT_OPENAI_HOST
                 host = DEFAULT_OPENAI_HOST
+            elif backend == "openrouter":
+                host = _openrouter_default_host()
             else:
                 host = CFG.ollama_host
         spec = ScanSpec(
@@ -264,14 +460,25 @@ class Handler(BaseHTTPRequestHandler):
             max_partitions=int(body.get("max_partitions") or 8),
             verify_model=(body.get("verify_model") or None),
             verify_host=(body.get("verify_host") or None),
+            # Per-role model routing (all optional; blank → hunt model).
+            verify_backend=(body.get("verify_backend") or None),
+            recon_model=(body.get("recon_model") or None),
+            recon_backend=(body.get("recon_backend") or None),
+            recon_host=(body.get("recon_host") or None),
+            reproduce_model=(body.get("reproduce_model") or None),
+            reproduce_backend=(body.get("reproduce_backend") or None),
+            reproduce_host=(body.get("reproduce_host") or None),
             resume=bool(body.get("resume")),
             # Coverage enforcement is on unless explicitly disabled.
             enforce_coverage=body.get("enforce_coverage", True) is not False,
             seed_routes=bool(body.get("seed_routes")),
+            seed_prior=bool(body.get("seed_prior")),
             phase2_mode=(body.get("phase2_mode") or "split"),
             concurrency=int(body.get("concurrency") or 1),
             reasoning_effort=(body.get("reasoning_effort") or None),
             backend=backend,
+            max_output_tokens=int(body.get("max_output_tokens") or 32768),
+            sweep_mode=(body.get("sweep_mode") or "deterministic"),
         )
         job = CFG.store.submit(spec)
         self._json(job.public(), 201)
@@ -326,6 +533,24 @@ class Handler(BaseHTTPRequestHandler):
             if rd:
                 out.append(Path(rd))
         return out
+
+    def _aggregate_stats(self) -> Dict[str, Any]:
+        """Roll up headline metrics across every report on disk. Token/time come
+        from each run's scan_meta.json (findings from the report index)."""
+        entries = []
+        for rep in list_reports(CFG.reports_dir, self._job_result_dirs()):
+            meta = None
+            try:
+                meta = json.loads(
+                    (Path(rep.path) / SCAN_META_FILE).read_text("utf-8"))
+            except (OSError, ValueError):
+                pass
+            entries.append((
+                int(getattr(rep, "findings", 0) or 0),
+                (meta or {}).get("usage") or {},
+                (meta or {}).get("model") or getattr(rep, "model", "") or "unknown",
+            ))
+        return aggregate_stats(entries)
 
     def _list_files(self, root: Path) -> Dict[str, Any]:
         files = []

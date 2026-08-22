@@ -20,6 +20,7 @@ Stdlib only, Python 3.9 compatible.
 import json
 import logging
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -32,6 +33,26 @@ log = logging.getLogger(__name__)
 DEFAULT_OPENAI_HOST = os.environ.get(
     "VHLOCAL_OPENAI_HOST", "http://localhost:8080").rstrip("/")
 
+# OpenRouter is an OpenAI-compatible *cloud* gateway (paid, per-token). Same wire
+# format as any OpenAI server, so it reuses OpenAIClient; only the fixed host,
+# the bearer key, the nested `reasoning` object, and attribution headers differ.
+DEFAULT_OPENROUTER_HOST = "https://openrouter.ai/api"
+OPENROUTER_KEY_ENV = "VHLOCAL_OPENROUTER_API_KEY"
+
+# The OpenRouter key may be set at runtime (from the UI) instead of the
+# environment. It is held in process memory ONLY — never written to a scan spec,
+# jobs.json, scan_meta.json, or the log — so a paid credential never lands on
+# disk. The env var remains the fallback for headless use.
+_RUNTIME_OPENROUTER_KEY = {"key": ""}
+
+
+def set_openrouter_key(key: str) -> None:
+    _RUNTIME_OPENROUTER_KEY["key"] = (key or "").strip()
+
+
+def get_openrouter_key() -> str:
+    return _RUNTIME_OPENROUTER_KEY["key"] or os.environ.get(OPENROUTER_KEY_ENV, "")
+
 
 def _base_url(host: str) -> str:
     """Normalise a base URL: strip a trailing ``/v1`` and slashes so we can add
@@ -40,6 +61,35 @@ def _base_url(host: str) -> str:
     if h.endswith("/v1"):
         h = h[:-3]
     return h
+
+
+def _rate_limit_wait(exc, detail: str, attempt: int) -> float:
+    """Seconds to wait before retrying a 429, honoring the provider's reset
+    window. Capped to a sane range so a bad/garbage header can't stall a scan."""
+    def cap(s):
+        return max(2.0, min(float(s), 60.0))
+    # 1) Standard Retry-After response header (seconds).
+    try:
+        hdrs = getattr(exc, "headers", None)
+        ra = hdrs.get("Retry-After") if hdrs else None
+        if ra:
+            return cap(ra)
+    except (ValueError, TypeError):
+        pass
+    # 2) X-RateLimit-Reset (epoch, ms or s) from the body. Regex, not json.loads,
+    #    so a truncated error body still yields the reset value.
+    m = re.search(r'X-RateLimit-Reset"?\s*:\s*"?(\d{10,16})', detail or "")
+    if m:
+        try:
+            val = float(m.group(1))
+            reset_epoch = val / 1000.0 if val > 1e12 else val
+            secs = reset_epoch - time.time()
+            if secs > 0:
+                return cap(secs)
+        except (ValueError, TypeError):
+            pass
+    # 3) Fallback: grow with the attempt number.
+    return cap(10.0 * attempt)
 
 
 def _to_openai_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -89,9 +139,16 @@ class OpenAIClient:
         repair_attempts: int = 2,
         reasoning_effort: Optional[str] = None,
         api_key: Optional[str] = None,
+        max_tokens: int = 32768,
     ):
         self.model = model
         self.host = _base_url(host)
+        # Cap the completion length. Critical for paid gateways (OpenRouter):
+        # without it they pre-authorize the model's FULL max output (e.g. 65k
+        # tokens) against your balance on every call — a 402 on a modest balance.
+        # 0 disables the cap. The harness's real per-call output is small; this
+        # headroom also covers a reasoning model's thinking tokens.
+        self.max_tokens = int(max_tokens or 0)
         # Kept for agent.py's context-headroom warning only; the OpenAI server
         # fixes its context at load time, so it is never sent in a request.
         self.num_ctx = num_ctx
@@ -109,6 +166,8 @@ class OpenAIClient:
         body: Dict[str, Any] = {
             "model": self.model, "messages": messages, "stream": False,
         }
+        if self.max_tokens > 0:
+            body["max_tokens"] = self.max_tokens
         if self.temperature is not None:
             body["temperature"] = self.temperature
         if tools:
@@ -232,6 +291,7 @@ class OpenAIClient:
         for attempt in range(1, self.max_retries + 1):
             req = urllib.request.Request(url, data=payload, headers=self._headers())
             started = time.time()
+            wait = None   # per-attempt backoff override (rate limits set this)
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
@@ -242,11 +302,33 @@ class OpenAIClient:
                     detail = exc.read().decode("utf-8", "replace")[:500]
                 except Exception:
                     pass
-                if exc.code not in (500, 502, 503, 504):
+                if exc.code == 402:
+                    # Insufficient credits. Don't dump the body — it echoes a
+                    # key-identifying settings URL that would land in the log.
                     raise OllamaError(
+                        "HTTP 402: insufficient OpenRouter credits (or the key's "
+                        "monthly limit). Add credits, raise the key limit, or "
+                        "lower 'Max output tokens'.", kind="http")
+                if exc.code == 429:
+                    # Transient rate limit — back off (honoring the reset window)
+                    # and retry rather than failing the agent. A popular model on
+                    # OpenRouter's shared pool caps RPM across ALL users.
+                    wait = _rate_limit_wait(exc, detail, attempt)
+                    last_err = OllamaError(
+                        "HTTP 429: rate limited (shared capacity for this model). "
+                        "Lower concurrency, add your own provider key on "
+                        "OpenRouter, or pick a less-throttled model.",
+                        kind="rate_limit")
+                else:
+                    # Scrub any URL from the surfaced detail so a key-settings
+                    # link never reaches the log verbatim.
+                    detail = re.sub(r"https?://\S+", "<url>", detail)
+                    if exc.code not in (500, 502, 503, 504):
+                        raise OllamaError(
+                            "OpenAI HTTP {0}: {1}".format(exc.code, detail),
+                            kind="http")
+                    last_err = OllamaError(
                         "OpenAI HTTP {0}: {1}".format(exc.code, detail), kind="http")
-                last_err = OllamaError(
-                    "OpenAI HTTP {0}: {1}".format(exc.code, detail), kind="http")
             except urllib.error.URLError as exc:
                 last_err = OllamaError(
                     "cannot reach OpenAI-compatible server at {0}: {1}. Is it "
@@ -257,9 +339,9 @@ class OpenAIClient:
                     "request to {0} failed after {1:.0f}s: {2}".format(
                         self.host, time.time() - started, exc), kind="timeout")
             if attempt < self.max_retries:
-                backoff = 5 * attempt
+                backoff = wait if wait is not None else 5 * attempt
                 log.warning("openai call failed (attempt %d/%d): %s — retrying "
-                            "in %ds", attempt, self.max_retries, last_err, backoff)
+                            "in %.0fs", attempt, self.max_retries, last_err, backoff)
                 time.sleep(backoff)
         raise last_err if last_err else OllamaError("unknown backend failure")
 
@@ -280,3 +362,45 @@ class OpenAIClient:
                 self.model.split(":")[0] in n for n in names):
             log.warning("model %r not in server list %s — proceeding anyway",
                         self.model, names)
+
+
+class OpenRouterClient(OpenAIClient):
+    """OpenAI-compatible client aimed at OpenRouter (https://openrouter.ai).
+
+    A *paid cloud* backend: requests leave the machine and bill your OpenRouter
+    account per token. The key comes from ``$VHLOCAL_OPENROUTER_API_KEY`` — it is
+    never accepted over the wire, stored in a scan's spec, or written to disk.
+    """
+
+    def __init__(self, model, host=None, api_key=None, **kw):
+        super().__init__(
+            model,
+            host=host or DEFAULT_OPENROUTER_HOST,
+            # Runtime key (UI) or the env var — resolved at construction, never
+            # passed in from a persisted spec.
+            api_key=api_key or get_openrouter_key(),
+            **kw)
+
+    def _body(self, messages, tools):
+        body = super()._body(messages, tools)
+        # OpenRouter takes a nested reasoning object, not the top-level
+        # `reasoning_effort` OpenAI servers use. Translate; omit when unset so the
+        # model keeps its own default.
+        body.pop("reasoning_effort", None)
+        if self.reasoning_effort:
+            body["reasoning"] = {"effort": self.reasoning_effort}
+        return body
+
+    def _headers(self):
+        h = super()._headers()
+        # Optional OpenRouter attribution — harmless if ignored.
+        h["X-Title"] = "vhlocal"
+        h["HTTP-Referer"] = "https://github.com/vulnhunter/vhlocal"
+        return h
+
+    def preflight(self):
+        if not self.api_key:
+            raise OllamaError(
+                "OpenRouter API key not set. Enter it in Settings, or export {0} "
+                "before launching the engine.".format(OPENROUTER_KEY_ENV))
+        super().preflight()

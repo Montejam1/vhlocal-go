@@ -113,6 +113,43 @@ class TestConfirmedSpine(unittest.TestCase):
         self.assertEqual(len([f for f in idor if not f.duplicate_of]), 2)
 
 
+class TestTitleQualityAndSelection(unittest.TestCase):
+    """A complete, well-titled Phase-4 report should win over a spine that is
+    only marginally longer but full of entry-point-URL titles (run 094856:
+    'Pickle deserialization RCE' rendered as 'POST /ops/bundle/...')."""
+
+    def _dir(self):
+        d = Path(tempfile.mkdtemp())
+        (d / "results").mkdir()
+        # Phase-2b confirmed set with weak (entry-point) identities.
+        (d / "phase2b_output.md").write_text(
+            "# Phase 2b\n\n## Confirmed\n\n| # | Source | CWE | Endpoint | Sev |\n"
+            "|---|---|---|---|---|\n"
+            "| sink-VULN-001 | ?.md | CWE-502 | POST /ops/bundle/thaw | High |\n"
+            "| sink-VULN-002 | ?.md | CWE-611 | POST /ops/xml/fold | High |\n",
+            encoding="utf-8")
+        # A complete Phase-4 README with descriptive titles + routes.
+        (d / "README.md").write_text(
+            "# Audit\n\n## Summary\n| ID | Title | CWE | Severity |\n|---|---|---|---|\n"
+            "| VULN-001 | Pickle deserialization RCE | CWE-502 | High |\n"
+            "| VULN-002 | XXE Injection | CWE-611 | High |\n\n"
+            "### VULN-001: Pickle deserialization RCE\n"
+            "| **Entry Point** | POST /ops/bundle/thaw |\n"
+            "| **Location** | `app/ops.py:61` |\n"
+            "### VULN-002: XXE Injection\n"
+            "| **Entry Point** | POST /ops/xml/fold |\n"
+            "| **Location** | `app/ops.py:150` |\n",
+            encoding="utf-8")
+        return d
+
+    def test_descriptive_titles_win_over_url_titles(self):
+        titles = [f.title for f in parse_findings(self._dir())]
+        self.assertIn("Pickle deserialization RCE", titles)
+        self.assertIn("XXE Injection", titles)
+        # No entry-point-URL titles survive.
+        self.assertFalse(any(t.startswith("POST /") for t in titles))
+
+
 class TestPlaceholderFilter(unittest.TestCase):
     """Phase 3 pads its assignment table with 'Placeholder for additional
     finding | Unrated' rows; these must never reach the report (run 033202)."""

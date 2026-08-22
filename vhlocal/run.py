@@ -95,6 +95,14 @@ def main(argv: Optional[List[str]] = None) -> int:
              "input inventory starts from the complete attack surface.",
     )
     ap.add_argument(
+        "--seed-prior", action="store_true",
+        help="Mode B: seed Phase 1 with the most recent prior report's findings "
+             "as hot spots to independently re-verify. Off by default. Correlates "
+             "this run with the prior one (good for production regression "
+             "tracking) — do NOT use for union-recall benchmarking, where run "
+             "independence matters. Recorded in scan_meta when used.",
+    )
+    ap.add_argument(
         "--phase2-mode", choices=["split", "combined"], default="split",
         help="Phase 2 fan-out. 'split' (default): one agent per partition per "
              "vulnerability class (thorough, ~3x agents). 'combined': one agent "
@@ -105,6 +113,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Dispatch this many Phase-2 agents at once (default 1 = serial). "
              "Quality-neutral — same findings, just overlapped. Needs "
              "OLLAMA_NUM_PARALLEL>=N on the server to actually speed up.",
+    )
+    ap.add_argument(
+        "--sweep-mode", choices=["deterministic", "model"], default="deterministic",
+        help="Phase 3d root-cause sweep. 'deterministic' (default): the harness "
+             "greps each confirmed sink pattern directly — fast and complete. "
+             "'model': the old model-driven iterative grep.",
     )
     ap.add_argument(
         "--reasoning-effort", choices=["low", "medium", "high"], default=None,
@@ -156,10 +170,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         resume=args.resume,
         enforce_coverage=args.enforce_coverage,
         seed_routes=args.seed_routes,
+        seed_prior=args.seed_prior,
         phase2_mode=args.phase2_mode,
         concurrency=args.concurrency,
         reasoning_effort=args.reasoning_effort,
         backend=args.backend,
+        sweep_mode=args.sweep_mode,
     )
 
     results_dir = resolve_results_dir(spec)

@@ -51,10 +51,22 @@ def make_client(backend: str = "ollama", **kwargs):
     common = {k: kwargs[k] for k in
               ("model", "host", "num_ctx", "temperature", "reasoning_effort")
               if k in kwargs}
+    # max_tokens is honoured only by the OpenAI/OpenRouter clients (Ollama caps
+    # output via context, not a wire field), so it is added per-backend below.
+    if backend == "openrouter":
+        # Paid OpenAI-compatible cloud gateway. Key comes from the environment
+        # inside OpenRouterClient — deliberately not threaded through kwargs so it
+        # can never be persisted in a scan spec.
+        from .openai_client import OpenRouterClient
+        if "max_tokens" in kwargs:
+            common["max_tokens"] = kwargs["max_tokens"]
+        return OpenRouterClient(**common)
     if backend in ("openai", "mlx", "vllm"):
         from .openai_client import OpenAIClient
         if "api_key" in kwargs:
             common["api_key"] = kwargs["api_key"]
+        if "max_tokens" in kwargs:
+            common["max_tokens"] = kwargs["max_tokens"]
         return OpenAIClient(**common)
     if "keep_alive" in kwargs:
         common["keep_alive"] = kwargs["keep_alive"]

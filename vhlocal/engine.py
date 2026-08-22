@@ -24,7 +24,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .agent import run_agent
 from .client import (
@@ -86,6 +86,18 @@ class ScanSpec:
     max_partitions: int = 8
     verify_model: Optional[str] = None
     verify_host: Optional[str] = None
+    # Per-role model routing. Each phase runs on the "hunt" model (model/backend/
+    # host above) unless its role has an explicit override here. Roles: recon
+    # (phase 1), hunt (phase 2 + default), verify (phase 2b), reproduce (phases
+    # 3/3d-model/4). An override falls back to the hunt backend/host when only its
+    # model is set. See _role_client_config / _make_phase_clients.
+    verify_backend: Optional[str] = None
+    recon_model: Optional[str] = None
+    recon_backend: Optional[str] = None
+    recon_host: Optional[str] = None
+    reproduce_model: Optional[str] = None
+    reproduce_backend: Optional[str] = None
+    reproduce_host: Optional[str] = None
     resume: bool = False
     # Harness-enforced coverage: append deterministic partitions for any
     # enumerated route the model's partition plan omits, so Phase 2 traces the
@@ -93,6 +105,11 @@ class ScanSpec:
     enforce_coverage: bool = True
     # Seed Phase 1 recon with the full enumerated route list (opt-in).
     seed_routes: bool = False
+    # Mode B (opt-in, off by default): seed Phase 1 with the prior report's
+    # findings as hot spots to independently re-verify. Correlates this run with
+    # the prior one — good for production tracking, unsuitable for union-recall
+    # benchmarking, so it is recorded in scan_meta when used. See lifecycle.py.
+    seed_prior: bool = False
     # Phase-2 fan-out: "split" = one agent per (partition x class), thorough but
     # 3x the agents; "combined" = one agent per partition covering all classes.
     phase2_mode: str = "split"
@@ -106,6 +123,15 @@ class ScanSpec:
     # Inference backend: "ollama" (native /api/chat, default) or "openai" (any
     # OpenAI-compatible server — mlx_lm.server on Apple Silicon, vLLM, LM Studio).
     backend: str = "ollama"
+    # Max completion tokens per call (OpenAI/OpenRouter backends only; Ollama caps
+    # via context). Bounds per-call cost and, critically for paid gateways, the
+    # up-front credit reservation — without it OpenRouter pre-authorizes the full
+    # model output (~65k) on every request. 0 = uncapped.
+    max_output_tokens: int = 32768
+    # Phase 3d root-cause sweep: "deterministic" (harness greps each confirmed
+    # sink pattern directly — fast, complete, default) or "model" (the old
+    # model-driven iterative grep).
+    sweep_mode: str = "deterministic"
 
     def to_dict(self) -> Dict[str, Any]:
         d = {}
@@ -121,11 +147,13 @@ class ScanSpec:
                 kwargs[f] = Path(d[f]).expanduser()
         for f in (
             "model", "host", "phases", "verify_model", "verify_host",
-            "phase2_mode", "reasoning_effort", "backend",
+            "phase2_mode", "reasoning_effort", "backend", "sweep_mode",
+            "verify_backend", "recon_model", "recon_backend", "recon_host",
+            "reproduce_model", "reproduce_backend", "reproduce_host",
         ):
             if d.get(f) not in (None, ""):
                 kwargs[f] = d[f]
-        for f in ("num_ctx", "max_partitions", "concurrency"):
+        for f in ("num_ctx", "max_partitions", "concurrency", "max_output_tokens"):
             if d.get(f) not in (None, ""):
                 kwargs[f] = int(d[f])
         if d.get("temperature") not in (None, ""):
@@ -136,6 +164,8 @@ class ScanSpec:
             kwargs["enforce_coverage"] = bool(d["enforce_coverage"])
         if d.get("seed_routes") is not None:
             kwargs["seed_routes"] = bool(d["seed_routes"])
+        if d.get("seed_prior") is not None:
+            kwargs["seed_prior"] = bool(d["seed_prior"])
         return cls(**kwargs)
 
 
@@ -182,13 +212,94 @@ class RunRecord:
     engine_version: str = ""
     tool_envelope: List[str] = field(default_factory=list)
     bash_enabled: bool = False
+    # Git provenance of the scanned tree (best-effort; empty when not a git repo).
+    # Recorded so cross-run reconciliation (lifecycle Mode A) can say which commit
+    # a finding first appeared in / was fixed at.
+    git_commit: str = ""
+    git_branch: str = ""
+    git_dirty: bool = False
+    # Mode B: the prior report id this run's Phase 1 was seeded from, or "" when
+    # unseeded. A non-empty value marks the run as NOT independent (it was
+    # correlated with a prior scan), which matters for union-recall benchmarking.
+    seeded_from_prior: str = ""
     # Set when a systemic failure (endpoint unreachable) ended the run early.
     aborted: str = ""
     # The tag this run's lines carry in the central log (for `vhlocal logs`).
     scan_tag: str = ""
+    # Per-role model provenance (empty when the role used the hunt model).
+    recon_model: str = ""
+    reproduce_model: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
+
+
+def _handoff_confirmed_count(handoff_path) -> Optional[int]:
+    """Confirmed-finding count from the Phase-2b handoff, for the live dashboard.
+    Best-effort — returns None if it can't be read."""
+    try:
+        text = Path(handoff_path).read_text(encoding="utf-8")
+    except (OSError, TypeError):
+        return None
+    import re as _re
+    m = _re.search(r"Total confirmed findings:\s*(\d+)", text)
+    if m:
+        return int(m.group(1))
+    return len(_re.findall(r"^\|\s*VULN-\d+\s*\|", text, _re.MULTILINE)) or None
+
+
+def _findings_json_count(results_dir) -> Optional[int]:
+    """Unique (non-duplicate) finding count from findings.json, or None."""
+    try:
+        data = json.loads((Path(results_dir) / "findings.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+    fs = data.get("findings") or []
+    return sum(1 for f in fs if not f.get("duplicate_of"))
+
+
+# Which model role runs each phase. Unlisted keys fall back to the hunt model.
+_PHASE_ROLE = {"1": "recon", "2": "hunt", "2b": "verify",
+               "3": "reproduce", "3d": "reproduce", "4": "reproduce"}
+
+
+def _role_client_config(spec: "ScanSpec", role: str) -> Tuple[str, str, str]:
+    """Resolve (backend, model, host) for a role. An override supplies its own
+    model and may pin its own backend/host; anything it leaves blank falls back
+    to the hunt model's backend/host. No override → the hunt model itself."""
+    if role == "recon" and spec.recon_model:
+        return (spec.recon_backend or spec.backend, spec.recon_model,
+                spec.recon_host or spec.host)
+    if role == "verify" and spec.verify_model:
+        return (spec.verify_backend or spec.backend, spec.verify_model,
+                spec.verify_host or spec.host)
+    if role == "reproduce" and spec.reproduce_model:
+        return (spec.reproduce_backend or spec.backend, spec.reproduce_model,
+                spec.reproduce_host or spec.host)
+    return (spec.backend, spec.model, spec.host)
+
+
+def _make_phase_clients(spec: "ScanSpec", selected) -> Tuple[Dict[str, Any], list]:
+    """One client per distinct (backend, model, host) used by the selected
+    phases. Returns (client_by_phase_key, distinct_clients_to_preflight). A model
+    shared across phases is built once. Phase 3d in deterministic sweep mode uses
+    no model, so it is not assigned a client."""
+    cache: Dict[Tuple[str, str, str], Any] = {}
+    by_phase: Dict[str, Any] = {}
+    for ph in selected:
+        if ph.key == "3d" and spec.sweep_mode == "deterministic":
+            continue
+        cfg = _role_client_config(spec, _PHASE_ROLE.get(ph.key, "hunt"))
+        if cfg not in cache:
+            backend, model, host = cfg
+            cache[cfg] = make_client(
+                backend, model=model, host=host,
+                num_ctx=spec.num_ctx, temperature=spec.temperature,
+                reasoning_effort=spec.reasoning_effort,
+                max_tokens=spec.max_output_tokens,
+            )
+        by_phase[ph.key] = cache[cfg]
+    return by_phase, list(cache.values())
 
 
 @dataclass
@@ -303,28 +414,23 @@ def execute_scan(
 
     selected = select_phases(spec.phases)
 
-    client = make_client(
-        spec.backend, model=spec.model, host=spec.host,
-        num_ctx=spec.num_ctx, temperature=spec.temperature,
-        reasoning_effort=spec.reasoning_effort,
-    )
-    try:
-        client.preflight()
-    except OllamaError as exc:
-        raise ScanError(str(exc))
+    # Per-role model routing: each phase gets a client for its role's model,
+    # sharing one client across phases on the same (backend, model, host).
+    phase_clients, distinct_clients = _make_phase_clients(spec, selected)
 
-    verify_client = client
-    if spec.verify_model:
-        verify_client = make_client(
-            spec.backend, model=spec.verify_model,
-            host=(spec.verify_host or spec.host),
-            num_ctx=spec.num_ctx, temperature=spec.temperature,
-            reasoning_effort=spec.reasoning_effort,
-        )
+    def client_for(phase_key):
+        return phase_clients.get(phase_key) or phase_clients.get("2") \
+            or next(iter(phase_clients.values()), None)
+
+    for c in distinct_clients:
         try:
-            verify_client.preflight()
+            c.preflight()
         except OllamaError as exc:
-            raise ScanError("verify_model: {0}".format(exc))
+            raise ScanError("model {0}: {1}".format(getattr(c, "model", "?"), exc))
+
+    # The hunt client is the pipeline's default (Phase 2 and any single-agent
+    # phase without a role override).
+    client = client_for("2")
 
     sandbox = Sandbox(read_roots=[repo, skill_dir, results_dir], write_root=results_dir)
     system = build_system(load_preamble(skill_dir))
@@ -348,6 +454,8 @@ def execute_scan(
     started = time.time()
 
     from . import __version__ as _ver
+    from .lifecycle import git_provenance
+    prov = git_provenance(repo)
     record = RunRecord(
         started_at=started, repo=str(repo), results_dir=str(results_dir),
         model=spec.model, verify_model=spec.verify_model, host=spec.host,
@@ -359,6 +467,10 @@ def execute_scan(
         # never executed, and the target's dependencies are never installed.
         tool_envelope=["Read", "Grep", "Glob", "Write"],
         bash_enabled=False,
+        git_commit=prov["git_commit"], git_branch=prov["git_branch"],
+        git_dirty=prov["git_dirty"],
+        recon_model=(spec.recon_model or ""),
+        reproduce_model=(spec.reproduce_model or ""),
     )
 
     emit({
@@ -399,9 +511,23 @@ def execute_scan(
             })
             t0 = time.time()
 
-            if spec_phase.fan_out:
+            # Phase 3d (root-cause instance sweep) is mechanical: find every other
+            # location matching each confirmed finding's sink pattern. The model
+            # did this by grepping iteratively (redundantly, sometimes giving up);
+            # the harness does it directly, completely, in a fraction of a second.
+            if spec_phase.key == "3d" and spec.sweep_mode == "deterministic":
+                from .sweep import run_phase3d_sweep
+                emit({"type": "agent_start", "label": "p3d",
+                      "model": "deterministic", "index": 1, "total": 1})
+                run_phase3d_sweep(results_dir, repo)
+                record.agents.append({
+                    "label": "p3d", "phase": "3d", "model": "deterministic",
+                    "turns": 0, "stopped_reason": "complete"})
+                emit({"type": "agent_done", "label": "p3d", "turns": 0,
+                      "stopped_reason": "complete", "index": 1, "total": 1})
+            elif spec_phase.fan_out:
                 fan_err = _run_fan_out(
-                    client, sandbox, system, spec_phase, phases_dir, repo,
+                    client_for(spec_phase.key), sandbox, system, spec_phase, phases_dir, repo,
                     results_dir, spec.max_partitions, total, emit, cancelled,
                     record, enforce_coverage=spec.enforce_coverage,
                     phase2_mode=spec.phase2_mode, concurrency=spec.concurrency,
@@ -429,8 +555,21 @@ def execute_scan(
                     seed = route_inventory_markdown(repo)
                     if seed:
                         extra = (extra + "\n\n" + seed) if extra else seed
+                # Mode B (opt-in): hand Phase 1 the prior report's findings as
+                # hot spots to independently re-verify. Recorded so the run is
+                # never mistaken for an independent sample.
+                if spec.seed_prior and spec_phase.key == "1":
+                    from .lifecycle import prior_hotspots_markdown
+                    seed, prior_name = prior_hotspots_markdown(
+                        results_dir, str(repo), started,
+                        reports_dir=results_dir.parent)
+                    if seed:
+                        extra = (extra + "\n\n" + seed) if extra else seed
+                        record.seeded_from_prior = prior_name
+                        log.info("Mode B: seeded Phase 1 from prior report %s",
+                                 prior_name)
                 task = build_task(spec_phase, prompt_text, repo, results_dir, extra=extra)
-                active = verify_client if spec_phase.key == "2b" else client
+                active = client_for(spec_phase.key)
                 emit({
                     "type": "agent_start",
                     "label": "p{0}".format(spec_phase.key),
@@ -455,6 +594,8 @@ def execute_scan(
                     "label": "p{0}".format(spec_phase.key),
                     "turns": res.turns,
                     "stopped_reason": res.stopped_reason,
+                    "prompt_tokens": total.prompt_tokens,
+                    "completion_tokens": total.completion_tokens,
                 })
                 if res.systemic:
                     aborted = res.error
@@ -481,6 +622,10 @@ def execute_scan(
                     emit({"type": "handoff",
                           "written": bool(hp),
                           "file": str(hp) if hp else None})
+                    # Surface the confirmed-finding count for the live dashboard.
+                    n = _handoff_confirmed_count(hp)
+                    if n is not None:
+                        emit({"type": "findings", "count": n, "stage": "confirmed"})
                 except Exception as exc:  # never let this stop the pipeline
                     log.warning("handoff generation failed: %s", exc)
 
@@ -531,6 +676,11 @@ def execute_scan(
     try:
         from .consolidate import write_consolidated
         write_consolidated(results_dir)
+        # Final unique-finding count for the dashboard (supersedes the confirmed
+        # count emitted after 2b).
+        n = _findings_json_count(results_dir)
+        if n is not None:
+            emit({"type": "findings", "count": n, "stage": "final"})
     except Exception as exc:
         log.warning("consolidated report generation failed: %s", exc)
 
@@ -761,6 +911,8 @@ def _run_fan_out(
                 "type": "agent_done", "label": label, "turns": res.turns,
                 "stopped_reason": res.stopped_reason,
                 "index": idx, "total": grand_total,
+                "prompt_tokens": total.prompt_tokens,
+                "completion_tokens": total.completion_tokens,
             })
         return res.error if res.systemic else None
 
@@ -825,5 +977,7 @@ def _run_fan_out(
         "type": "agent_done", "label": "p2:sink", "turns": res.turns,
         "stopped_reason": res.stopped_reason,
         "index": grand_total, "total": grand_total,
+        "prompt_tokens": total.prompt_tokens,
+        "completion_tokens": total.completion_tokens,
     })
     return None

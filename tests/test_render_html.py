@@ -34,9 +34,19 @@ class TestSelfContained(_Base):
         self.html = render_html(self.build())
 
     def test_no_external_resources(self):
-        for bad in ("https://", "http://cdn", "unpkg", "jsdelivr",
-                    "googleapis", "<img", "@import"):
-            self.assertNotIn(bad, self.html, "external reference: " + bad)
+        # Self-containment = nothing is FETCHED (scripts, styles, fonts, images).
+        # A user-facing hyperlink (e.g. a CWE reference link) is navigation, not a
+        # fetched resource, and does not break offline rendering — so we ban the
+        # actual fetch vectors, not bare "https://".
+        for bad in ('src="http', "<script src", "<link ", "@import", "url(http",
+                    "url('http", '<img', "unpkg", "jsdelivr", "googleapis"):
+            self.assertNotIn(bad, self.html, "external resource: " + bad)
+
+    def test_reference_url_is_a_link_not_a_resource(self):
+        # The CWE reference URL must live inside an href (a clickable link), never
+        # be pulled in as a resource.
+        if "cwe.mitre.org" in self.html:
+            self.assertIn('href="https://cwe.mitre.org', self.html)
 
     def test_is_a_complete_document(self):
         self.assertTrue(self.html.startswith("<!doctype html>"))
@@ -163,9 +173,23 @@ class TestContent(_Base):
         self.assertIn("131,072", self.html)
 
     def test_findings_ranked_most_severe_first(self):
-        order = re.findall(r'<details class="finding" data-sev="([^"]+)"', self.html)
-        self.assertEqual(order[0], "High+")
-        self.assertEqual(order[-1], "Low")
+        # A spread across families whose deterministic baselines differ, with the
+        # model's *reported* severities deliberately scrambled (a Low-labelled
+        # deserialization, a Critical-labelled open redirect). Ranking must follow
+        # the normalized family severity, not the model's label — so the deser
+        # sorts to the top and the redirect to the bottom.
+        readme = (
+            "# VulnHunter Security Audit Report\n\n"
+            "**Findings Summary**: 4\n\n"
+            "| ID | Title | CWE | Severity | Test | Status |\n"
+            "|---|---|---|---|---|---|\n"
+            "| VULN-001 | Unsafe Pickle Deserialization | CWE-502 | Low | PASS | Confirmed |\n"
+            "| VULN-002 | Path Traversal in Invoice | CWE-22 | Low | PASS | Confirmed |\n"
+            "| VULN-003 | Reflected XSS in search | CWE-79 | Critical | PASS | Confirmed |\n"
+            "| VULN-004 | Open Redirect on login | CWE-601 | Critical | PASS | Confirmed |\n")
+        html = render_html(self.build(readme=readme))
+        order = re.findall(r'<details class="finding" data-sev="([^"]+)"', html)
+        self.assertEqual(order, ["High+", "High", "Medium", "Low"])
 
     def test_duplicate_excluded_from_hero_count(self):
         # 5 findings, 1 duplicate -> hero shows 4

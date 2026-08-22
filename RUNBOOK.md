@@ -58,7 +58,11 @@ Two views, top right:
 * **Reports** — every scan ever run, newest first, with findings count and
   completion state. Reads the reports directory directly, so CLI-run scans
   show up here too. **Open full report ↗** launches the styled HTML report;
-  markdown artifacts render properly rather than as raw text.
+  markdown artifacts render properly rather than as raw text. The **🗑** on a
+  report card deletes it (with confirmation) — a scan still running can't be
+  deleted. From the CLI: `python3 -m vhlocal.report --delete <results-dir>`
+  (add `--yes` to skip the prompt). Both refuse to delete anything outside the
+  reports directory.
 
 By default only paths under `$HOME` may be scanned. To scan elsewhere:
 
@@ -153,7 +157,7 @@ web UI's **Reports** tab.
 |---|---|
 | `SCAN_REPORT.html` | **Start here.** Designed report — open in a browser; filter by severity, expand findings, **Save as PDF** button in the header |
 | `SCAN_REPORT.md` | Same content as markdown; **Save as Markdown** / **Save as PDF** buttons |
-| `findings.json` | Machine-readable findings + `run_status` (execution/coverage/validation), `attribution` (hunt/falsification models), and per-finding validation state and `root_cause_key` |
+| `findings.json` | Machine-readable findings + `run_status`, `attribution`, per-finding validation state, `root_cause_key`, and per-CWE `description` / `exploitability` / `reference` / `cve` (always N/A — first-party findings have no product CVE; see below) |
 | `coverage_ledger.json` | Harness-enumerated entry points and their disposition (reviewed / finding / **not reviewed**) — the coverage denominator |
 | `scan_meta.json` | Engine record: timings, phases, agents, token usage, partition source/fallback |
 | `README.md` | Scanner's own report: summary table, per-finding detail, resolved input inventory |
@@ -161,7 +165,7 @@ web UI's **Reports** tab.
 | `results/*.md` | Raw per-agent hunt output — **pre-falsification, expect false positives here** |
 | `phase2b_output.md` | Post-falsification survivors — the findings to actually trust |
 | `phase3_output.md` | PoCs and fix strategies |
-| `phase3d_output.md` | Repo-wide sweep for each root cause |
+| `phase3d_output.md` | Deterministic root-cause instance sweep — every location matching each confirmed finding's sink pattern, NEW instances flagged |
 
 Run logs no longer live in the results directory. Every entry point (CLI,
 server, worker) writes to one **central log** — `~/.vhlocal/vhlocal.log` by
@@ -273,8 +277,10 @@ in order of impact:
 # Fewer partitions → fewer agents (coverage may report more 'not reviewed').
 --max-partitions 4
 
-# Skip the root-cause sweep (Phase 3d) and heavy report if you only want findings
---phases 1,2,2b,3
+# Phase 3d (root-cause sweep) is now DETERMINISTIC by default — the harness
+# greps each confirmed sink pattern directly (~sub-second, complete) instead of
+# the model grepping iteratively. Revert to the old model sweep with:
+--sweep-mode model
 ```
 
 **Quality-uncertain levers** (change what the model does — A/B before trusting):
@@ -299,6 +305,50 @@ you measure the speed side empirically).
 Harness-enforced coverage (on by default) makes Phase 2 trace every enumerated
 route, which raises breadth but adds agents. Coverage partitioning is
 deterministic and non-overlapping — it will not re-scan a file already covered.
+
+---
+
+## 5b. Cross-run memory & standardized labels
+
+**Standardized labels (always on).** Every finding now carries a deterministic
+layer alongside the model's own labels:
+
+- **Normalized CWE / family** — sibling CWEs roll up to one canonical CWE (e.g.
+  CWE-639/862/863/285 → CWE-284 "Broken Access Control"). The model's reported
+  CWE is preserved and shown; the normalized CWE is what cross-run matching uses.
+- **Deterministic severity** — a fixed per-family baseline (e.g. deserialization
+  = High+, SQLi = High, XSS = Medium), dropped exactly one tier when the finding
+  requires a precondition such as authentication. This is what ranking, the
+  severity meter, and the counts use, so the run-to-run "same bug ranked lower"
+  swings are gone. The model's own tier is shown beside it when it differed
+  ("scanner-assessed: …").
+
+**Mode A — finding lifecycle (always on).** After each scan, the report is
+reconciled against the most recent prior report of the *same repo*: every finding
+is labelled **new / persisting / regressed**, and findings that were present
+before and are gone now are listed as **fixed**. Matching is by a line-number-free
+root-cause fingerprint (family-normalized), so a finding survives small line
+drift and sibling-CWE relabels. Regression detection works from the second scan
+onward (each report records the keys it saw fixed). The scanned git commit is
+recorded in `scan_meta.json` for provenance. Reconciliation is deterministic and
+post-hoc — it never calls the model, so **run independence is preserved** and
+benchmark validity is untouched. See the "Change since previous scan" section in
+the report and the `lifecycle` block in `findings.json`.
+
+**Mode B — seed the hunt from a prior report (opt-in, off by default).**
+
+```bash
+# Hand Phase 1 the prior report's findings as hot spots to INDEPENDENTLY
+# re-verify. Good for production regression tracking; it correlates this run with
+# the prior one, so DO NOT use it for union-recall benchmarking (it breaks the
+# run independence that measurement assumes). The run is flagged 'seeded' in
+# scan_meta.json and the report so it is never mistaken for an independent sample.
+--seed-prior
+```
+
+Mode A is how you *track* findings across runs without changing what a run finds;
+Mode B is how you *bias* a run toward known hot spots when you deliberately want
+correlated runs. Keep Mode B off for any benchmarking.
 
 ---
 
