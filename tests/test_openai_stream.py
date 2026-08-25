@@ -105,19 +105,19 @@ class Body(unittest.TestCase):
         self.assertFalse(b["stream"])
         self.assertNotIn("stream_options", b)
 
-    def test_openrouter_defaults_to_streaming_and_fail_fast(self):
+    def test_openrouter_streams_and_retries_more(self):
         c = OpenRouterClient("z-ai/glm-5.3", api_key="k")
         self.assertTrue(c.stream)
-        self.assertTrue(c.fail_fast_connection)
+        self.assertGreaterEqual(c.max_retries, 5)   # flaky-endpoint resilience
 
 
-class FailFast(unittest.TestCase):
-    """A paid backend must not re-bill two more long calls into a dead transport:
-    a connection/timeout failure raises on the first attempt, not the third."""
+class TransientRetry(unittest.TestCase):
+    """Connection resets / timeouts are TRANSIENT — a paid gateway dropping a slow
+    call recovers on retry — so they must be retried, not fail the agent on the
+    first blip. (The budget cap + circuit breaker bound the runaway case.)"""
 
-    def _client(self, fail_fast, exc):
-        c = OpenAIClient("m", stream=True, fail_fast_connection=fail_fast,
-                         max_retries=3)
+    def _client(self, exc, max_retries=5):
+        c = OpenAIClient("m", stream=True, max_retries=max_retries)
         c.attempts = 0
 
         def fake_urlopen(req, timeout=None):
@@ -125,28 +125,11 @@ class FailFast(unittest.TestCase):
             raise exc
         return c, fake_urlopen
 
-    def test_paid_raises_after_one_attempt(self):
+    def _run(self, c, fake):
         import urllib.request
-        c, fake = self._client(True, TimeoutError("stalled"))
-        orig = urllib.request.urlopen
-        urllib.request.urlopen = fake
-        try:
-            with self.assertRaises(OllamaError) as ctx:
-                c._post("/v1/chat/completions", {"messages": []})
-        finally:
-            urllib.request.urlopen = orig
-        self.assertEqual(c.attempts, 1)             # no re-billed retries
-        self.assertEqual(ctx.exception.kind, "timeout")
-
-    def test_local_retries_all_attempts(self):
-        import urllib.request
-        c, fake = self._client(False, TimeoutError("stalled"))
-        c.max_retries = 3
-        orig = urllib.request.urlopen
-        urllib.request.urlopen = fake
-        # avoid real backoff sleeps
         import vhlocal.openai_client as mod
-        orig_sleep = mod.time.sleep
+        orig, orig_sleep = urllib.request.urlopen, mod.time.sleep
+        urllib.request.urlopen = fake
         mod.time.sleep = lambda s: None
         try:
             with self.assertRaises(OllamaError):
@@ -154,7 +137,45 @@ class FailFast(unittest.TestCase):
         finally:
             urllib.request.urlopen = orig
             mod.time.sleep = orig_sleep
-        self.assertEqual(c.attempts, 3)             # retried to the cap
+
+    def test_connection_reset_retried_to_cap(self):
+        c, fake = self._client(ConnectionResetError("reset by peer"), max_retries=5)
+        self._run(c, fake)
+        self.assertEqual(c.attempts, 5)             # retried, not failed on #1
+
+    def test_timeout_retried_to_cap(self):
+        c, fake = self._client(TimeoutError("stalled"), max_retries=3)
+        self._run(c, fake)
+        self.assertEqual(c.attempts, 3)
+
+    def test_transient_then_success_recovers(self):
+        # First call resets, the retry succeeds — the agent must NOT die.
+        import urllib.request
+        import vhlocal.openai_client as mod
+        c = OpenAIClient("m", stream=True, max_retries=5)
+        c.attempts = 0
+        ok = {"choices": [{"message": {"content": "hi"}}], "usage": {}}
+
+        class _Resp:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def __iter__(self): return iter([json.dumps(ok).encode()])
+
+        def flaky(req, timeout=None):
+            c.attempts += 1
+            if c.attempts == 1:
+                raise ConnectionResetError("reset by peer")
+            return _Resp()
+        orig, orig_sleep = urllib.request.urlopen, mod.time.sleep
+        urllib.request.urlopen = flaky
+        mod.time.sleep = lambda s: None
+        try:
+            data, _ = c._post("/v1/chat/completions", {"messages": []})
+        finally:
+            urllib.request.urlopen = orig
+            mod.time.sleep = orig_sleep
+        self.assertEqual(c.attempts, 2)
+        self.assertEqual(data["choices"][0]["message"]["content"], "hi")
 
 
 if __name__ == "__main__":

@@ -450,11 +450,12 @@ class OpenAIClient:
                 last_err = OllamaError(
                     "request to {0} failed after {1:.0f}s: {2}".format(
                         self.host, time.time() - started, exc), kind="timeout")
-            # Paid backends fail fast on transport errors: no point re-billing two
-            # more long calls into a wall the canary/breaker will catch anyway.
-            if (self.fail_fast_connection and last_err is not None
-                    and last_err.kind in ("connection", "timeout")):
-                raise last_err
+            # Connection resets / timeouts on a paid gateway are usually TRANSIENT
+            # (GLM/OpenRouter drops a slow-thinking call, the next one succeeds), so
+            # we retry them like any other backend rather than failing the agent on
+            # the first blip — that was killing whole runs on a merely flaky
+            # endpoint. Runaway spend is bounded by the budget cap and the circuit
+            # breaker, not by refusing to retry.
             if attempt < self.max_retries:
                 backoff = wait if wait is not None else 5 * attempt
                 log.warning("openai call failed (attempt %d/%d): %s — retrying "
@@ -490,9 +491,10 @@ class OpenRouterClient(OpenAIClient):
     """
 
     def __init__(self, model, host=None, api_key=None, **kw):
-        # A paid gateway: fail fast on transport errors so a doomed call is not
-        # re-billed twice more. Callers may still override via kw.
-        kw.setdefault("fail_fast_connection", True)
+        # A paid gateway can be flaky (intermittent connection resets on a slow
+        # thinking model). Retry a bit more than a local server so a single reset
+        # doesn't end an agent; the budget cap + circuit breaker bound the downside.
+        kw.setdefault("max_retries", 5)
         super().__init__(
             model,
             host=host or DEFAULT_OPENROUTER_HOST,

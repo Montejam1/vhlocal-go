@@ -735,11 +735,14 @@
               <input id="huntSamples" type="number" value="1" min="1" max="5">
             </div>
             <div>
-              <label for="maxBudget">Budget cap (USD)</label>
-              <input id="maxBudget" type="number" value="0" min="0" step="0.5">
+              <label for="maxBudget" style="display:flex;align-items:center;gap:7px">
+                <input type="checkbox" id="budgetOn" onchange="toggleBudget()" style="width:auto;margin:0">
+                <span>Budget cap (USD)</span>
+              </label>
+              <input id="maxBudget" type="number" value="5" min="0" step="0.5" disabled>
             </div>
           </div>
-          <div class="hint"><b>Hunt samples</b>: run each hunt agent N× and union the findings — raises recall on the volatile access-control class a single pass misses (2b still filters false positives). Multiplies hunt cost ~N×. <b>Budget cap</b>: hard USD ceiling for paid backends (0 = none); the run halts gracefully before exceeding it. Local models are free, so the cap is inert there.</div>
+          <div class="hint"><b>Hunt samples</b>: run each hunt agent N× and union the findings — raises recall on the volatile access-control class a single pass misses (2b still filters false positives). Multiplies hunt cost ~N×. <b>Budget cap</b>: optional — tick the box to enforce a hard USD ceiling on paid backends; the run halts gracefully before exceeding it. Off = no cap. Local models are free, so a cap is inert there.</div>
 
           <div class="adv-group">Toggles</div>
           <div class="hint" style="margin:2px 0 6px">Connections (Ollama / OpenAI / OpenRouter) live in <b>Settings</b>. To continue an interrupted scan, open it under <b>Scans</b> and use <b>Resume</b>.</div>
@@ -962,7 +965,15 @@ window.applyProfile = function(name) {
     if (map[1] === 'chk') el.checked = !!val;
     else el.value = val;
   }
+  // A profile that sets a positive budget also enables the cap toggle.
+  if ((p.overrides || {}).max_budget_usd > 0) { $('budgetOn').checked = true; }
+  toggleBudget();
   if (hint) hint.textContent = p.description || '';
+};
+
+// Budget cap is opt-in — the number field is live only when the box is ticked.
+window.toggleBudget = function() {
+  const b = $('maxBudget'); if (b) b.disabled = !$('budgetOn').checked;
 };
 
 // ---------------------------------------------------------------------------
@@ -2333,7 +2344,8 @@ $('start').onclick = async function() {
     reasoning_effort: $('reasoningEffort').value || null,
     max_output_tokens: parseInt($('maxOutTokens').value || '32768', 10),
     hunt_samples: parseInt($('huntSamples').value || '1', 10),
-    max_budget_usd: parseFloat($('maxBudget').value || '0'),
+    // Budget cap is opt-in: only enforced when the box is ticked; 0 = no cap.
+    max_budget_usd: $('budgetOn').checked ? parseFloat($('maxBudget').value || '0') : 0,
     iac_lens: $('iacLens').checked,
   };
   // Per-phase overrides only when "Multiple models" is on (each blank field
