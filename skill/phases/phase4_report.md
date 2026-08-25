@@ -41,7 +41,7 @@ Then for each finding, provide the full detail:
 | **Input** | inventory # and description |
 | **CWE** | CWE-XXX: [Name] |
 | **Severity** | High+/High/Medium/Low/Informational |
-| **Location** | file:line (primary instance) |
+| **Location** | `path/to/file.ext:line` (primary instance) — a real file path AND line number, never a bare function name |
 | **Entry Point** | ... |
 | **Data Flow** | source -> ... -> sink |
 | **PoC** | `${VULNHUNT_DIR}/poc/VULN-NNN_description.md` |
@@ -61,6 +61,16 @@ Every finding MUST include a CWE identifier. Use the most specific CWE that appl
 field is empty, says "N/A", or says "see above." Each field MUST contain a file path
 to the saved artifact. If you cannot produce a PoC or exploit test, the finding has
 not been proven and must be downgraded to Potential or eliminated.
+
+**LOCATION RULE (mandatory)**: Every finding's **Location** MUST be a concrete
+`file-path:line` — e.g. `backend/app/dispatch_operations.py:61`. A bare function
+name (`dispatch_xml_fold_450`), a route, or "see PoC" is NOT acceptable; carry the
+exact path and line forward from the Phase 2b / Phase 3 evidence for this finding.
+This is not cosmetic: the harness deduplicates and cross-references findings by
+`file:line`, so a finding without one gets **counted as a separate vulnerability on
+every pass** — omitting it silently inflates the report with duplicates and breaks
+ranking. If two instances share a root cause, give the primary instance's
+`file:line` here and list the others under **Root Cause** / the sweep group.
 
 **Code smells go in a separate section.** Findings where the exploit test showed
 "code runs but attack is mitigated" are NOT vulnerabilities. List them after the

@@ -20,10 +20,14 @@ etc.):
 ## Pre-Phase 3 Completeness Check (MANDATORY)
 
 Before writing any PoC, produce a VULN-NNN assignment table mapping every
-CONFIRMED finding from Phase 2b (High and Medium severity) to a sequential ID:
+CONFIRMED finding from Phase 2b (High and Medium severity) to a sequential ID.
+**Carry each finding's concrete `file-path:line` into the Location column** —
+copy it from the Phase 2b evidence / the referenced `results/` source; never
+reduce it to a bare function name. The harness deduplicates by `file:line`, so a
+finding that loses it is counted as a *separate* vulnerability on every pass:
 
-| VULN-NNN | Phase 2b # | Title | Severity |
-|---|---|---|---|
+| VULN-NNN | Phase 2b # | Title | Severity | Location (`file:line`) |
+|---|---|---|---|---|
 
 Row count MUST equal the total High + Medium CONFIRMED findings in Phase 2b.
 If fewer: you dropped findings — add them. Every row MUST receive a PoC and
