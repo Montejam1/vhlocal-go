@@ -17,6 +17,7 @@ here — the agent loop keeps speaking its internal Ollama-shaped message format
 Stdlib only, Python 3.9 compatible.
 """
 
+import http.client
 import json
 import logging
 import os
@@ -140,9 +141,23 @@ class OpenAIClient:
         reasoning_effort: Optional[str] = None,
         api_key: Optional[str] = None,
         max_tokens: int = 32768,
+        stream: bool = True,
+        fail_fast_connection: bool = False,
     ):
         self.model = model
         self.host = _base_url(host)
+        # Stream the completion (SSE). Deep-thinking models on a paid gateway can
+        # hold a single non-streaming request open for 10-20 minutes; an idle
+        # connection that long is routinely dropped by the gateway's edge and any
+        # intermediary proxy, which surfaced as whole agents failing with no
+        # output. Streaming keeps bytes flowing so the connection is never idle,
+        # and captures the tokens already generated instead of discarding them.
+        self.stream = bool(stream)
+        # Paid backends: a transport failure (connection reset / stall) should NOT
+        # be retried 2 more times — each retry is another billed long call into
+        # the same wall. Surface it fast and let the canary / circuit breaker
+        # decide, rather than tripling the spend on a doomed call.
+        self.fail_fast_connection = bool(fail_fast_connection)
         # Cap the completion length. Critical for paid gateways (OpenRouter):
         # without it they pre-authorize the model's FULL max output (e.g. 65k
         # tokens) against your balance on every call — a 402 on a modest balance.
@@ -159,13 +174,25 @@ class OpenAIClient:
         self.reasoning_effort = reasoning_effort
         self.api_key = api_key or os.environ.get("VHLOCAL_OPENAI_API_KEY", "")
         self.usage = Usage()
+        # USD per token, for the budget cap. 0 for local/self-hosted (free);
+        # OpenRouterClient resolves real prices via resolve_pricing().
+        self.price_prompt = 0.0
+        self.price_completion = 0.0
+
+    def resolve_pricing(self) -> None:
+        """No-op for a local/self-hosted OpenAI-compatible server (free)."""
+        return
 
     # ---------------- request building ----------------
 
     def _body(self, messages, tools) -> Dict[str, Any]:
         body: Dict[str, Any] = {
-            "model": self.model, "messages": messages, "stream": False,
+            "model": self.model, "messages": messages, "stream": self.stream,
         }
+        if self.stream:
+            # Ask the server to emit a final usage chunk; without it a streamed
+            # response carries no token counts (standard OpenAI streaming option).
+            body["stream_options"] = {"include_usage": True}
         if self.max_tokens > 0:
             body["max_tokens"] = self.max_tokens
         if self.temperature is not None:
@@ -284,6 +311,76 @@ class OpenAIClient:
             h["Authorization"] = "Bearer " + self.api_key
         return h
 
+    def _read_stream(self, resp) -> Dict[str, Any]:
+        """Assemble an SSE completion stream back into a single non-streamed
+        response dict, so ``_parse`` handles it unchanged. Accumulates content,
+        reasoning, and per-index tool-call argument fragments; keepalive comment
+        lines (``: ...``) are what keep the connection from going idle. Falls back
+        to parsing a whole-body JSON if the server ignored ``stream`` and replied
+        with a normal completion."""
+        content, reasoning = [], []
+        calls: Dict[int, Dict[str, Any]] = {}
+        finish_reason = ""
+        usage: Dict[str, Any] = {}
+        saw_sse = False
+        buf: List[str] = []
+        for raw_line in resp:
+            line = raw_line.decode("utf-8", "replace")
+            buf.append(line)
+            line = line.strip()
+            if not line or line.startswith(":"):
+                continue   # blank separator or keepalive comment
+            if not line.startswith("data:"):
+                continue
+            saw_sse = True
+            data_str = line[5:].strip()
+            if data_str == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data_str)
+            except ValueError:
+                continue
+            if chunk.get("usage"):
+                usage = chunk["usage"]
+            for choice in chunk.get("choices") or []:
+                delta = choice.get("delta") or {}
+                if delta.get("content"):
+                    content.append(delta["content"])
+                r = delta.get("reasoning") or delta.get("reasoning_content")
+                if r:
+                    reasoning.append(r)
+                for tc in delta.get("tool_calls") or []:
+                    idx = tc.get("index", 0)
+                    slot = calls.setdefault(idx, {"id": "", "name": "", "args": []})
+                    if tc.get("id"):
+                        slot["id"] = tc["id"]
+                    fn = tc.get("function") or {}
+                    if fn.get("name"):
+                        slot["name"] = fn["name"]
+                    if fn.get("arguments"):
+                        slot["args"].append(fn["arguments"])
+                if choice.get("finish_reason"):
+                    finish_reason = choice["finish_reason"]
+        if not saw_sse:
+            # Server ignored stream=True and returned a normal body.
+            try:
+                return json.loads("".join(buf))
+            except ValueError:
+                pass
+        tool_calls = []
+        for idx in sorted(calls):
+            s = calls[idx]
+            tool_calls.append({
+                "id": s["id"] or "call_{0}".format(idx), "type": "function",
+                "function": {"name": s["name"], "arguments": "".join(s["args"])},
+            })
+        msg: Dict[str, Any] = {"content": "".join(content),
+                               "reasoning": "".join(reasoning)}
+        if tool_calls:
+            msg["tool_calls"] = tool_calls
+        return {"choices": [{"message": msg, "finish_reason": finish_reason}],
+                "usage": usage}
+
     def _post(self, path: str, body: Dict[str, Any]):
         url = self.host + path
         payload = json.dumps(body).encode("utf-8")
@@ -294,7 +391,10 @@ class OpenAIClient:
             wait = None   # per-attempt backoff override (rate limits set this)
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
+                    if self.stream:
+                        data = self._read_stream(resp)
+                    else:
+                        data = json.loads(resp.read().decode("utf-8"))
                 return data, time.time() - started
             except urllib.error.HTTPError as exc:
                 detail = ""
@@ -334,10 +434,27 @@ class OpenAIClient:
                     "cannot reach OpenAI-compatible server at {0}: {1}. Is it "
                     "running (e.g. `mlx_lm.server`)?".format(self.host, exc.reason),
                     kind="connection")
+            except http.client.IncompleteRead as exc:
+                # The stream was cut off mid-body (a dropped connection). Kept
+                # NON-systemic ("timeout") on purpose: one truncated stream must
+                # not hard-abort the whole hunt — the circuit breaker halts on a
+                # *storm*, and the canary catches a wholly-broken transport up
+                # front. A genuine can't-reach is the URLError case above.
+                last_err = OllamaError(
+                    "stream from {0} truncated after {1:.0f}s: {2}".format(
+                        self.host, time.time() - started, exc), kind="timeout")
             except (TimeoutError, OSError) as exc:
+                # ConnectionReset/Aborted/BrokenPipe (OSError subclasses) and bare
+                # timeouts are transient transport failures the breaker/canary act
+                # on — non-systemic so a single blip doesn't kill the run.
                 last_err = OllamaError(
                     "request to {0} failed after {1:.0f}s: {2}".format(
                         self.host, time.time() - started, exc), kind="timeout")
+            # Paid backends fail fast on transport errors: no point re-billing two
+            # more long calls into a wall the canary/breaker will catch anyway.
+            if (self.fail_fast_connection and last_err is not None
+                    and last_err.kind in ("connection", "timeout")):
+                raise last_err
             if attempt < self.max_retries:
                 backoff = wait if wait is not None else 5 * attempt
                 log.warning("openai call failed (attempt %d/%d): %s — retrying "
@@ -373,6 +490,9 @@ class OpenRouterClient(OpenAIClient):
     """
 
     def __init__(self, model, host=None, api_key=None, **kw):
+        # A paid gateway: fail fast on transport errors so a doomed call is not
+        # re-billed twice more. Callers may still override via kw.
+        kw.setdefault("fail_fast_connection", True)
         super().__init__(
             model,
             host=host or DEFAULT_OPENROUTER_HOST,
@@ -397,6 +517,12 @@ class OpenRouterClient(OpenAIClient):
         h["X-Title"] = "vhlocal"
         h["HTTP-Referer"] = "https://github.com/vulnhunter/vhlocal"
         return h
+
+    def resolve_pricing(self) -> None:
+        """Fetch this model's per-token USD price from OpenRouter (best-effort)."""
+        from .pricing import openrouter_pricing
+        self.price_prompt, self.price_completion = openrouter_pricing(
+            self.model, self.host)
 
     def preflight(self):
         if not self.api_key:

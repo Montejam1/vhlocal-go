@@ -49,6 +49,9 @@ class AgentResult:
     # is systemic (will recur on every call — e.g. Ollama unreachable).
     error: str = ""
     systemic: bool = False
+    # The OllamaError.kind of the failure (connection/timeout/http/parse/…), so a
+    # caller can distinguish a transport failure from a model-output failure.
+    error_kind: str = ""
 
 
 def _estimate_tokens(messages: List[Dict[str, Any]]) -> int:
@@ -164,7 +167,7 @@ def run_agent(
             return AgentResult(
                 final_text="", turns=turn, usage=usage, wrote_files=wrote,
                 stopped_reason="error", transcript=messages,
-                error=str(exc), systemic=exc.systemic,
+                error=str(exc), systemic=exc.systemic, error_kind=exc.kind,
             )
         usage.add(result.prompt_tokens, result.completion_tokens, result.seconds)
 

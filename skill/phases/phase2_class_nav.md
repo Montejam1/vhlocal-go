@@ -1,5 +1,35 @@
 # Class Group: Navigation/Auth (NAV)
 
+## Completion Requirement — do NOT stop after the obvious sinks
+
+Finding injection/RCE sinks does **not** complete this partition. Injection bugs
+are *sink-driven* (trace input → dangerous call) and are easy to spot; broken
+**access-control** bugs have **no syntactic sink** and are invisible to
+sink-tracing — so a hunt that stops once it has the injection findings will
+systematically miss every IDOR / missing-authorization finding. That is the most
+common way this phase under-reports.
+
+Before you write your findings file, you MUST have gone **route by route through
+every handler in your assigned partition** and recorded an explicit
+authorization disposition for each:
+
+1. Does the handler read or mutate a resource scoped to a specific principal
+   (a customer, user, worker, order, region, job, etc.)?
+2. If so, does it verify the authenticated caller **owns or is authorized for
+   THAT specific resource** — an ownership query, tenant/region scoping, or a
+   role+resource check — not merely that the caller is authenticated or holds a
+   role at all?
+3. A handler that selects a resource by a client-supplied id/scope with no such
+   check is an **IDOR CANDIDATE (CWE-639)**, even with no injection sink present.
+   A state-changing handler that invokes **no** authorization helper while
+   siblings in the same module do is a **CANDIDATE (CWE-862)**.
+
+A partition is **NOT clean** until every state-changing and data-returning
+handler has an authorization disposition in your output. Enumerate the routes
+you audited so the coverage is auditable. Do not conclude the partition after
+recording the injection sinks — the access-control pass is mandatory, not
+optional, and the detailed gates below tell you how to run it.
+
 ## Mandatory Input Gates
 
 ### Request Body Gate (CWE-915)

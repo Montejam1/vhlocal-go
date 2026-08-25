@@ -299,6 +299,9 @@ class Handler(BaseHTTPRequestHandler):
             })
         if path == "/api/stats":
             return self._json(self._aggregate_stats())
+        if path == "/api/profiles":
+            from .profiles import list_profiles
+            return self._json({"profiles": list_profiles()})
         if path.startswith("/api/reports/"):
             rest = path[len("/api/reports/"):]
             parts = rest.split("/", 1)
@@ -473,6 +476,12 @@ class Handler(BaseHTTPRequestHandler):
             enforce_coverage=body.get("enforce_coverage", True) is not False,
             seed_routes=bool(body.get("seed_routes")),
             seed_prior=bool(body.get("seed_prior")),
+            ledger=bool(body.get("ledger")),
+            redact=bool(body.get("redact")),
+            max_budget_usd=float(body.get("max_budget_usd") or 0),
+            hunt_samples=int(body.get("hunt_samples") or 1),
+            iac_lens=bool(body.get("iac_lens", True)),
+            remediate=bool(body.get("remediate")),
             phase2_mode=(body.get("phase2_mode") or "split"),
             concurrency=int(body.get("concurrency") or 1),
             reasoning_effort=(body.get("reasoning_effort") or None),

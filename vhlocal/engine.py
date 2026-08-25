@@ -16,6 +16,7 @@ Two additions over the original CLI loop:
 """
 
 import datetime as _dt
+import hashlib
 import json
 import logging
 import re
@@ -110,6 +111,31 @@ class ScanSpec:
     # the prior one — good for production tracking, unsuitable for union-recall
     # benchmarking, so it is recorded in scan_meta when used. See lifecycle.py.
     seed_prior: bool = False
+    # Opt-in: mask secrets/PII (card numbers, SSNs, credentials) in the written
+    # report artifacts. Off by default since vhlocal reports are usually read
+    # locally; enable when a report will be shared or archived.
+    redact: bool = False
+    # Hard USD ceiling for the run (paid backends only; 0 = no cap). When spend
+    # reaches the cap the run halts gracefully and preserves partial results —
+    # the wallet backstop for the multi-sample hunt below and paid gateways.
+    max_budget_usd: float = 0.0
+    # Multi-sample hunt voting: run each hunt agent N times and UNION the
+    # candidates before verification. Raises recall on the volatile access-control
+    # class that a single pass drops; 2b remains the false-positive filter. N=1 is
+    # the normal single pass. Multiplies hunt cost ~N×, so pair with a budget cap.
+    hunt_samples: int = 1
+    # IaC / CI-CD misconfiguration lens: one extra repo-wide hunt agent, auto-gated
+    # on the presence of infra files (Terraform, Dockerfile, K8s, GitHub Actions,
+    # Ansible). On by default; a no-op when the repo has no infrastructure.
+    iac_lens: bool = True
+    # Opt-in: write per-finding remediation DTOs (report-only — no source is
+    # edited) under remediation/<VULN-NNN>/. The structured container for a
+    # proposed fix + optional diff + validation verdict.
+    remediate: bool = False
+    # Opt-in: merge this run's confirmed findings into the per-target vulnerability
+    # ledger and score its recall against it. Off by default so throwaway/experimental
+    # runs don't pollute the persistent bank. See membank.py.
+    ledger: bool = False
     # Phase-2 fan-out: "split" = one agent per (partition x class), thorough but
     # 3x the agents; "combined" = one agent per partition covering all classes.
     phase2_mode: str = "split"
@@ -166,10 +192,53 @@ class ScanSpec:
             kwargs["seed_routes"] = bool(d["seed_routes"])
         if d.get("seed_prior") is not None:
             kwargs["seed_prior"] = bool(d["seed_prior"])
+        if d.get("ledger") is not None:
+            kwargs["ledger"] = bool(d["ledger"])
+        if d.get("redact") is not None:
+            kwargs["redact"] = bool(d["redact"])
+        if d.get("max_budget_usd") is not None:
+            try:
+                kwargs["max_budget_usd"] = max(0.0, float(d["max_budget_usd"]))
+            except (TypeError, ValueError):
+                pass
+        if d.get("hunt_samples") is not None:
+            try:
+                kwargs["hunt_samples"] = max(1, min(5, int(d["hunt_samples"])))
+            except (TypeError, ValueError):
+                pass
+        if d.get("iac_lens") is not None:
+            kwargs["iac_lens"] = bool(d["iac_lens"])
+        if d.get("remediate") is not None:
+            kwargs["remediate"] = bool(d["remediate"])
         return cls(**kwargs)
 
 
 SCAN_META_FILE = "scan_meta.json"
+PROMPTS_FILE = "prompts.jsonl"
+
+
+def _capture_system(results_dir, system: str) -> None:
+    """Record the shared system prompt as the first prompts.jsonl line. Written
+    once; a resume preserves the prior file so earlier phases' prompts survive."""
+    try:
+        p = Path(results_dir) / PROMPTS_FILE
+        if p.exists() and p.stat().st_size > 0:
+            return
+        p.write_text(json.dumps({"kind": "system", "prompt": system or ""}) + "\n",
+                     encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _capture_prompt(results_dir, phase: str, label: str, task: str) -> None:
+    """Append one agent's exact task prompt (the user turn that kicks it off) to
+    prompts.jsonl, for the UI's Prompts tab. Best-effort; never fails a scan."""
+    try:
+        with open(Path(results_dir) / PROMPTS_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"kind": "agent", "phase": phase, "label": label,
+                                "chars": len(task or ""), "prompt": task or ""}) + "\n")
+    except OSError:
+        pass
 
 
 @dataclass
@@ -229,6 +298,20 @@ class RunRecord:
     # Per-role model provenance (empty when the role used the hunt model).
     recon_model: str = ""
     reproduce_model: str = ""
+    # Whether this run opted into the persistent vulnerability ledger (membank).
+    ledger: bool = False
+    # Whether secret/PII redaction was applied to this run's artifacts.
+    redact: bool = False
+    # Whether per-finding remediation DTOs were written (report-only).
+    remediate: bool = False
+    # Budget cap + multi-sample voting (Tranche 2).
+    max_budget_usd: float = 0.0
+    hunt_samples: int = 1
+    iac_lens: bool = True
+    budget_spent_usd: float = 0.0
+    budget_halted_reason: str = ""
+    # Set when the hunt circuit breaker halted the fan-out (transport storm).
+    hunt_halted_reason: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
@@ -428,12 +511,28 @@ def execute_scan(
         except OllamaError as exc:
             raise ScanError("model {0}: {1}".format(getattr(c, "model", "?"), exc))
 
+    # Budget cap: resolve each paid client's per-token price up front, then track
+    # cumulative spend across the run so it can halt before exceeding the cap.
+    from .pricing import Budget
+    budget = Budget(spec.max_budget_usd, distinct_clients)
+    if budget.enabled():
+        for c in distinct_clients:
+            if hasattr(c, "resolve_pricing"):
+                try:
+                    c.resolve_pricing()
+                except Exception as exc:  # pragma: no cover - best-effort
+                    log.warning("pricing resolve failed for %s: %s",
+                                getattr(c, "model", "?"), exc)
+
     # The hunt client is the pipeline's default (Phase 2 and any single-agent
     # phase without a role override).
     client = client_for("2")
 
     sandbox = Sandbox(read_roots=[repo, skill_dir, results_dir], write_root=results_dir)
     system = build_system(load_preamble(skill_dir))
+    # Record the shared system prompt so the UI's Prompts tab can show exactly
+    # what every agent is instructed with.
+    _capture_system(results_dir, system)
 
     handler = None
     if attach_log_handler:
@@ -471,6 +570,12 @@ def execute_scan(
         git_dirty=prov["git_dirty"],
         recon_model=(spec.recon_model or ""),
         reproduce_model=(spec.reproduce_model or ""),
+        ledger=spec.ledger,
+        redact=spec.redact,
+        remediate=spec.remediate,
+        max_budget_usd=spec.max_budget_usd,
+        hunt_samples=spec.hunt_samples,
+        iac_lens=spec.iac_lens,
     )
 
     emit({
@@ -489,6 +594,16 @@ def execute_scan(
         for spec_phase in selected:
             if cancelled():
                 was_cancelled = True
+                break
+
+            # Budget backstop between phases: if the cap is already reached, stop
+            # before starting the next (paid) phase. Detection phases already
+            # written are preserved and consolidated.
+            if budget.exceeded():
+                record.budget_halted_reason = budget.note()
+                log.error(record.budget_halted_reason)
+                emit({"type": "budget_halted", "spent_usd": round(budget.spent(), 4),
+                      "cap_usd": budget.cap, "message": record.budget_halted_reason})
                 break
 
             if spec.resume and spec_phase.key in state.get("completed", []):
@@ -531,6 +646,7 @@ def execute_scan(
                     results_dir, spec.max_partitions, total, emit, cancelled,
                     record, enforce_coverage=spec.enforce_coverage,
                     phase2_mode=spec.phase2_mode, concurrency=spec.concurrency,
+                    samples=spec.hunt_samples, budget=budget, iac_lens=spec.iac_lens,
                 )
                 if fan_err:
                     aborted = fan_err
@@ -570,6 +686,8 @@ def execute_scan(
                                  prior_name)
                 task = build_task(spec_phase, prompt_text, repo, results_dir, extra=extra)
                 active = client_for(spec_phase.key)
+                _capture_prompt(results_dir, spec_phase.key,
+                                "p{0}".format(spec_phase.key), task)
                 emit({
                     "type": "agent_start",
                     "label": "p{0}".format(spec_phase.key),
@@ -653,6 +771,7 @@ def execute_scan(
     elapsed = time.time() - started
     record.finished_at = time.time()
     record.cancelled = was_cancelled
+    record.budget_spent_usd = round(budget.spent(), 4)
     record.usage = {
         "calls": total.calls,
         "prompt_tokens": total.prompt_tokens,
@@ -731,10 +850,122 @@ def _resolve_reads(reads, results_dir):
     return out
 
 
+# Transport error kinds the hunt breaker/canary treat as "the endpoint/transport
+# is the problem" (as opposed to a per-response model-output failure like "parse").
+_TRANSPORT_KINDS = ("connection", "timeout", "http", "rate_limit")
+# Trip the breaker after this many transport failures with nobody having succeeded
+# yet: a broken transport (e.g. a paid gateway dropping every long call) should not
+# march the whole fan-out off the same cliff. Once any agent succeeds we trust the
+# transport and never trip — a single later blip is not a storm.
+_BREAKER_MIN_ERRORS = 3
+
+
+def _hunt_canary(client, emit) -> Optional[str]:
+    """One tiny generation to confirm the hunt transport actually completes a call
+    BEFORE fanning out the (possibly paid) agent fleet. This is cheap insurance:
+    a broken key, a down gateway, or a connection-dropping endpoint is caught for
+    the cost of one short call instead of a whole fleet's wasted spend. Returns an
+    abort message on a transport failure, else None (a non-transport quirk such as
+    a malformed tool call is not fatal — the fleet may still work)."""
+    try:
+        res = client.chat([
+            {"role": "user",
+             "content": "Reply with exactly one word: READY. Nothing else."}])
+    except OllamaError as exc:
+        if exc.kind in _TRANSPORT_KINDS:
+            emit({"type": "canary", "ok": False, "kind": exc.kind,
+                  "model": getattr(client, "model", "")})
+            return ("Hunt canary failed before fan-out ({0}): {1}\n"
+                    "Aborted before dispatching hunt agents so a broken transport "
+                    "cannot drain the fleet's spend. Check the endpoint/key (and "
+                    "for a paid gateway, that streaming is reaching it), then "
+                    "re-run.".format(exc.kind, exc))
+        log.warning("hunt canary hit a non-transport error (%s) — proceeding: %s",
+                    exc.kind, exc)
+    emit({"type": "canary", "ok": True, "model": getattr(client, "model", "")})
+    return None
+
+
+# Infrastructure-as-code / CI-CD file signatures. The IaC lens is auto-gated on
+# these so it is a no-op on a repo with no infrastructure to audit.
+_IAC_DIRS = ("k8s", "kubernetes", "helm", "charts", "manifests", "deploy")
+
+
+def _has_iac(repo) -> bool:
+    """True when the repo contains any infrastructure-as-code / CI-CD definitions
+    worth a dedicated IaC pass. Deterministic, cheap."""
+    p = Path(repo)
+    patterns = ["**/*.tf", "**/*.tf.json", "**/Dockerfile", "**/Dockerfile.*",
+                "**/*.dockerfile", "**/docker-compose*.yml", "**/docker-compose*.yaml",
+                "**/.github/workflows/*.yml", "**/.github/workflows/*.yaml",
+                "**/playbook*.yml", "**/site.yml"]
+    for g in patterns:
+        for _ in p.glob(g):
+            return True
+    # k8s/helm/ansible YAML only under an infra-looking directory (avoid matching
+    # ordinary app config YAML).
+    for d in _IAC_DIRS:
+        for g in ("**/{0}/**/*.yml".format(d), "**/{0}/**/*.yaml".format(d)):
+            for _ in p.glob(g):
+                return True
+    return False
+
+
+def _merge_hunt_samples(texts, ident: str, code: str, n: int):
+    """Union the candidate blocks across N hunt samples of one partition/class,
+    deduping identical blocks and tagging each with how many samples produced it.
+    Raises recall — any sample's finding survives — while collapsing exact repeats,
+    so Phase 2b sees a deduplicated union rather than N× the text. 2b remains the
+    false-positive filter.
+
+    Returns (merged_text, vote_entries) where vote_entries feeds hunt_votes.json so
+    the per-candidate vote count reaches the final findings."""
+    from .votes import location_keys
+    real = [t for t in texts if t and "Agent produced no output" not in t]
+    if not real:
+        return ("# {0} / {1}\n\nAgent produced no output across {2} samples.\n"
+                .format(ident, code, n), [])
+    if len(real) == 1:
+        return real[0], []
+    seen = {}   # normalized-hash -> [order, votes, block_text]
+    order = 0
+    for t in real:
+        for blk in re.split(r"(?m)(?=^#)", t):
+            b = blk.strip()
+            if not b:
+                continue
+            key = hashlib.sha1(
+                re.sub(r"\s+", " ", b).lower().encode("utf-8")).hexdigest()
+            if key in seen:
+                seen[key][1] += 1
+            else:
+                seen[key] = [order, 1, b]
+                order += 1
+    blocks = sorted(seen.values(), key=lambda x: x[0])
+    out = [
+        "# {0} / {1} — union of {2} hunt samples".format(ident, code, len(real)),
+        "",
+        "_Candidates below are the UNION across {0} independent samples of this "
+        "partition; `votes` is how many samples reported each. Phase 2b remains the "
+        "false-positive filter._".format(len(real)),
+        "",
+    ]
+    entries = []
+    for _o, votes, b in blocks:
+        out.append("<!-- votes: {0}/{1} -->".format(votes, len(real)))
+        out.append(b)
+        out.append("")
+        keys = location_keys(b)
+        if keys:
+            entries.append({"keys": keys, "votes": votes, "samples": len(real)})
+    return "\n".join(out) + "\n", entries
+
+
 def _run_fan_out(
     client, sandbox, system, spec_phase, phases_dir, repo, results_dir,
     max_partitions, total, emit, cancelled, record=None, enforce_coverage=True,
-    phase2_mode="split", concurrency=1,
+    phase2_mode="split", concurrency=1, canary=True, samples=1, budget=None,
+    iac_lens=True,
 ):
     """Phase 2: (classes x partitions) + 1 sink-driven.
 
@@ -747,6 +978,14 @@ def _run_fan_out(
     the fan-out early, else None. A per-response failure on one unit does not
     stop the others — only a systemic one does.
     """
+    # Cheap pre-flight generation on the hunt client: prove the transport can
+    # complete a call before committing the (possibly paid) fleet. Aborts here
+    # cost one short call instead of a whole run's spend.
+    if canary:
+        canary_err = _hunt_canary(client, emit)
+        if canary_err:
+            return canary_err
+
     # One corrective retry in a fresh, minimal context: if the model's Phase-1
     # partition table can't be parsed, ask it once more for a strict JSON
     # contract before falling back to deterministic route enumeration.
@@ -834,13 +1073,24 @@ def _run_fan_out(
     })
 
     # Guards the only shared state a concurrent agent touches: the merged usage
-    # accumulator, the agent roster, and event emission. run_agent itself (the
-    # expensive part) runs OUTSIDE the lock so agents actually overlap.
+    # accumulator, the agent roster, event emission, and the circuit breaker.
+    # run_agent itself (the expensive part) runs OUTSIDE the lock so agents
+    # actually overlap.
     lock = threading.Lock()
+    # Hunt circuit breaker: if the first agents all die on the transport and none
+    # has succeeded, the endpoint/transport is the problem — stop launching the
+    # rest of the fleet rather than paying for the same failure N times. Already-
+    # running agents finish; queued ones short-circuit. The run still proceeds to
+    # consolidate whatever survivors produced (they were already paid for).
+    breaker = {"transport_err": 0, "ok": 0, "tripped": False}
+    # Accumulated multi-sample vote counts, keyed by candidate location, merged
+    # under `lock` and written to hunt_votes.json so consolidate can attach each
+    # finding's vote count.
+    vote_map: Dict[str, Any] = {}
 
     def _run_unit(idx, unit):
         part, code, class_file, blurb = unit
-        if cancelled():
+        if cancelled() or breaker["tripped"] or (budget is not None and budget.exceeded()):
             return None
         out_path = results_sub / "{0}_{1}.md".format(part.slug, code.lower())
         label = "p2:{0}:{1}".format(part.slug, code.lower())
@@ -867,21 +1117,21 @@ def _run_fan_out(
                 "Investigate ONLY inputs belonging to this partition, and ONLY "
                 "this vulnerability class."
             )
-        extra = (
-            "## Your assigned scope\n\n"
-            "**Partition:** {ident} - {desc}\n"
-            "**Vulnerability class:** {code} - {blurb}\n\n"
-            "Read {p1} first for the input inventory and this partition's entry "
-            "points. {scope} Write your findings to:\n  {out}\n"
-        ).format(
-            ident=part.ident, desc=part.description, code=code, blurb=blurb,
-            p1=results_dir / "phase1_output.md", out=out_path, scope=scope,
-        )
+        def extra_for(out):
+            return (
+                "## Your assigned scope\n\n"
+                "**Partition:** {ident} - {desc}\n"
+                "**Vulnerability class:** {code} - {blurb}\n\n"
+                "Read {p1} first for the input inventory and this partition's "
+                "entry points. {scope} Write your findings to:\n  {out}\n"
+            ).format(
+                ident=part.ident, desc=part.description, code=code, blurb=blurb,
+                p1=results_dir / "phase1_output.md", out=out, scope=scope,
+            )
         prompt_text = (
             shared + "\n\n---\n\n# Vulnerability class reference: " + code
             + "\n\n" + class_text
         )
-        task = build_task(spec_phase, prompt_text, repo, results_dir, extra=extra)
 
         with lock:
             emit({
@@ -889,31 +1139,99 @@ def _run_fan_out(
                 "index": idx, "total": grand_total,
                 "partition": part.ident, "vuln_class": code,
             })
-        res = run_agent(
-            client, sandbox, system, task,
-            max_turns=spec_phase.max_turns, expect_files=[out_path],
-            label=label, should_cancel=cancelled,
-        )
+            _capture_prompt(results_dir, "2", label,
+                            build_task(spec_phase, prompt_text, repo, results_dir,
+                                       extra=extra_for(out_path)))
+
+        # Multi-sample voting: run the agent `samples` times to independent files
+        # and UNION their candidates. A single pass drops volatile access-control
+        # findings run-to-run; the union recovers them and 2b still filters FPs.
+        # Cost multiplies ~samples×, so each sample is budget/cancel/breaker-gated.
+        n_samples = max(1, samples)
+        runs = []
+        for si in range(1, n_samples + 1):
+            if si > 1 and (cancelled() or breaker["tripped"]
+                           or (budget is not None and budget.exceeded())):
+                break
+            sout = out_path if n_samples == 1 else \
+                results_sub / "{0}_{1}.s{2}.md".format(part.slug, code.lower(), si)
+            slabel = label if n_samples == 1 else "{0}:s{1}".format(label, si)
+            task = build_task(spec_phase, prompt_text, repo, results_dir,
+                              extra=extra_for(sout))
+            r = run_agent(
+                client, sandbox, system, task,
+                max_turns=spec_phase.max_turns, expect_files=[sout],
+                label=slabel, should_cancel=cancelled,
+            )
+            runs.append((sout, r))
+            with lock:
+                total.merge(r.usage)
+
+        if n_samples > 1:
+            texts = []
+            for sp, _r in runs:
+                if sp.exists():
+                    try:
+                        texts.append(sp.read_text(encoding="utf-8"))
+                    except OSError:
+                        pass
+            merged, vote_entries = _merge_hunt_samples(
+                texts, part.ident, code, n_samples)
+            out_path.write_text(merged, encoding="utf-8")
+            if vote_entries:
+                from .votes import merge_votes
+                with lock:
+                    merge_votes(vote_map, vote_entries)
+
+        # Representative result for accounting: prefer a clean completion.
+        res = next((r for _s, r in runs if r.stopped_reason == "complete"),
+                   runs[-1][1] if runs else None)
+        if res is None:
+            return None
         if not out_path.exists() and res.stopped_reason != "cancelled":
             out_path.write_text(
                 "# {0} / {1}\n\nAgent produced no output ({2}).\n".format(
                     part.ident, code, res.stopped_reason),
                 encoding="utf-8")
+        total_turns = sum(r.turns for _s, r in runs)
         with lock:
-            total.merge(res.usage)
             if record is not None:
                 record.agents.append({
                     "label": label, "phase": "2", "model": client.model,
-                    "turns": res.turns, "stopped_reason": res.stopped_reason,
+                    "turns": total_turns, "stopped_reason": res.stopped_reason,
                     "partition": part.ident, "vuln_class": code,
+                    "samples": n_samples,
                 })
             emit({
-                "type": "agent_done", "label": label, "turns": res.turns,
+                "type": "agent_done", "label": label, "turns": total_turns,
                 "stopped_reason": res.stopped_reason,
                 "index": idx, "total": grand_total,
                 "prompt_tokens": total.prompt_tokens,
                 "completion_tokens": total.completion_tokens,
             })
+            # Feed the circuit breaker. A transport failure counts against it; any
+            # non-error outcome (even a no-output finish) proves the transport
+            # works and permanently disarms it.
+            if (res.stopped_reason == "error"
+                    and res.error_kind in _TRANSPORT_KINDS):
+                breaker["transport_err"] += 1
+            elif res.stopped_reason != "cancelled":
+                breaker["ok"] += 1
+            if (not breaker["tripped"] and breaker["ok"] == 0
+                    and breaker["transport_err"] >= _BREAKER_MIN_ERRORS):
+                breaker["tripped"] = True
+                halt_reason = (
+                    "hunt circuit breaker: {0} agents failed on transport "
+                    "(connection/timeout) with none succeeding — halting fan-out "
+                    "to avoid further spend. Likely the endpoint/paid gateway is "
+                    "dropping calls; check it and re-run.".format(
+                        breaker["transport_err"]))
+                if record is not None:
+                    record.hunt_halted_reason = halt_reason
+                log.error(halt_reason)
+                emit({"type": "breaker_tripped", "phase": "2",
+                      "transport_errors": breaker["transport_err"],
+                      "message": halt_reason})
         return res.error if res.systemic else None
 
     if concurrency and concurrency > 1:
@@ -932,13 +1250,24 @@ def _run_fan_out(
             return systemic
     else:
         for idx, unit in enumerate(units, start=1):
-            if cancelled():
-                return None
+            if cancelled() or breaker["tripped"] or (budget is not None and budget.exceeded()):
+                break
             err = _run_unit(idx, unit)
             if err:
                 return err
 
+    # Persist multi-sample vote counts (keyed by candidate location) for consolidate.
+    if vote_map:
+        from .votes import write_votes
+        write_votes(results_dir, vote_map)
+
     if cancelled():
+        return None
+
+    # Breaker tripped or budget cap reached: skip the (paid) sink-driven agent too
+    # and let the run proceed to consolidate whatever completed. Not a systemic
+    # abort — we keep the paid-for output and simply stop spending more.
+    if breaker["tripped"] or (budget is not None and budget.exceeded()):
         return None
 
     sink_out = results_sub / "sink_driven.md"
@@ -953,6 +1282,7 @@ def _run_fan_out(
         "attacker-controlled source.\n\nWrite your findings to:\n  {out}\n"
     ).format(p1=results_dir / "phase1_output.md", out=sink_out)
     task = build_task(spec_phase, shared, repo, results_dir, extra=extra)
+    _capture_prompt(results_dir, "2", "p2:sink", task)
     emit({
         "type": "agent_start", "label": "p2:sink", "model": client.model,
         "index": grand_total, "total": grand_total,
@@ -980,4 +1310,49 @@ def _run_fan_out(
         "prompt_tokens": total.prompt_tokens,
         "completion_tokens": total.completion_tokens,
     })
+
+    # IaC / CI-CD lens: one repo-wide agent, auto-gated on the presence of infra
+    # files (Terraform, Dockerfile, K8s/Helm, GitHub Actions, Ansible). App-code
+    # partitions don't cover these, so their misconfigurations are otherwise
+    # invisible. Budget/breaker-gated like everything else.
+    iac_out = results_sub / "iac.md"
+    iac_ref = phases_dir / "phase2_class_iac.md"
+    if (iac_lens and not breaker["tripped"]
+            and not (budget is not None and budget.exceeded())
+            and not (iac_out.exists() and iac_out.stat().st_size > 0)
+            and iac_ref.exists() and _has_iac(repo)):
+        iac_extra = (
+            "## Your assigned scope\n\n"
+            "**Infrastructure-as-code audit.** Ignore application logic. Find and "
+            "read every IaC / CI-CD file in the repo (Terraform/HCL, Dockerfile, "
+            "Kubernetes/Helm manifests, docker-compose, GitHub Actions workflows, "
+            "Ansible) and report each misconfiguration per the class reference "
+            "below.\n\nWrite your findings to:\n  {out}\n"
+        ).format(out=iac_out)
+        iac_prompt = (shared + "\n\n---\n\n# Vulnerability class reference: IAC\n\n"
+                      + iac_ref.read_text(encoding="utf-8"))
+        iac_task = build_task(spec_phase, iac_prompt, repo, results_dir, extra=iac_extra)
+        _capture_prompt(results_dir, "2", "p2:iac", iac_task)
+        emit({"type": "agent_start", "label": "p2:iac", "model": client.model,
+              "index": grand_total, "total": grand_total, "vuln_class": "IAC"})
+        ires = run_agent(
+            client, sandbox, system, iac_task,
+            max_turns=spec_phase.max_turns, expect_files=[iac_out],
+            label="p2:iac", should_cancel=cancelled,
+        )
+        total.merge(ires.usage)
+        if not iac_out.exists() and ires.stopped_reason != "cancelled":
+            iac_out.write_text("# IaC audit\n\nNo output produced.\n", encoding="utf-8")
+        if record is not None:
+            record.agents.append({
+                "label": "p2:iac", "phase": "2", "model": client.model,
+                "turns": ires.turns, "stopped_reason": ires.stopped_reason,
+                "vuln_class": "IAC",
+            })
+        emit({"type": "agent_done", "label": "p2:iac", "turns": ires.turns,
+              "stopped_reason": ires.stopped_reason,
+              "index": grand_total, "total": grand_total,
+              "prompt_tokens": total.prompt_tokens,
+              "completion_tokens": total.completion_tokens})
+
     return None

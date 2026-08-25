@@ -6,6 +6,7 @@ findings, and nested markup.
 """
 
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -221,6 +222,131 @@ class TestPhase4StubFallback(unittest.TestCase):
                       (d / "README.md").read_text(encoding="utf-8"))
 
 
+class TestTranche1Artifacts(unittest.TestCase):
+    """write_consolidated emits SARIF + run_manifest, a Scan Health section, and
+    (when opted in) redacts secrets across the artifacts."""
+
+    def _dir(self, **files):
+        d = Path(tempfile.mkdtemp())
+        for name, body in files.items():
+            (d / name.replace("__", ".")).write_text(body, encoding="utf-8")
+        return d
+
+    def test_sarif_and_manifest_always_written(self):
+        d = self._dir(**{"phase3_output__md": PHASE3_TABLE,
+                         "scan_meta__json": json.dumps(META)})
+        write_consolidated(d)
+        sarif = json.loads((d / "findings.sarif").read_text("utf-8"))
+        self.assertEqual(sarif["version"], "2.1.0")
+        self.assertEqual(sarif["runs"][0]["tool"]["driver"]["name"], "vhlocal")
+        man = json.loads((d / "run_manifest.json").read_text("utf-8"))
+        self.assertEqual(man["tool"]["name"], "vhlocal")
+        self.assertIn("hash", man["config"])
+
+    def test_scan_health_section_present(self):
+        d = self._dir(**{"phase3_output__md": PHASE3_TABLE,
+                         "scan_meta__json": json.dumps(META)})
+        write_consolidated(d)
+        self.assertIn("## Scan Health", (d / "SCAN_REPORT.md").read_text("utf-8"))
+
+    def test_findings_json_has_chains_key(self):
+        d = self._dir(**{"phase3_output__md": PHASE3_TABLE,
+                         "scan_meta__json": json.dumps(META)})
+        _, js = write_consolidated(d)
+        data = json.loads(js.read_text("utf-8"))
+        self.assertIn("chains", data)
+        self.assertIsInstance(data["chains"], list)
+
+    def test_remediation_dtos_only_when_opted_in(self):
+        off = self._dir(**{"phase3_output__md": PHASE3_TABLE,
+                           "scan_meta__json": json.dumps(META)})
+        _, js = write_consolidated(off)
+        self.assertIsNone(json.loads(js.read_text("utf-8"))["remediation"])
+        self.assertFalse((off / "remediation").exists())
+
+        on = self._dir(**{"phase3_output__md": PHASE3_TABLE,
+                          "scan_meta__json": json.dumps(dict(META, remediate=True))})
+        _, js2 = write_consolidated(on)
+        rem = json.loads(js2.read_text("utf-8"))["remediation"]
+        self.assertIsNotNone(rem)
+        self.assertGreaterEqual(rem["total"], 1)
+        self.assertTrue((on / "remediation" / "index.json").exists())
+        self.assertIn("## Remediation", (on / "SCAN_REPORT.md").read_text("utf-8"))
+
+    def test_redaction_masks_secrets_when_opted_in(self):
+        leaky = PHASE3_TABLE + "\n\nEvidence: card 4111 1111 1111 1111 leaked.\n"
+        d = self._dir(**{"phase3_output__md": leaky,
+                         "scan_meta__json": json.dumps(dict(META, redact=True))})
+        write_consolidated(d)
+        phase3 = (d / "phase3_output.md").read_text("utf-8")
+        self.assertNotIn("4111 1111 1111 1111", phase3)
+        self.assertIn("[REDACTED-CARD]", phase3)
+
+    def test_no_redaction_by_default(self):
+        leaky = PHASE3_TABLE + "\n\nEvidence: card 4111 1111 1111 1111 leaked.\n"
+        d = self._dir(**{"phase3_output__md": leaky,
+                         "scan_meta__json": json.dumps(META)})
+        write_consolidated(d)
+        self.assertIn("4111 1111 1111 1111",
+                      (d / "phase3_output.md").read_text("utf-8"))
+
+
+class TestVulnerabilityLedger(unittest.TestCase):
+    """The opt-in ledger merges only when meta['ledger'] is set, and its recall
+    summary must appear in findings.json + the markdown report."""
+
+    def _dir(self, **files):
+        d = Path(tempfile.mkdtemp())
+        for name, body in files.items():
+            (d / name.replace("__", ".")).write_text(body, encoding="utf-8")
+        return d
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self._prev = os.environ.get("VHLOCAL_LEDGER_DIR")
+        os.environ["VHLOCAL_LEDGER_DIR"] = self._tmp.name
+
+    def tearDown(self):
+        if self._prev is None:
+            os.environ.pop("VHLOCAL_LEDGER_DIR", None)
+        else:
+            os.environ["VHLOCAL_LEDGER_DIR"] = self._prev
+        self._tmp.cleanup()
+
+    def test_ledger_null_when_not_opted_in(self):
+        d = self._dir(**{"phase3_output__md": PHASE3_TABLE,
+                         "scan_meta__json": json.dumps(dict(META, ledger=False))})
+        _, js = write_consolidated(d)
+        data = json.loads(js.read_text("utf-8"))
+        self.assertIsNone(data["vulnerability_ledger"])
+        self.assertNotIn("### Vulnerability ledger",
+                         (d / "SCAN_REPORT.md").read_text("utf-8"))
+        # nothing persisted
+        self.assertEqual(list(Path(self._tmp.name).glob("*.json")), [])
+
+    def test_ledger_written_and_summarized_when_opted_in(self):
+        d = self._dir(**{"phase3_output__md": PHASE3_TABLE,
+                         "scan_meta__json": json.dumps(dict(META, ledger=True))})
+        _, js = write_consolidated(d)
+        data = json.loads(js.read_text("utf-8"))
+        bank = data["vulnerability_ledger"]
+        self.assertIsNotNone(bank)
+        self.assertEqual(bank["runs_recorded"], 1)
+        self.assertGreaterEqual(bank["total_known"], 1)
+        self.assertIn("### Vulnerability ledger",
+                      (d / "SCAN_REPORT.md").read_text("utf-8"))
+        self.assertTrue(list(Path(self._tmp.name).glob("*.json")))
+
+    def test_rerender_is_idempotent(self):
+        meta = dict(META, ledger=True)
+        d = self._dir(**{"phase3_output__md": PHASE3_TABLE,
+                         "scan_meta__json": json.dumps(meta)})
+        write_consolidated(d)
+        _, js = write_consolidated(d)   # re-render the same run
+        bank = json.loads(js.read_text("utf-8"))["vulnerability_ledger"]
+        self.assertEqual(bank["runs_recorded"], 1)   # not double-counted
+
+
 class TestDuplicates(unittest.TestCase):
     def setUp(self):
         self.d = Path(tempfile.mkdtemp())
@@ -242,9 +368,28 @@ class TestDuplicates(unittest.TestCase):
         self.assertIsNone(f["VULN-004"].duplicate_of)
         self.assertIsNone(f["VULN-005"].duplicate_of)
 
-    def test_findings_without_location_never_flagged(self):
+    def test_findings_without_location_or_title_never_flagged(self):
+        # No location AND no title signature -> nothing to key on -> never merged.
         a = Finding(id="VULN-100", cwe="CWE-89")
         b = Finding(id="VULN-101", cwe="CWE-89")
+        flag_duplicates([a, b])
+        self.assertIsNone(b.duplicate_of)
+
+    def test_locationless_same_identifier_collapses(self):
+        # Multi-sample runs where the model reported by function name and omitted
+        # file:line: same family + same identifier must still collapse, or
+        # hunt_samples silently multiplies every finding (the 50-vs-16 bug).
+        a = Finding(id="VULN-200", cwe="CWE-611",
+                    title="XXE Injection in `dispatch_xml_fold_450`")
+        b = Finding(id="VULN-201", cwe="CWE-611",
+                    title="XXE Injection in `dispatch_xml_fold_450`")
+        flag_duplicates([a, b])
+        self.assertEqual(b.duplicate_of, "VULN-200")
+
+    def test_locationless_distinct_identifiers_not_collapsed(self):
+        # Same family, different function identifiers -> genuinely distinct.
+        a = Finding(id="VULN-300", cwe="CWE-639", title="IDOR in `get_customer`")
+        b = Finding(id="VULN-301", cwe="CWE-639", title="IDOR in `update_region`")
         flag_duplicates([a, b])
         self.assertIsNone(b.duplicate_of)
 

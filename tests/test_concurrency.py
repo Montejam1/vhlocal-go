@@ -35,6 +35,12 @@ AUTH = (
 class _StubClient:
     model = "stub:1"
 
+    def chat(self, messages, tools=None, repair_hint=""):
+        # Answers the pre-fan-out hunt canary.
+        from vhlocal.client import ChatResult
+        return ChatResult(content="READY", thinking="", tool_calls=[],
+                          prompt_tokens=1, completion_tokens=1, seconds=0.0)
+
 
 def _fake_run_agent(concurrent_tracker=None):
     """Return a run_agent stub that writes each agent's out file and records

@@ -210,6 +210,21 @@
   .switch input:checked + .track::after{transform:translateX(17px);background:#fff}
   .switch input:focus-visible + .track{box-shadow:0 0 0 3px var(--accent-weak)}
 
+  /* square-checkbox opt-in (Vulnerability Ledger) */
+  .ledger-row{display:flex;align-items:center;gap:11px;margin-top:14px;padding:11px 13px;
+    cursor:pointer;border:1px solid var(--line);border-radius:var(--r);
+    background:var(--surface-2)}
+  .ledger-row input{flex:none;-webkit-appearance:none;appearance:none;margin:0;
+    width:19px;height:19px;border-radius:5px;border:1.5px solid var(--line);
+    background:var(--surface-3);cursor:pointer;position:relative;transition:.15s}
+  .ledger-row input:checked{background:var(--accent);border-color:var(--accent)}
+  .ledger-row input:checked::after{content:"";position:absolute;left:6px;top:2px;
+    width:4px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .ledger-row input:focus-visible{box-shadow:0 0 0 3px var(--accent-weak)}
+  .ledger-txt{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .ledger-txt b{font-size:12.5px;font-weight:550;color:var(--text-1)}
+  .ledger-txt small{font-size:11px;color:var(--text-3);line-height:1.4}
+
   /* collapsible advanced options */
   details.adv{margin-top:14px;border:1px solid var(--line);border-radius:var(--r);
     background:var(--surface-2);overflow:hidden}
@@ -330,6 +345,19 @@
     border-radius:0;margin-bottom:-1px;transition:.15s}
   .tabs button:hover{color:var(--text-1)}
   .tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+  /* Prompts tab: collapsible per-agent prompt records */
+  .promptrec{border:1px solid var(--line);border-radius:var(--r-sm);
+    background:var(--surface-1);margin-bottom:8px;overflow:hidden}
+  .promptrec > summary{cursor:pointer;list-style:none;padding:10px 13px;
+    display:flex;align-items:center;gap:10px;font-size:13px}
+  .promptrec > summary::-webkit-details-marker{display:none}
+  .promptrec > summary::before{content:"▸";color:var(--text-3);font-size:11px}
+  .promptrec[open] > summary::before{content:"▾"}
+  .promptrec .pmeta{margin-left:auto;font-size:11px;color:var(--text-3);
+    font-family:var(--mono)}
+  .promptrec pre{margin:0;border:none;border-top:1px solid var(--line);
+    border-radius:0;max-height:460px;overflow:auto;white-space:pre-wrap;
+    word-break:break-word}
 
   pre{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r);
     padding:14px;overflow:auto;font-family:var(--mono);font-size:12px;
@@ -366,8 +394,8 @@
   .conn-cards .card label{margin-top:6px}
 
   /* ---------------- dashboard (Home) ---------------- */
-  body.home .side{display:none}          /* full-width canvas, no scan rail */
-  body.home main{grid-template-columns:1fr}
+  body.home .side, body.docs .side{display:none}   /* full-width, no scan rail */
+  body.home main, body.docs main{grid-template-columns:1fr}
   .dashwrap{max-width:1140px;margin:0 auto}
   .metric-cards{display:grid;gap:14px;
     grid-template-columns:repeat(auto-fit,minmax(184px,1fr));margin:18px 0 4px}
@@ -419,6 +447,67 @@
   .pcard .pdur i{display:block;height:100%;border-radius:99px;
     background:linear-gradient(90deg,var(--accent),var(--accent-strong))}
   .pcard .pmeta{font-size:11.5px;color:var(--text-3);text-align:right;white-space:nowrap}
+
+  /* ---------------- documentation ---------------- */
+  .docwrap{max-width:940px;margin:0 auto;padding-bottom:40px}
+  .doc-hero{margin:6px 0 22px}
+  .doc-hero h1{font-size:28px;letter-spacing:-.02em;margin:0 0 8px}
+  .doc-hero p{color:var(--text-2);font-size:14.5px;line-height:1.65;margin:0;max-width:720px}
+  .doc-hero .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+  .doc-hero .tags span{font-size:11px;font-weight:600;padding:4px 9px;border-radius:99px;
+    background:var(--surface-2);border:1px solid var(--line);color:var(--text-2)}
+  /* clickable pipeline map */
+  .pipe{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:0 0 30px;
+    border:1px solid var(--line);border-radius:var(--r);background:var(--surface-1);
+    padding:8px;box-shadow:var(--sh-1)}
+  .pipe a{flex:1;min-width:112px;text-decoration:none;display:flex;flex-direction:column;
+    gap:3px;padding:11px 12px;border-radius:var(--r-sm);position:relative;transition:.14s}
+  .pipe a:hover{background:var(--surface-2)}
+  .pipe a .pk{font-size:10.5px;font-weight:700;color:var(--accent);letter-spacing:.04em}
+  .pipe a .pt{font-size:12.5px;font-weight:600;color:var(--text-1);line-height:1.25}
+  .pipe a .pd{font-size:11px;color:var(--text-3)}
+  .pipe a:not(:last-child)::after{content:"→";position:absolute;right:-7px;top:50%;
+    transform:translateY(-50%);color:var(--text-3);font-size:13px;z-index:1}
+  @media (max-width:720px){ .pipe a:not(:last-child)::after{display:none} }
+  /* per-phase deep-dive sections */
+  .doc-sec{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r);
+    box-shadow:var(--sh-1);padding:22px 24px;margin:0 0 18px;scroll-margin-top:80px}
+  .doc-sec > .badge{display:inline-flex;align-items:center;gap:8px;font-size:11px;
+    font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);
+    background:var(--accent-weak);padding:4px 10px;border-radius:99px;margin-bottom:12px}
+  .doc-sec h2{font-size:20px;letter-spacing:-.01em;margin:0 0 4px}
+  .doc-sec .lead{color:var(--text-2);font-size:14px;line-height:1.6;margin:0 0 16px;max-width:740px}
+  .doc-io{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 16px}
+  @media (max-width:560px){ .doc-io{grid-template-columns:1fr} }
+  .doc-io div{border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 13px;
+    background:var(--surface-2)}
+  .doc-io div .k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--text-3);margin-bottom:4px}
+  .doc-io div .v{font-size:12.5px;color:var(--text-1);font-family:var(--mono);line-height:1.5;
+    word-break:break-word}
+  .doc-sec h3{font-size:13px;margin:18px 0 9px;color:var(--text-1);
+    text-transform:uppercase;letter-spacing:.04em}
+  .doc-sec p{color:var(--text-2);font-size:13.5px;line-height:1.68;margin:0 0 11px}
+  .doc-sec ul{margin:0 0 12px;padding-left:19px}
+  .doc-sec li{color:var(--text-2);font-size:13.5px;line-height:1.62;margin-bottom:7px}
+  .doc-sec li b, .doc-sec p b{color:var(--text-1);font-weight:600}
+  .doc-sec code{font-family:var(--mono);font-size:12px;background:var(--surface-3);
+    padding:1.5px 5px;border-radius:5px;color:var(--text-1)}
+  .doc-sec .gate{display:grid;grid-template-columns:26px 1fr;gap:11px;align-items:start;
+    padding:11px 0;border-top:1px solid var(--line)}
+  .doc-sec .gate .gn{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+    font-weight:700;font-size:12px;background:var(--accent-weak);color:var(--accent)}
+  .doc-sec .gate .gt{font-size:13.5px;line-height:1.55;color:var(--text-2)}
+  .doc-sec .gate .gt b{color:var(--text-1)}
+  .doc-note{border-left:3px solid var(--accent);background:var(--surface-2);
+    padding:11px 15px;border-radius:0 var(--r-sm) var(--r-sm) 0;margin:14px 0;
+    font-size:13px;color:var(--text-2);line-height:1.6}
+  .doc-note b{color:var(--text-1)}
+  .cls{display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:start;
+    padding:10px 0;border-top:1px solid var(--line)}
+  .cls .ct{font-weight:700;font-size:12px;color:var(--accent);padding-top:2px}
+  .cls .cd{font-size:13px;color:var(--text-2);line-height:1.55}
+  .cls .cd b{color:var(--text-1)}
   .card{background:var(--surface-1);border:1px solid var(--line);
     border-radius:var(--r);padding:15px 16px;cursor:pointer;position:relative;
     transition:.15s;box-shadow:var(--sh-1)}
@@ -460,6 +549,23 @@
     text-decoration:none}
   .fbtn:hover{background:var(--accent-strong);text-decoration:none;
     box-shadow:var(--sh-2)}
+  /* secondary download buttons (SARIF / manifest / json) */
+  .dlrow{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 14px}
+  .dlrow .fbtn{margin-bottom:0}
+  .dlrow .fbtn:not(:first-child){background:var(--surface-2);color:var(--text-1);
+    border:1px solid var(--line)}
+  .dlrow .fbtn:not(:first-child):hover{background:var(--surface-3);box-shadow:none}
+  /* Scan Health panel on the report detail */
+  .healthcard{border:1px solid var(--line);border-radius:var(--r);
+    background:var(--surface-1);box-shadow:var(--sh-1);padding:13px 16px;margin:0 0 14px}
+  .healthcard .hrow{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+  .hbadge{font-size:12px;font-weight:700;padding:4px 11px;border-radius:99px}
+  .hbadge.ok{background:var(--ok-weak,rgba(34,160,90,.14));color:var(--ok,#1a8a4d)}
+  .hbadge.warn{background:var(--warn-weak,rgba(200,140,0,.16));color:var(--warn,#b8860b)}
+  .hbadge.alt{background:var(--surface-2);color:var(--text-2);border:1px solid var(--line)}
+  .hstat{font-size:12.5px;color:var(--text-2)}
+  .hreasons{margin:10px 0 0;padding-left:18px}
+  .hreasons li{font-size:12.5px;color:var(--text-2);line-height:1.55;margin-bottom:3px}
 
   /* ---------------- markdown ---------------- */
   .md{font-size:14px;line-height:1.7;color:var(--text-1)}
@@ -518,6 +624,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>
       Reports</button>
+    <button id="navDocs" onclick="navigate('docs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      Docs</button>
     <button id="navSettings" onclick="navigate('settings')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.14.6.65 1.05 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -539,8 +649,12 @@
       <h2>New scan</h2>
       <div id="formErr" style="margin-top:10px"></div>
       <label>Repository path</label>
-      <input id="repo" placeholder="/path/to/your/repo" spellcheck="false">
+      <input id="repo" placeholder="/path/to/your/repo" spellcheck="false" autocomplete="off">
       <div class="hint" id="rootHint"></div>
+
+      <label for="profile">Profile <span style="text-transform:none;font-weight:400;color:var(--text-3)">— presets the scan options below</span></label>
+      <select id="profile" onchange="applyProfile(this.value)"><option value="">Custom (no preset)</option></select>
+      <div class="hint" id="profileHint"></div>
 
       <label style="margin-bottom:2px">Model</label>
       <div class="radios">
@@ -580,7 +694,7 @@
           <div class="row" style="margin-top:6px">
             <div>
               <label>Phases</label>
-              <input id="phases" value="all" spellcheck="false">
+              <input id="phases" value="all" spellcheck="false" autocomplete="off">
             </div>
             <div>
               <label>Max partitions</label>
@@ -615,6 +729,18 @@
           <input id="maxOutTokens" type="number" value="32768" min="0" step="1024">
           <div class="hint">Caps completion length per call. On paid gateways (OpenRouter) it also caps the up-front <b>credit reservation</b> — <b>lower it if you hit a 402</b>. 0 = uncapped.</div>
 
+          <div class="row" style="margin-top:12px">
+            <div>
+              <label for="huntSamples">Hunt samples</label>
+              <input id="huntSamples" type="number" value="1" min="1" max="5">
+            </div>
+            <div>
+              <label for="maxBudget">Budget cap (USD)</label>
+              <input id="maxBudget" type="number" value="0" min="0" step="0.5">
+            </div>
+          </div>
+          <div class="hint"><b>Hunt samples</b>: run each hunt agent N× and union the findings — raises recall on the volatile access-control class a single pass misses (2b still filters false positives). Multiplies hunt cost ~N×. <b>Budget cap</b>: hard USD ceiling for paid backends (0 = none); the run halts gracefully before exceeding it. Local models are free, so the cap is inert there.</div>
+
           <div class="adv-group">Toggles</div>
           <div class="hint" style="margin:2px 0 6px">Connections (Ollama / OpenAI / OpenRouter) live in <b>Settings</b>. To continue an interrupted scan, open it under <b>Scans</b> and use <b>Resume</b>.</div>
           <label class="switch-row">
@@ -626,6 +752,10 @@
             <span class="switch"><input type="checkbox" id="seedRoutes"><span class="track"></span></span>
           </label>
           <label class="switch-row">
+            <span class="switch-txt"><b>IaC / CI-CD lens</b><small>audit Terraform · Docker · K8s · Actions — auto-skips if none present</small></span>
+            <span class="switch"><input type="checkbox" id="iacLens" checked><span class="track"></span></span>
+          </label>
+          <label class="switch-row">
             <span class="switch-txt"><b>Seed from prior report <span style="color:var(--warn)">(Mode B)</span></b><small>re-verify prior hot spots — correlates runs; off for benchmarking</small></span>
             <span class="switch"><input type="checkbox" id="seedPrior"><span class="track"></span></span>
           </label>
@@ -633,7 +763,19 @@
       </details>
 
       <div id="costNote"></div>
-      <button class="btn" id="start" style="margin-top:16px">
+      <label class="ledger-row" title="Merge this run's confirmed findings into this target's persistent vulnerability ledger, and score the run's recall against everything the ledger already knows. Off by default so throwaway runs don't pollute the bank.">
+        <input type="checkbox" id="ledger">
+        <span class="ledger-txt"><b>Include in Vulnerability Ledger</b><small>accumulate confirmed findings across runs of this target &amp; score recall</small></span>
+      </label>
+      <label class="ledger-row" style="margin-top:10px" title="Mask card numbers (Luhn+IIN), SSNs, and credentials in the written report, findings.json, SARIF, and HTML. The finding keeps its location and CWE — only the literal secret value is masked. Enable when a report will be shared or archived.">
+        <input type="checkbox" id="redact">
+        <span class="ledger-txt"><b>Redact secrets &amp; PII in outputs</b><small>mask cards / SSNs / credentials in the report artifacts at write time</small></span>
+      </label>
+      <label class="ledger-row" style="margin-top:10px" title="Write a structured remediation DTO per finding (remediation/<VULN>/remediate.json + summary.md) with the proposed fix and status. Report-only — no source is modified.">
+        <input type="checkbox" id="remediate">
+        <span class="ledger-txt"><b>Write remediation DTOs</b><small>per-finding proposed-fix records under remediation/ — report-only, source untouched</small></span>
+      </label>
+      <button class="btn" id="start" style="margin-top:14px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
              stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg>
         Start scan</button>
@@ -773,10 +915,55 @@ async function boot() {
   await refreshAllModels();          // populate the model pickers
   setModelMode(modelMode());         // apply the default (open-weight) mode
   toggleMulti();                     // per-phase overrides hidden until toggled
+  loadProfiles();                    // scan-config presets
   await refresh();
   navigate('home');
   setInterval(refresh, 4000);
 }
+
+// Scan-config profiles: preset the New-Scan options in one click. The operator
+// can still tweak any field afterward — a profile is a starting point.
+let PROFILES = [];
+async function loadProfiles() {
+  try {
+    const d = await api('/api/profiles');
+    PROFILES = d.profiles || [];
+    const sel = $('profile');
+    if (!sel) return;
+    for (const p of PROFILES) {
+      const o = document.createElement('option');
+      o.value = p.name; o.textContent = p.name + (p.builtin ? '' : ' (custom)');
+      sel.appendChild(o);
+    }
+  } catch (e) { /* profiles are optional */ }
+}
+
+// override key -> [element id, kind]
+const _PROFILE_FIELDS = {
+  hunt_samples: ['huntSamples', 'val'], max_partitions: ['maxPart', 'val'],
+  phase2_mode: ['phase2Mode', 'val'], phases: ['phases', 'val'],
+  concurrency: ['concurrency', 'val'], reasoning_effort: ['reasoningEffort', 'val'],
+  max_output_tokens: ['maxOutTokens', 'val'], max_budget_usd: ['maxBudget', 'val'],
+  iac_lens: ['iacLens', 'chk'], remediate: ['remediate', 'chk'],
+  redact: ['redact', 'chk'], ledger: ['ledger', 'chk'],
+  seed_routes: ['seedRoutes', 'chk'], seed_prior: ['seedPrior', 'chk'],
+  enforce_coverage: ['enforceCoverage', 'chk'],
+};
+window.applyProfile = function(name) {
+  const hint = $('profileHint');
+  if (!name) { if (hint) hint.textContent = ''; return; }
+  const p = PROFILES.find(x => x.name === name);
+  if (!p) return;
+  for (const [key, val] of Object.entries(p.overrides || {})) {
+    const map = _PROFILE_FIELDS[key];
+    if (!map) continue;
+    const el = $(map[0]);
+    if (!el) continue;
+    if (map[1] === 'chk') el.checked = !!val;
+    else el.value = val;
+  }
+  if (hint) hint.textContent = p.description || '';
+};
 
 // ---------------------------------------------------------------------------
 // Connections + models. Connections (Ollama / OpenAI / OpenRouter) are set in
@@ -1011,6 +1198,313 @@ window.testConn = function(backend){
   refreshConn(backend);
 };
 
+function docsHTML(){
+  return `
+  <div class="docwrap">
+    <div class="doc-hero">
+      <h1>How VulnHunter works</h1>
+      <p>VulnHunter audits a codebase with a fixed, six-phase pipeline. Each phase
+        runs in its own LLM agent context, reads the previous phases' output files,
+        and writes exactly one output of its own. The agent is <b>static-only</b> —
+        it reads, greps, and globs the source and writes findings; it never executes
+        the target's code and never reaches the network except to talk to the model
+        server. The sections below describe exactly what each phase does.</p>
+      <div class="tags">
+        <span>Static analysis</span><span>LLM-driven</span>
+        <span>1 → 2 → 2b → 3 → 3d → 4</span><span>Per-phase model routing</span>
+      </div>
+    </div>
+
+    <div class="pipe">
+      <a data-goto="phase1"><span class="pk">PHASE 1</span><span class="pt">Recon</span><span class="pd">map the attack surface</span></a>
+      <a data-goto="phase2"><span class="pk">PHASE 2</span><span class="pt">Hunt</span><span class="pd">forward-trace every input</span></a>
+      <a data-goto="phase2b"><span class="pk">PHASE 2b</span><span class="pt">Verify</span><span class="pd">disprove candidates</span></a>
+      <a data-goto="phase3"><span class="pk">PHASE 3</span><span class="pt">Reproduce</span><span class="pd">PoC + exploit test</span></a>
+      <a data-goto="phase3d"><span class="pk">PHASE 3d</span><span class="pt">Sweep</span><span class="pd">find every instance</span></a>
+      <a data-goto="phase4"><span class="pk">PHASE 4</span><span class="pt">Report</span><span class="pd">compile findings</span></a>
+    </div>
+
+    <!-- PHASE 1 -->
+    <section class="doc-sec" id="phase1">
+      <span class="badge">Phase 1 · up to 90 turns</span>
+      <h2>Recon — attack surface mapping</h2>
+      <p class="lead">Map the complete attack surface — every input, sink, entry
+        point, and trust boundary — and carve the app into subgraph partitions
+        <i>before</i> hunting any specific bug.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">the target repo (no prior phase)</div></div>
+        <div><div class="k">Writes</div><div class="v">phase1_output.md</div></div>
+      </div>
+      <h3>What it does</h3>
+      <ul>
+        <li><b>Structural overview.</b> Globs every source language (excluding
+          tests, vendored, and generated code) to identify languages, frameworks,
+          and module layout.</li>
+        <li><b>Sink pre-pass.</b> Greps the whole repo for every dangerous sink
+          pattern and records each one's <code>file:line</code> into a sink
+          inventory — including a per-app completeness cross-check and a
+          URL-concatenation sweep for SSRF / path-traversal sinks.</li>
+        <li><b>Input inventory.</b> Enumerates <b>every</b> external-data entry
+          point (HTTP, RPC, CLI, queues, WebSocket, file processors, cron over
+          attacker-writable stores, middleware…). Every input is logged with its
+          location, source type, entry point, and trust level. It enumerates
+          <i>all</i> sibling inputs of a DTO, not just the dangerous-looking ones,
+          and records zero-input endpoints as auth-bypass candidates.</li>
+        <li><b>Indirect-dispatch detection.</b> Finds function maps, callback
+          registries, factories, and message-framework dispatch, adding each
+          dispatched handler as its own entry point.</li>
+        <li><b>Subgraph partitioning.</b> Builds a two-level call graph, factors out
+          shared infrastructure (anything imported by most handlers, plus auth /
+          logging / ORM / sanitizers), then uses <b>union-find</b> to group entry
+          points that share app-specific code into partitions — the units Phase 2
+          parallelizes over. Each partition is marked <code>PRODUCTION</code> or
+          <code>DEV-ONLY</code>; dev-only code is not hunted.</li>
+        <li><b>Threat model.</b> One row per entry-point group, each field cited as
+          <code>file:line</code> or <code>NONE</code>: app-layer auth enforcement,
+          <i>cryptographic</i> caller-identity binding, and per-resource
+          authorization. It is deliberately pessimistic — prose, naming, config
+          opt-outs, and "the gateway handles it" claims are inadmissible; only code
+          at a real line counts. This establishes the attacker's baseline
+          capabilities used later by Gate 3.</li>
+      </ul>
+      <div class="doc-note"><b>Output contract.</b> An Attack Surface Report whose
+        Input Inventory, Threat Model, and Subgraph Partitions tables are
+        machine-parsed to fan out Phase 2 — every production app must appear in at
+        least one partition.</div>
+    </section>
+
+    <!-- PHASE 2 -->
+    <section class="doc-sec" id="phase2">
+      <span class="badge">Phase 2 · fan-out · up to 80 turns each</span>
+      <h2>Hunt — forward tracing</h2>
+      <p class="lead">Trace every inventoried input forward to a disposition,
+        evaluating it against dangerous sinks by vulnerability class. This is the
+        only phase that fans out into many parallel agents.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">phase1_output.md</div></div>
+        <div><div class="k">Writes</div><div class="v">results/ (one file per agent)</div></div>
+      </div>
+      <h3>How the fan-out works</h3>
+      <p>The runner parses the partition table from Phase 1 and dispatches
+        <b>one agent per (partition × vulnerability class)</b>, plus exactly
+        <b>one sink-driven agent</b>. If the model's partition plan omitted any
+        enumerated route file, the harness appends deterministic subsystem
+        partitions so nothing is skipped. Partitions are capped (default 8).</p>
+      <h3>The three vulnerability classes</h3>
+      <div class="cls"><div class="ct">INJ</div><div class="cd"><b>Injection.</b>
+        SQL, command, path traversal, SSRF / URL injection, XSS (all variants),
+        open redirect, XXE, LDAP, code eval / SSTI, and file upload.</div></div>
+      <div class="cls"><div class="ct">NAV</div><div class="cd"><b>Navigation &amp;
+        access control.</b> CSRF, IDOR, auth bypass, conditional-validation bypass,
+        identity spoofing, confused-deputy, mass assignment, parameter pollution,
+        and unsafe deserialization.</div></div>
+      <div class="cls"><div class="ct">LOG</div><div class="cd"><b>Logic &amp;
+        crypto.</b> Race conditions, cache / state isolation, credential scope,
+        resource exhaustion, prototype pollution, integer overflow, and weak
+        cryptography.</div></div>
+      <div class="doc-note"><b>Split vs. combined.</b> In <b>split</b> mode (default)
+        each class gets its own agent per partition — three times the agents, most
+        thorough. In <b>combined</b> mode a single agent per partition covers all
+        three classes — about 3× fewer agents and faster. The <b>sink-driven</b>
+        agent is different from all of these: it works <i>backward</i> from the
+        sink inventory, tracing each dangerous sink to whoever can reach it, to
+        catch anything the input-forward pass missed.</div>
+      <h3>The hard gates (every candidate must pass, in order)</h3>
+      <div class="gate"><div class="gn">0</div><div class="gt"><b>Intended behavior.</b>
+        Is this the feature's designed purpose (a proxy forwarding a
+        caller-supplied URL)? Does not apply when a security check is conditionally
+        skipped.</div></div>
+      <div class="gate"><div class="gn">1</div><div class="gt"><b>Reachability.</b>
+        Grep every call site; dead code and tests don't count. Route registration
+        is not the same as code reachability.</div></div>
+      <div class="gate"><div class="gn">2a</div><div class="gt"><b>Attacker-controlled?</b>
+        Trace the value's origin through any stores back to an external input.</div></div>
+      <div class="gate"><div class="gn">2b</div><div class="gt"><b>Effective sanitization?</b>
+        Read the actual defense's source; it must be context-matched to the sink.
+        A sanitizer for the wrong context is not a mitigation.</div></div>
+      <div class="gate"><div class="gn">3</div><div class="gt"><b>New capability?</b>
+        State the concrete outcome the attacker gains; eliminate only by citing a
+        <code>file:line</code> that already grants the same outcome.</div></div>
+      <div class="doc-note"><b>Output contract.</b> Each input gets a disposition —
+        CANDIDATE / SAFE / NO-MATCH / CROSS-CLASS / DESIGN-INTENT — with the data
+        flow cited at every step. Confirmed IDs are assigned as <code>VULN-NNN</code>.
+        These are <i>candidates</i>, not yet confirmed.</div>
+    </section>
+
+    <!-- PHASE 2b -->
+    <section class="doc-sec" id="phase2b">
+      <span class="badge">Phase 2b · up to 70 turns</span>
+      <h2>Verify — adversarial falsification</h2>
+      <p class="lead">Try to <b>disprove</b> every Phase 2 candidate with full-codebase
+        visibility. Historically about half of raw candidates are false positives;
+        this phase is where they're cut.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">results/ (all hunt output)</div></div>
+        <div><div class="k">Writes</div><div class="v">phase2b_output.md + phase2b_handoff.md</div></div>
+      </div>
+      <h3>What it does</h3>
+      <p>It builds a flat <b>candidate manifest</b> — the verdict table must have one
+        row per candidate, because a missing row means a finding was silently
+        dropped. It then works through a fixed checklist, attempting to refute each
+        finding:</p>
+      <div class="gate"><div class="gn">1</div><div class="gt"><b>All gates answered?</b>
+        Fill any blank Gate 0–3. Note: <b>authentication is not a Gate 2a failure</b>
+        — a gated <code>pickle.loads</code> is still confirmed, with the auth listed
+        as a precondition.</div></div>
+      <div class="gate"><div class="gn">2</div><div class="gt"><b>Re-verify reachability</b>
+        with fresh eyes; route registration ≠ code reachability.</div></div>
+      <div class="gate"><div class="gn">3</div><div class="gt"><b>Defenses source→sink.</b>
+        Read the actual library source and search the whole codebase for shared
+        defenses; a scope-mismatched sanitizer is a bug, not a mitigation.</div></div>
+      <div class="gate"><div class="gn">4</div><div class="gt"><b>Severity calibrated?</b>
+        Impact-to-tier match, attacker identity, and (for deserialization) whether a
+        gadget actually exists.</div></div>
+      <div class="gate"><div class="gn">5</div><div class="gt"><b>Downgrade discipline.</b>
+        Before eliminating anything, grep and read <i>all</i> call sites and their
+        callers; a finding clears only when every call site is proven safe.</div></div>
+      <div class="gate"><div class="gn">6</div><div class="gt"><b>Conditional-validation
+        bypass.</b> Enumerate every check skipped when a gating input is absent; one
+        uncovered "No" and the finding stands.</div></div>
+      <div class="gate"><div class="gn">7</div><div class="gt"><b>Comment skepticism.</b>
+        Map every "by design" / "downstream validates" / "internal only" claim to the
+        gate it falsely satisfies, and re-verify empirically.</div></div>
+      <div class="gate"><div class="gn">8</div><div class="gt"><b>Authorization-delegation
+        ladder</b> (CWE-639): verified crypto origin + caller scope → Informational;
+        crypto origin only → Medium; neither → original severity. "Crypto origin"
+        means a signature or mTLS cert checked in code, not a header-presence
+        check.</div></div>
+      <div class="gate"><div class="gn">9</div><div class="gt"><b>Universal auth-gap
+        rollup.</b> If authentication is absent platform-wide, collapse the related
+        findings into one <code>VULN-PLATFORM-AUTHN</code>; if only authorization is
+        absent, one <code>VULN-PLATFORM-AUTHZ</code>. Subsumed findings stay in the
+        table marked <code>SUBSUMED-BY</code>.</div></div>
+      <div class="doc-note"><b>The core rule.</b> A finding is a false positive
+        <i>only</i> with evidence — a specific defense at a <code>file:line</code>
+        between source and sink. <b>Authentication is never that evidence</b>; it's a
+        precondition on a still-confirmed finding. Only CONFIRMED findings pass to
+        Phase 3, via a compact <code>phase2b_handoff.md</code>.</div>
+    </section>
+
+    <!-- PHASE 3 -->
+    <section class="doc-sec" id="phase3">
+      <span class="badge">Phase 3 · up to 80 turns</span>
+      <h2>Reproduce, test &amp; fix</h2>
+      <p class="lead">Prove each confirmed finding is exploitable end-to-end with a
+        PoC and an executable exploit test, then document a fix. Anything that can't
+        be proven is downgraded.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">phase2b_handoff.md (confirmed set)</div></div>
+        <div><div class="k">Writes</div><div class="v">phase3_output.md + poc/ + exploit_tests/</div></div>
+      </div>
+      <h3>What it does</h3>
+      <ul>
+        <li><b>Completeness check.</b> Maps every confirmed High/Medium finding to a
+          sequential <code>VULN-NNN</code>; the row count must equal Phase 2b's
+          confirmed count. A finding can only be removed by an explicit failing
+          exploit test.</li>
+        <li><b>Reproduce.</b> Writes one PoC per finding. When bash is explicitly
+          enabled it may be a runnable script; otherwise it is a <b>static data-flow
+          trace</b> — a concrete attacker input, a <code>file:line</code> at every
+          propagation step, and the literal dangerous string at the sink.</li>
+        <li><b>Exploit test (mandatory).</b> An executable test that proves the
+          <i>attacker's goal is achieved</i> — SQLi returns unauthorized data, path
+          traversal reads outside the directory, IDOR retrieves another user's
+          resource, and so on. <b>PASS</b> keeps the finding; a mitigated or failing
+          test downgrades it to a code smell. You must write the PoC and test files
+          <i>before</i> reclassifying anything as a smell, documenting the exact
+          payload and the specific blocking defense.</li>
+        <li><b>Fixes (documented only).</b> Per finding: strategy, the exact files to
+          change, and why it works — fixing the root cause at the right layer. This
+          phase never edits the target's source.</li>
+      </ul>
+      <div class="doc-note"><b>Output contract.</b> Only findings whose exploit test
+        PASSes proceed. Every finding carries a PoC path and an exploit-test path.</div>
+    </section>
+
+    <!-- PHASE 3d -->
+    <section class="doc-sec" id="phase3d">
+      <span class="badge">Phase 3d · deterministic (no model)</span>
+      <h2>Sweep — root-cause instances</h2>
+      <p class="lead">Once a finding is confirmed, find every <i>other</i> place its
+        root cause occurs across the full codebase — so a pattern found once isn't
+        missed in five other files.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">phase3_output.md (confirmed findings)</div></div>
+        <div><div class="k">Writes</div><div class="v">phase3d_output.md</div></div>
+      </div>
+      <h3>What a root-cause sweep is</h3>
+      <p>For each confirmed finding it takes the underlying vulnerable construction
+        (its "root cause") and greps the <b>entire codebase — ignoring partition
+        boundaries</b> — for both the source pattern and the dangerous sink,
+        catching instances no inventoried input reached (cron jobs, workers,
+        internal RPC). Every new instance is triaged and, if it looks live, must run
+        the <i>full</i> pipeline again (Gates → PoC → exploit test) before it becomes
+        a new <code>VULN-NNN</code>.</p>
+      <h3>Why it's deterministic</h3>
+      <p>By default this phase runs <b>no model agent at all</b>. The runner builds
+        the sweep mechanically: it maps each finding's CWE to a fixed regex
+        sink-pattern table (for example CWE-502 → <code>pickle.loads</code> /
+        <code>yaml.load</code>; CWE-78 → <code>os.system</code> /
+        <code>subprocess</code>; CWE-94 → <code>eval</code> / <code>exec</code>),
+        greps with ripgrep scoped to the finding's language, filters out test and
+        comment matches, and reports the total count and the extra instances.
+        Logic and authorization CWEs (IDOR, missing-authz, races) have no syntactic
+        sink, so they're honestly reported as not sweepable rather than inventing a
+        pattern. A fixed table plus a plain grep means the same input always yields
+        the same output — that's the guarantee.</p>
+      <div class="doc-note"><b>Output contract.</b> A sweep table — root cause, grep
+        pattern, total found, candidates, mitigated, dev-only, remaining. Any
+        remaining instance must be triaged before the report.</div>
+    </section>
+
+    <!-- PHASE 4 -->
+    <section class="doc-sec" id="phase4">
+      <span class="badge">Phase 4 · up to 50 turns</span>
+      <h2>Report</h2>
+      <p class="lead">Compile every confirmed finding, code smell, resolved input,
+        and the sweep table into the final human-readable report.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">phase1 + phase2b + phase3 + phase3d outputs</div></div>
+        <div><div class="k">Writes</div><div class="v">README.md (+ links to poc/ &amp; exploit_tests/)</div></div>
+      </div>
+      <h3>What it does</h3>
+      <ul>
+        <li><b>One row per exploit-test PASS</b>, not per root cause — two root
+          causes with eight confirmed sinks produce eight findings, each with its own
+          data flow, PoC, and exploit test.</li>
+        <li>A <b>Code Quality / Defense-in-Depth</b> section captures downgraded
+          near-misses, security config, a crypto inventory, and gaps — with the
+          rationale for every downgrade.</li>
+        <li>A <b>resolved input inventory</b> shows every input's final disposition,
+          plus a "not found / excluded" section for the classes that came back
+          clean.</li>
+        <li>Includes the Phase 3d sweep table.</li>
+      </ul>
+      <div class="doc-note"><b>Validation rule.</b> A finding is invalid if its PoC or
+        exploit-test field is empty — each must be a real, clickable path to a saved
+        artifact. The report header records run ID, repository, date, branch + commit,
+        model, and the findings summary, and the summary row count must equal the
+        finding count.</div>
+    </section>
+
+    <div class="doc-note" style="margin-top:26px">Phases can run on <b>different
+      models</b> — for example recon and reporting on a cheap local model and the
+      hunt on a stronger one — configured per role in <a onclick="navigate('settings')">Settings</a>
+      and the New Scan form. A run can also opt into the <b>Vulnerability Ledger</b>
+      to accumulate confirmed findings across runs of the same target and score each
+      run's recall.</div>
+  </div>`;
+}
+function wireDocs(){
+  document.querySelectorAll('.pipe a[data-goto]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const t = document.getElementById(a.getAttribute('data-goto'));
+      if (t) t.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  });
+}
+
 function settingsHTML(){
   return `
     <div class="pane-head"><h2>Settings</h2></div>
@@ -1235,6 +1729,7 @@ function renderDetail(el, j) {
     <div class="tabs">
       <button class="${tab==='live'?'on':''}" onclick="setTab('live')">Live feed</button>
       <button class="${tab==='files'?'on':''}" onclick="setTab('files')">Artifacts</button>
+      <button class="${tab==='prompts'?'on':''}" onclick="setTab('prompts')">Prompts</button>
       <button class="${tab==='log'?'on':''}" onclick="setTab('log')">Log</button>
     </div>
     <div id="tabbody">${tab==='live' ? '<div id="feed"></div>' : '<div class="empty">Loading…</div>'}</div>`;
@@ -1244,6 +1739,8 @@ function renderDetail(el, j) {
     if (f) f.scrollTop = f.scrollHeight;
   } else if (tab === 'log') {
     loadLog(j.id);
+  } else if (tab === 'prompts') {
+    loadPrompts(j.id);
   } else {
     loadFiles(j.id);
   }
@@ -1362,6 +1859,37 @@ async function loadLog(id) {
   } catch (e) {
     body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
   }
+}
+
+// Render the exact system + per-agent task prompts from prompts.jsonl.
+function promptsHTML(recs) {
+  const sys = recs.find(r => r.kind === 'system');
+  const agents = recs.filter(r => r.kind === 'agent');
+  let html = '<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">'
+    + 'The exact prompts sent to the model. The <b>system prompt</b> is shared by '
+    + 'every agent; each entry below is one agent\'s task (the user turn that starts it). '
+    + 'Multi-turn tool exchanges are not shown — see the Log for those.</div>';
+  if (sys) html += `<details class="promptrec"><summary><b>System prompt</b>`
+    + `<span class="pmeta">shared · ${sys.prompt.length.toLocaleString()} chars</span></summary>`
+    + `<pre>${esc(sys.prompt)}</pre></details>`;
+  html += agents.map(a => `<details class="promptrec"><summary><b>${esc(a.label)}</b>`
+    + `<span class="pmeta">phase ${esc(a.phase)} · ${(a.chars||0).toLocaleString()} chars</span></summary>`
+    + `<pre>${esc(a.prompt)}</pre></details>`).join('');
+  return html;
+}
+
+async function loadPrompts(id) {
+  const body = $('tabbody');
+  body.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await fetch('/api/scans/' + id + '/file?path=prompts.jsonl');
+    if (!r.ok) { body.innerHTML = '<div class="empty">No prompts captured yet — they appear as each phase starts.</div>'; return; }
+    const txt = await r.text();
+    const recs = txt.trim().split('\n').filter(Boolean)
+      .map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean);
+    if (!recs.length) { body.innerHTML = '<div class="empty">No prompts captured yet.</div>'; return; }
+    body.innerHTML = promptsHTML(recs);
+  } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 }
 
 window.viewFile = async function(id, path) {
@@ -1603,6 +2131,11 @@ const VIEWS = {
     },
     unmount() {},
   },
+  docs: {
+    nav: 'navDocs',
+    mount(el) { el.innerHTML = docsHTML(); wireDocs(); },
+    unmount() {},
+  },
   settings: {
     nav: 'navSettings',
     mount(el) { el.innerHTML = settingsHTML(); wireSettings(); },
@@ -1620,8 +2153,9 @@ window.navigate = function(name, opts) {
   const cur = VIEWS[view];
   if (cur && cur.unmount) cur.unmount();
   view = next;
-  // Home is a full-width canvas — hide the New-scan rail there.
+  // Home and Docs are full-width canvases — hide the New-scan rail there.
   document.body.classList.toggle('home', next === 'home');
+  document.body.classList.toggle('docs', next === 'docs');
   Object.keys(VIEWS).forEach(k => {
     const b = $(VIEWS[k].nav);
     if (b) b.className = (k === next ? 'on' : '');
@@ -1679,6 +2213,36 @@ window.deleteReport = async function(id, label) {
   }
 };
 
+function healthPanelHTML(fj) {
+  // Scan Health from findings.json run_status (+ ledger/redaction if present).
+  const rs = (fj && fj.run_status) || {};
+  const reasons = rs.coverage_degraded_reasons || [];
+  const degraded = (rs.coverage_status && rs.coverage_status !== 'complete') || reasons.length;
+  const cov = fj && fj.coverage;
+  const counts = (fj && fj.counts) || {};
+  const total = Object.values(counts).reduce((a,b)=>a+b,0);
+  const chip = degraded
+    ? `<span class="hbadge warn">⚠ Coverage degraded</span>`
+    : `<span class="hbadge ok">✓ Clean run</span>`;
+  const covLine = cov ? `<div class="hstat">${cov.reviewed}/${cov.total_entry_points} entry points reviewed</div>` : '';
+  const findLine = `<div class="hstat">${total} finding${total===1?'':'s'}${
+    Object.keys(counts).length ? ' · ' + Object.entries(counts).map(([k,v])=>`${v} ${esc(k)}`).join(', ') : ''}</div>`;
+  const m = (fj && fj.meta) || {};
+  const extra = [];
+  const chains = (fj && fj.chains) || [];
+  if (chains.length) extra.push(`<span class="hbadge alt">⛓ ${chains.length} exploit chain${chains.length===1?'':'s'}</span>`);
+  const rem = fj && fj.remediation;
+  if (rem && rem.total) extra.push(`<span class="hbadge alt">🩹 ${rem.with_fix}/${rem.total} fixes proposed</span>`);
+  if ((m.hunt_samples || 1) > 1) extra.push(`<span class="hbadge alt">🗳 ${m.hunt_samples}× sampled</span>`);
+  if (m.redact) extra.push(`<span class="hbadge alt">🔒 redacted</span>`);
+  const spent = m.budget_spent_usd || 0, capUsd = m.max_budget_usd || 0;
+  if (spent || capUsd) extra.push(`<span class="hstat">💵 $${(+spent).toFixed(2)}${capUsd ? ` / $${(+capUsd).toFixed(2)} cap` : ''}</span>`);
+  const reasonList = reasons.length
+    ? `<ul class="hreasons">${reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>` : '';
+  return `<div class="healthcard">
+    <div class="hrow">${chip}${covLine}${findLine}${extra.join('')}</div>${reasonList}</div>`;
+}
+
 window.openReport = async function(id) {
   const v = $('reportView');
   v.innerHTML = '<div class="empty">Loading…</div>';
@@ -1687,15 +2251,29 @@ window.openReport = async function(id) {
     const order = (p) => p === 'SCAN_REPORT.md' ? 0 : p === 'README.md' ? 1
       : p === 'findings.json' ? 2 : p.startsWith('phase') ? 3 : 4;
     d.files.sort((a,b) => order(a.path)-order(b.path) || a.path.localeCompare(b.path));
-    const hasHtml = d.files.some(f => f.path === 'SCAN_REPORT.html');
+    const has = (n) => d.files.some(f => f.path === n);
+    const fileUrl = (n) => `/api/reports/${encodeURIComponent(id)}/file?path=${encodeURIComponent(n)}`;
+    // Scan Health from findings.json (best-effort).
+    let health = '';
+    if (has('findings.json')) {
+      try { health = healthPanelHTML(await (await fetch(fileUrl('findings.json'))).json()); }
+      catch (e) { /* ignore */ }
+    }
+    const dl = [
+      has('SCAN_REPORT.html') ? `<a class="fbtn" href="${fileUrl('SCAN_REPORT.html')}" target="_blank" rel="noopener">Open full report ↗</a>` : '',
+      has('findings.sarif') ? `<a class="fbtn" href="${fileUrl('findings.sarif')}" download="findings.sarif">SARIF 2.1.0 ↓</a>` : '',
+      has('findings.json') ? `<a class="fbtn" href="${fileUrl('findings.json')}" download="findings.json">findings.json ↓</a>` : '',
+      has('run_manifest.json') ? `<a class="fbtn" href="${fileUrl('run_manifest.json')}" download="run_manifest.json">Manifest ↓</a>` : '',
+    ].filter(Boolean).join('');
     v.innerHTML = `<div class="view-head">${esc(id)}</div>
       <div style="font-family:var(--mono);font-size:11.5px;color:var(--text-3);margin-bottom:12px">${esc(d.root)}</div>
-      ${hasHtml ? `<a class="fbtn" href="/api/reports/${encodeURIComponent(id)}/file?path=SCAN_REPORT.html" target="_blank" rel="noopener">Open full report ↗</a>` : ''}
+      ${health}
+      <div class="dlrow">${dl}</div>
       <div class="metacard"><table><tr><th>File</th><th style="width:90px">Size</th></tr>` +
       d.files.map(f => `<tr><td><a onclick="viewReportFile('${esc(id)}','${esc(f.path)}')">${esc(f.path)}</a></td>
         <td style="color:var(--text-3)">${(f.size/1024).toFixed(1)} KB</td></tr>`).join('') +
       `</table></div><div id="reportFile" style="margin-top:16px"></div>`;
-    const first = ['SCAN_REPORT.md','README.md'].find(n => d.files.some(f => f.path === n));
+    const first = ['SCAN_REPORT.md','README.md'].find(n => has(n));
     if (first) viewReportFile(id, first);
     v.scrollIntoView({behavior:'smooth', block:'start'});
   } catch (e) { v.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
@@ -1722,19 +2300,41 @@ $('start').onclick = async function() {
     return;
   }
   const multi = ($('multiToggle') || {}).checked;
+  // Validate Phases here so a stray value (e.g. a browser-autofilled host) fails
+  // with a clear message instead of the engine's cryptic "unknown phase(s)".
+  let phases = ($('phases').value || '').trim() || 'all';
+  if (phases.toLowerCase() !== 'all') {
+    const valid = new Set((CFG.phases || []).map(p => p.key));
+    const keys = phases.split(',').map(s => s.trim()).filter(Boolean);
+    const bad = keys.filter(k => !valid.has(k));
+    if (!keys.length || bad.length) {
+      $('formErr').innerHTML = '<div class="err-box">Invalid <b>Phases</b>: '
+        + esc(phases) + '. Use <code>all</code> or a comma list of '
+        + [...valid].join(', ') + '.</div>';
+      $('phases').value = 'all';
+      return;
+    }
+    phases = keys.join(',');
+  }
   const payload = {
     repo: $('repo').value.trim(),
     // hunt / default model carries its connection (backend + host)
     model: hunt.model, backend: hunt.backend, host: hunt.host || null,
-    phases: $('phases').value.trim() || 'all',
+    phases: phases,
     max_partitions: parseInt($('maxPart').value || '8', 10),
     enforce_coverage: $('enforceCoverage').checked,
     seed_routes: $('seedRoutes').checked,
     seed_prior: $('seedPrior').checked,
+    ledger: $('ledger').checked,
+    redact: $('redact').checked,
+    remediate: $('remediate').checked,
     phase2_mode: $('phase2Mode').value,
     concurrency: parseInt($('concurrency').value || '1', 10),
     reasoning_effort: $('reasoningEffort').value || null,
     max_output_tokens: parseInt($('maxOutTokens').value || '32768', 10),
+    hunt_samples: parseInt($('huntSamples').value || '1', 10),
+    max_budget_usd: parseFloat($('maxBudget').value || '0'),
+    iac_lens: $('iacLens').checked,
   };
   // Per-phase overrides only when "Multiple models" is on (each blank field
   // falls back to the hunt model). Otherwise one model runs every phase.

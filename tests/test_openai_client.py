@@ -220,6 +220,10 @@ class TestOpenRouter(unittest.TestCase):
             def __enter__(self): return self
             def __exit__(self, *a): return False
             def read(self): return json.dumps(ok).encode()
+            # Streaming is the default transport now; the reader iterates the
+            # response. A single non-SSE JSON line exercises the stream reader's
+            # "server ignored stream=True" fallback and returns the same dict.
+            def __iter__(self): return iter([json.dumps(ok).encode()])
 
         def flaky(req, timeout=None):
             calls["n"] += 1

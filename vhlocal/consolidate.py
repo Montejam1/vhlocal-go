@@ -178,6 +178,11 @@ class Finding:
     # Cross-run lifecycle (set by lifecycle.reconcile — Mode A): new / persisting
     # / regressed relative to the most recent prior report of the same target.
     finding_lifecycle: str = ""
+    # Multi-sample hunt voting (Tranche 2/3): how many hunt samples independently
+    # reported this finding's site, out of how many were run. 0/0 on a single-pass
+    # run — a higher share is a stronger recall/confidence signal.
+    votes: int = 0
+    vote_samples: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -677,6 +682,32 @@ def _family(f: "Finding") -> str:
     return ""
 
 
+_TITLE_STOP = {"via", "in", "the", "an", "of", "on", "and", "or", "to", "with",
+               "additional", "instance", "endpoint", "vulnerability", "unvalidated",
+               "unrestricted", "insecure", "improper", "missing", "for", "from",
+               "using", "due", "by", "critical", "arbitrary"}
+_IDENT_RE = re.compile(r"`([A-Za-z_][\w./{}-]{2,})`")   # backtick func/route
+_ROUTE_RE = re.compile(r"(/[A-Za-z0-9_./{}-]{3,})")
+
+
+def _title_signature(f: "Finding") -> str:
+    """A stable dedup token when the model omitted file:line. Prefers a
+    backtick-quoted function/route identifier (stable across samples), then a
+    route path, then a normalized bag of significant title words. Used only in the
+    location-less fallback so multi-sample duplicates still collapse."""
+    for src in (f.title, f.entry_point, f.data_flow):
+        m = _IDENT_RE.search(src or "")
+        if m:
+            return m.group(1).lower()
+    for src in (f.entry_point, f.title):
+        m = _ROUTE_RE.search(src or "")
+        if m:
+            return m.group(1).lower()
+    words = re.findall(r"[a-z0-9]+", (f.title or "").lower())
+    sig = [w for w in words if w not in _TITLE_STOP and len(w) > 2]
+    return " ".join(sorted(set(sig))[:6]) if sig else ""
+
+
 def _root_cause_key(f: "Finding") -> str:
     """Stable fingerprint clustering reports of one underlying defect.
 
@@ -686,9 +717,18 @@ def _root_cause_key(f: "Finding") -> str:
     case)."""
     fam = _family(f)
     fil = _loc_file(f.location) or _loc_file(f.data_flow)
-    if not fam or not fil:
-        return ""
-    return "{0}:{1}:{2}:{3}".format(fam, fil, _func_hint(f), _flow_signature(f))
+    if fam and fil:
+        return "{0}:{1}:{2}:{3}".format(fam, fil, _func_hint(f), _flow_signature(f))
+    # Degraded fallback: the model reported findings by function name with no
+    # file:line (seen on some runs). Without a location the precise key is empty
+    # and dedup is DISABLED — which, combined with multi-sample hunting, repeats
+    # every finding N×. Fall back to family + a stable title/route identifier so
+    # those samples still collapse. Only fires when the location is missing, so
+    # precise dedup is unchanged when the model does cite file:line.
+    sig = _title_signature(f)
+    if fam and sig:
+        return "{0}::{1}".format(fam, sig)
+    return ""
 
 
 _LINE_PROXIMITY = 20  # lines; two same-key findings farther apart are distinct
@@ -865,6 +905,10 @@ def compute_run_status(meta: Dict[str, Any], ledger=None) -> Dict[str, Any]:
     elif "2" in req and len(parts) <= 1 and (meta.get("max_partitions") or 0) > 1:
         reasons.append("only one partition was analysed (attack surface not "
                        "subdivided)")
+    if meta.get("hunt_halted_reason"):
+        # The circuit breaker stopped the hunt fan-out; this is the most important
+        # coverage caveat, so state it first and verbatim.
+        reasons.insert(0, meta["hunt_halted_reason"])
     if incomplete:
         reasons.append("{0} agent(s) did not finish cleanly".format(len(incomplete)))
     if req and not done >= set(req):
@@ -923,6 +967,63 @@ def _bar(n: int, total: int, width: int = 24) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
+def _update_bank(findings, results_dir, meta):
+    """Merge this run into the per-target vulnerability ledger and return the
+    recall summary — only when the run opted in (meta['ledger']). Never fails the
+    report. Idempotent, so calling from both render() and write_consolidated() is
+    safe (the merge happens once)."""
+    if not meta.get("ledger"):
+        return None
+    try:
+        from .membank import update_ledger
+        return update_ledger(results_dir, findings, meta)
+    except Exception as exc:  # pragma: no cover - defensive
+        import logging
+        logging.getLogger(__name__).warning("vulnerability ledger update failed: %s", exc)
+        return None
+
+
+def _apply_votes(findings, results_dir) -> None:
+    """Attach each finding's multi-sample vote count from hunt_votes.json (present
+    only on a sampled run). Matched by location bucket. Never fails the report."""
+    try:
+        from .votes import load_votes, votes_for
+        vm = load_votes(results_dir)
+        if not vm:
+            return
+        for f in findings:
+            v, n = votes_for(getattr(f, "location", "") or "", vm)
+            if v:
+                f.votes = v
+                f.vote_samples = n
+    except Exception:  # pragma: no cover - defensive
+        pass
+
+
+def _maybe_redact(findings, meta) -> int:
+    """Mask secret/PII values in finding fields when the run opted into redaction.
+    Applied in both render() and write_consolidated() so the markdown, JSON, SARIF,
+    and ledger all derive from the same masked findings. Never fails the report."""
+    if not meta.get("redact"):
+        return 0
+    try:
+        from .redact import redact_findings
+        return redact_findings(findings)
+    except Exception as exc:  # pragma: no cover - defensive
+        import logging
+        logging.getLogger(__name__).warning("redaction failed: %s", exc)
+        return 0
+
+
+def _build_chains_safe(findings):
+    """Deterministic exploit-chain analysis; never fails the report."""
+    try:
+        from .chains import build_chains
+        return build_chains([f.to_dict() for f in findings])
+    except Exception:  # pragma: no cover - defensive
+        return []
+
+
 def render(results_dir: Path) -> str:
     meta = load_meta(results_dir)
     findings = parse_findings(results_dir)
@@ -931,8 +1032,12 @@ def render(results_dir: Path) -> str:
     apply_knowledge(findings)
     apply_normalized_severity(findings)
     findings = rank(findings)
+    _apply_votes(findings, results_dir)
+    red_count = _maybe_redact(findings, meta)
     # Mode A: label each finding new/persisting/regressed vs the prior report.
     lifecycle = reconcile_lifecycle(findings, results_dir, meta)
+    # Vulnerability ledger (opt-in memory bank): merge + recall vs all prior runs.
+    bank = _update_bank(findings, results_dir, meta)
     ledger = coverage_ledger(results_dir, meta, findings)
     rs = compute_run_status(meta, ledger=ledger)
 
@@ -1017,6 +1122,33 @@ def render(results_dir: Path) -> str:
         A("> **Coverage is degraded — treat coverage-dependent numbers as "
           "provisional.** " + "; ".join(rs["coverage_degraded_reasons"]) + ".")
         A("")
+
+    if bank:
+        A("### Vulnerability ledger")
+        A("")
+        newnote = ", **{0} new** to the ledger".format(bank["new"]) if bank["new"] else ""
+        A("This target's ledger holds **{0}** known finding(s) "
+          "({1} reliable) across {2} recorded run(s). This run reproduced "
+          "**{3} of {4}** open finding(s) — recall **{5}%**{6}.".format(
+              bank["total_known"], bank["reliable"], bank["runs_recorded"],
+              bank["found"], bank["open_known"], bank["recall_pct"], newnote))
+        A("")
+        if bank["missed"]:
+            A("Previously-confirmed findings this run did **not** reproduce "
+              "(a possible regression in coverage — not necessarily a fix):")
+            A("")
+            A("| Missed finding | CWE | Confidence | Runs | Location |")
+            A("|---|---|---|---|---|")
+            for m in bank["missed"][:20]:
+                title = _clean(m.get("title") or "—").replace("|", "\\|")[:70]
+                loc = _clean(m.get("location") or "—").replace("|", "\\|")
+                A("| {0} | {1} | {2} | {3} | {4} |".format(
+                    title or "—", m.get("cwe") or "—", m.get("confidence") or "—",
+                    m.get("confirmed_count") or 1, loc or "—"))
+            if bank["missed_count"] > 20:
+                A("")
+                A("_…and {0} more._".format(bank["missed_count"] - 20))
+            A("")
 
     # ---------------- 2. Checks enabled ----------------
     A("## 2. Checks enabled")
@@ -1179,6 +1311,9 @@ def render(results_dir: Path) -> str:
                     f.exploitability, basis))
             if f.location:
                 A("| Location | `{0}` |".format(_clean(f.location)))
+            if f.votes and f.vote_samples:
+                A("| Votes | {0} of {1} hunt samples reported this site |".format(
+                    f.votes, f.vote_samples))
             if f.entry_point:
                 A("| Entry point | {0} |".format(f.entry_point))
             if f.data_flow:
@@ -1326,6 +1461,90 @@ def render(results_dir: Path) -> str:
           "be partial.")
     A("- Severities are as reported by the scanner and are not CVSS scores.")
     A("")
+
+    # ---------------- Exploit chains ----------------
+    chains = _build_chains_safe(unique)
+    if chains:
+        A("## Exploit chains")
+        A("")
+        A("Deterministically composed from the confirmed findings — how defects "
+          "combine into a higher-impact attack path than any one alone.")
+        A("")
+        for c in chains:
+            A("### {0} — {1} [{2}]".format(c["id"], c["title"], c.get("severity") or "—"))
+            A("")
+            A("**Findings:** {0}".format(", ".join(c.get("finding_ids") or [])))
+            A("")
+            A(c.get("rationale") or "")
+            A("")
+
+    # ---------------- Remediation ----------------
+    if meta.get("remediate"):
+        with_fix = [f for f in unique if f.fix]
+        A("## Remediation")
+        A("")
+        A("Report-only remediation DTOs were written under `remediation/` — one "
+          "`remediate.json` + `summary.md` per finding. **No source was modified.** "
+          "{0} of {1} finding(s) carry a proposed fix.".format(
+              len(with_fix), len(unique)))
+        A("")
+        if with_fix:
+            A("| Finding | Severity | Proposed fix | Status |")
+            A("|---|---|---|---|")
+            for f in with_fix[:40]:
+                A("| {0} | {1} | {2} | proposed |".format(
+                    f.id, f.severity,
+                    _clean(f.fix).replace("|", "\\|")[:90]))
+            A("")
+
+    # ---------------- Scan Health ----------------
+    agents = meta.get("agents") or []
+    incomplete = [a for a in agents
+                  if a.get("stopped_reason") not in ("complete", None, "")]
+    reasons = list(rs.get("coverage_degraded_reasons") or [])
+    A("## Scan Health")
+    A("")
+    if not reasons and not incomplete and not meta.get("hunt_halted_reason") \
+            and not meta.get("budget_halted_reason"):
+        A("✅ **Clean run.** Execution completed and no coverage was lost. "
+          "Every dispatched agent finished cleanly.")
+    else:
+        A("⚠️ **This run lost or degraded coverage** — treat coverage-dependent "
+          "numbers as provisional.")
+        A("")
+        if meta.get("budget_halted_reason"):
+            A("- **Halted on budget:** {0}".format(meta["budget_halted_reason"]))
+        if meta.get("hunt_halted_reason"):
+            A("- **Hunt halted early:** {0}".format(meta["hunt_halted_reason"]))
+        for r in reasons:
+            A("- {0}".format(r))
+        if incomplete:
+            by_reason: Dict[str, int] = {}
+            for a in incomplete:
+                by_reason[a.get("stopped_reason") or "?"] = \
+                    by_reason.get(a.get("stopped_reason") or "?", 0) + 1
+            breakdown = ", ".join("{0}×{1}".format(v, k)
+                                  for k, v in sorted(by_reason.items()))
+            A("- **{0} of {1} agents did not finish cleanly** ({2}).".format(
+                len(incomplete), len(agents), breakdown))
+        A("")
+        A("_Per-run recoverable errors are logged to `errors.jsonl`._")
+    if red_count:
+        A("")
+        A("🔒 **Redaction on** — {0} secret/PII value(s) were masked in this "
+          "report's artifacts.".format(red_count))
+    samples = meta.get("hunt_samples") or 1
+    if samples and samples > 1:
+        A("")
+        A("🗳️ **Multi-sample hunt** — each hunt agent ran **{0}×** and the "
+          "candidates were unioned for recall before verification.".format(samples))
+    spent = meta.get("budget_spent_usd") or 0
+    cap = meta.get("max_budget_usd") or 0
+    if spent or cap:
+        A("")
+        A("💵 **Spend** — ${0:.2f}{1}.".format(
+            float(spent), " of ${0:.2f} cap".format(float(cap)) if cap else ""))
+    A("")
     A("---")
     A("")
     A("*Raw artifacts — per-agent hunt output, PoCs, exploit tests — are in this "
@@ -1345,7 +1564,15 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     apply_knowledge(findings)
     apply_normalized_severity(findings)
     findings = rank(findings)
+    _apply_votes(findings, results_dir)
+    # Mask secrets/PII in the finding objects so findings.json, SARIF, and the
+    # ledger all derive from masked values (render() redacts its own copy for the
+    # markdown/HTML). No-op unless the run opted into redaction.
+    red_count = _maybe_redact(findings, meta)
     lifecycle = reconcile_lifecycle(findings, results_dir, meta)
+    # render() below merges the run into the vuln ledger; this call is idempotent
+    # and just returns the coverage summary for the machine-readable block.
+    vuln_bank = _update_bank(findings, results_dir, meta)
 
     report_md = render(results_dir)
     md = results_dir / SCAN_REPORT_FILE
@@ -1387,6 +1614,27 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
         import logging
         logging.getLogger(__name__).warning("HTML report failed: %s", exc)
 
+    run_status = compute_run_status(meta, ledger=ledger)
+    counts = _counts(findings)
+    finding_dicts = [f.to_dict() for f in findings]
+    unique_dicts = [d for d in finding_dicts if not d.get("duplicate_of")]
+    try:
+        from .chains import build_chains
+        chains = build_chains(unique_dicts)
+    except Exception:  # pragma: no cover - defensive
+        chains = []
+
+    # Report-only remediation DTOs (opt-in): structured proposed-fix records under
+    # remediation/<VULN-NNN>/. Never edits the scanned repo.
+    remediation_summary = None
+    if meta.get("remediate"):
+        try:
+            from .remediation import write_remediation
+            remediation_summary = write_remediation(results_dir, findings)
+        except Exception as exc:  # pragma: no cover - defensive
+            import logging
+            logging.getLogger(__name__).warning("remediation DTOs failed: %s", exc)
+
     js = results_dir / FINDINGS_JSON_FILE
     js.write_text(json.dumps({
         "meta": meta,
@@ -1398,21 +1646,95 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
             "falsification_model": meta.get("verify_model") or meta.get("model") or "",
             "orchestrator": "vhlocal " + (meta.get("engine_version") or ""),
         },
-        "run_status": compute_run_status(meta, ledger=ledger),
+        "run_status": run_status,
         "coverage": {
             "total_entry_points": ledger.total,
             "reviewed": ledger.reviewed,
             "not_reviewed": ledger.not_reviewed,
             "complete": ledger.complete,
         } if ledger is not None else None,
-        "counts": _counts(findings),
+        "counts": counts,
         # Mode A cross-run lifecycle: new/persisting/regressed vs the prior
         # report, the now-fixed findings, and the fixed keys the next run reads
         # back to detect regressions.
         "lifecycle": lifecycle,
-        "findings": [f.to_dict() for f in findings],
+        # Vulnerability ledger (opt-in memory bank): recall of this run against
+        # the union of all prior opted-in runs of this target. null when the run
+        # did not opt in.
+        "vulnerability_ledger": vuln_bank,
+        # Deterministic exploit chains composed from the confirmed findings.
+        "chains": chains,
+        # Report-only remediation coverage (null unless the run opted in).
+        "remediation": remediation_summary,
+        "findings": finding_dicts,
     }, indent=2), encoding="utf-8")
+
+    # SARIF 2.1.0 (machine-ingestible) and an operator-facing audit manifest.
+    # Both derive from the same (possibly redacted) findings + meta; failures are
+    # non-fatal so the markdown + JSON that already succeeded are never lost.
+    try:
+        from .sarif import write_sarif
+        write_sarif(results_dir, finding_dicts, meta, run_status)
+    except Exception as exc:  # pragma: no cover - defensive
+        import logging
+        logging.getLogger(__name__).warning("SARIF export failed: %s", exc)
+    try:
+        from .manifest import write_manifest
+        redaction = {"enabled": bool(meta.get("redact")), "masked": red_count} \
+            if meta.get("redact") else None
+        write_manifest(results_dir, meta, run_status, counts, redaction)
+    except Exception as exc:  # pragma: no cover - defensive
+        import logging
+        logging.getLogger(__name__).warning("run_manifest failed: %s", exc)
+
+    _write_errors_jsonl(results_dir, meta)
+
+    # Post-hoc redaction pass: the markdown/HTML/phase artifacts were built by
+    # other code paths (render, write_html, the phase agents) rather than from the
+    # masked finding objects, so scrub them once more. Idempotent and cheap.
+    if meta.get("redact"):
+        try:
+            from .redact import redact_file
+            for name in (SCAN_REPORT_FILE, "README.md", "SCAN_REPORT.html",
+                         "phase1_output.md", "phase2b_output.md",
+                         "phase3_output.md", "phase3d_output.md"):
+                redact_file(results_dir / name)
+        except Exception as exc:  # pragma: no cover - defensive
+            import logging
+            logging.getLogger(__name__).warning("artifact redaction failed: %s", exc)
+
     return md, js
+
+
+def _write_errors_jsonl(results_dir: Path, meta: Dict[str, Any]) -> None:
+    """Structured per-run recoverable-error log — one JSON object per line for the
+    agents that did not finish cleanly. Written only when there is something to
+    report (a clean run omits the file, mirroring the Scan Health section)."""
+    rows = []
+    for a in (meta.get("agents") or []):
+        reason = a.get("stopped_reason")
+        if reason in ("complete", None, ""):
+            continue
+        rows.append({
+            "phase": a.get("phase") or "",
+            "label": a.get("label") or "",
+            "stopped_reason": reason,
+            "error_kind": a.get("error_kind") or "",
+            "turns": a.get("turns"),
+            "partition": a.get("partition") or "",
+            "vuln_class": a.get("vuln_class") or "",
+        })
+    if meta.get("hunt_halted_reason"):
+        rows.append({"phase": "2", "stopped_reason": "circuit_breaker",
+                     "message": meta["hunt_halted_reason"]})
+    path = results_dir / "errors.jsonl"
+    if not rows:
+        return
+    try:
+        path.write_text("\n".join(json.dumps(r) for r in rows) + "\n",
+                        encoding="utf-8")
+    except OSError:
+        pass
 
 
 def _counts(findings: List[Finding]) -> Dict[str, int]:
