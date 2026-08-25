@@ -20,6 +20,7 @@ about the scan.
 import datetime as _dt
 import json
 import re
+from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -639,14 +640,21 @@ def _flow_signature(f: "Finding") -> str:
     (CWE, sink) collapsed them, which is exactly the "collapsing findings"
     failure the methodology warns about.
     """
+    return ",".join(sorted(_flow_params(f)))
+
+
+def _flow_params(f: "Finding") -> set:
+    """The set of input/parameter names in a finding's path (the discriminating
+    part of _flow_signature). Two findings whose param sets are non-empty and
+    disjoint are distinct inputs to one sink (q vs status); overlapping/empty sets
+    are the same defect."""
     blob = " ".join([_clean(f.entry_point), _clean(f.data_flow), _clean(f.title)]).lower()
     names = set()
     for m in _PARAM.finditer(blob):
         names.add((m.group(1) or m.group(2) or "").lower())
     names.discard("")
-    # Drop tokens that appear in nearly every flow and carry no discrimination.
     names -= {"path", "url", "get", "post", "http", "https", "args", "request"}
-    return ",".join(sorted(names))
+    return names
 
 
 # Vulnerability family keywords, used when a CWE is absent or when two reports
@@ -802,7 +810,17 @@ def _bf_index(results_dir) -> List[tuple]:
                 continue
             cm = _BF_CWE.search(b)
             cwe = "CWE-" + cm.group(1) if cm else ""
-            primary = "{0}:{1}".format(locs[-1][0], locs[-1][1])
+            # The sink is the file:line the block discusses most; a router-mount /
+            # reachability reference (e.g. main.py:117) appears once. Pick the most
+            # frequent, tie-broken by latest — NOT simply the last, which grabbed
+            # the mount line and both mis-located findings and split dedup.
+            counts = Counter(locs)
+            best_pair, best_key = locs[0], (-1, -1)
+            for i, p in enumerate(locs):
+                k = (counts[p], i)
+                if k > best_key:
+                    best_key, best_pair = k, p
+            primary = "{0}:{1}".format(best_pair[0], best_pair[1])
             entries.append((primary, cwe, b.lower()))
     return entries
 
@@ -882,7 +900,8 @@ def _bf_has_cwe(f) -> bool:
     return bool((getattr(f, "cwe", "") or "").strip())
 
 
-def backfill_locations(findings: List["Finding"], results_dir, repo: str = "") -> int:
+def backfill_locations(findings: List["Finding"], results_dir, repo: str = "",
+                       restore_location: bool = True, restore_cwe: bool = True) -> int:
     """Restore each finding's missing file:line AND CWE from the raw hunt/2b
     evidence.
 
@@ -893,45 +912,44 @@ def backfill_locations(findings: List["Finding"], results_dir, repo: str = "") -
     identifier (function/route/keyword + CWE) and restore whatever's missing. Only
     fills on a confident match — a distinctive identifier, or the CWE plus a
     keyword — never guesses. Returns the number of fields restored."""
-    needy = [f for f in findings if not _bf_has_loc(f) or not _bf_has_cwe(f)]
+    needy = [f for f in findings
+             if (restore_location and not _bf_has_loc(f))
+             or (restore_cwe and not _bf_has_cwe(f))]
     if not needy:
         return 0
-    entries = _bf_index(results_dir)
-    if not entries:
-        return 0
     restored = 0
-    for f in needy:
-        strong, weak, cweset = _bf_idents(f)
-        if not strong and not (cweset and weak):
-            continue
-        best, best_score, best_strong = None, 0, 0
-        for loc, cwe, ctx in entries:
-            ss = sum(1 for i in strong if i in ctx)
-            sw = sum(1 for i in weak if i in ctx)
-            sc = sum(1 for i in cweset if i in ctx)
-            score = 3 * ss + sc * 2 + sw
-            if score > best_score:
-                best_score, best, best_strong = score, (loc, cwe), ss
-        # Confident only when a distinctive identifier hit, or the CWE plus a
-        # keyword did — not a lone generic word.
-        confident = best and (best_strong >= 1 or (best_score >= 3 and cweset))
-        if not confident:
-            continue
-        loc, cwe = best
-        if not _bf_has_loc(f) and loc:
-            f.location = _bf_relpath(loc, repo)
-            restored += 1
-        if not _bf_has_cwe(f) and cwe:
-            f.cwe = cwe
-            restored += 1
-
-    # Last resort for any still-CWE-less finding: an unambiguous title keyword.
-    for f in needy:
-        if not _bf_has_cwe(f):
-            tc = _bf_title_cwe(f)
-            if tc:
-                f.cwe = tc
+    entries = _bf_index(results_dir)
+    if entries:
+        for f in needy:
+            strong, weak, cweset = _bf_idents(f)
+            if not strong and not (cweset and weak):
+                continue
+            best, best_score, best_strong = None, 0, 0
+            for loc, cwe, ctx in entries:
+                ss = sum(1 for i in strong if i in ctx)
+                sw = sum(1 for i in weak if i in ctx)
+                sc = sum(1 for i in cweset if i in ctx)
+                score = 3 * ss + sc * 2 + sw
+                if score > best_score:
+                    best_score, best, best_strong = score, (loc, cwe), ss
+            confident = best and (best_strong >= 1 or (best_score >= 3 and cweset))
+            if not confident:
+                continue
+            loc, cwe = best
+            if restore_location and not _bf_has_loc(f) and loc:
+                f.location = _bf_relpath(loc, repo)
                 restored += 1
+            if restore_cwe and not _bf_has_cwe(f) and cwe:
+                f.cwe = cwe
+                restored += 1
+    # Last resort for any still-CWE-less finding: an unambiguous title keyword.
+    if restore_cwe:
+        for f in needy:
+            if not _bf_has_cwe(f):
+                tc = _bf_title_cwe(f)
+                if tc:
+                    f.cwe = tc
+                    restored += 1
     return restored
 
 
@@ -965,6 +983,36 @@ def flag_duplicates(findings: List[Finding]) -> None:
         else:
             groups.setdefault(key, []).append(f)
             f.cluster_id = f.id
+    _merge_near_duplicates(findings)
+
+
+def _merge_near_duplicates(findings: List[Finding]) -> None:
+    """Second pass: collapse same-(family, file) findings that are line-proximate
+    but whose ``func:flow`` keys differ only because the model worded the flow
+    differently across multi-sample runs. Kept safe by the param-set test — two
+    findings with non-empty *disjoint* parameter sets are distinct inputs to one
+    sink (the ``q`` vs ``status`` case) and are never merged."""
+    canon = [f for f in findings if not f.duplicate_of]
+    groups: Dict[tuple, List[Finding]] = {}
+    for f in canon:
+        fam = _family(f)
+        fil = _loc_file(f.location) or _loc_file(f.data_flow)
+        if fam and fil:
+            groups.setdefault((fam, fil), []).append(f)
+    for grp in groups.values():
+        grp.sort(key=lambda x: x.id)
+        for i, a in enumerate(grp):
+            if a.duplicate_of:
+                continue
+            pa = _flow_params(a)
+            for b in grp[i + 1:]:
+                if b.duplicate_of or not _line_proximate(a, b):
+                    continue
+                pb = _flow_params(b)
+                if pa and pb and pa.isdisjoint(pb):
+                    continue   # distinct inputs to one sink — keep both
+                b.duplicate_of = a.id
+                b.cluster_id = a.id
 
 
 def rank(findings: List[Finding]) -> List[Finding]:
@@ -1208,8 +1256,8 @@ def _build_chains_safe(findings):
 def render(results_dir: Path) -> str:
     meta = load_meta(results_dir)
     findings = parse_findings(results_dir)
-    # Restore file:line the model dropped in the report, so dedup/votes/
-    # chains work (they key on location).
+    # Restore CWE + file:line the model dropped, then dedup (which keys on
+    # family:file:func).
     backfill_locations(findings, results_dir, meta.get("repo", ""))
     flag_duplicates(findings)
     apply_validation(findings, meta)
@@ -1743,8 +1791,8 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     results_dir = Path(results_dir)
     meta = load_meta(results_dir)
     findings = parse_findings(results_dir)
-    # Restore file:line the model dropped in the report, so dedup/votes/
-    # chains work (they key on location).
+    # Restore CWE + file:line the model dropped, then dedup (which keys on
+    # family:file:func).
     backfill_locations(findings, results_dir, meta.get("repo", ""))
     flag_duplicates(findings)
     apply_validation(findings, meta)

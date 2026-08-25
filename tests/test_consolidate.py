@@ -415,6 +415,24 @@ class TestBackfillLocations(unittest.TestCase):
         backfill_locations(fs, d, "")
         self.assertEqual(fs[0].cwe, "CWE-79")
 
+    def test_near_dup_same_sink_varying_flow_merges(self):
+        # Same vuln across samples, same file, close lines, flow worded differently
+        # (overlapping/empty params) — the second pass must collapse them.
+        a = Finding(id="V1", cwe="CWE-22", location="app/ops.py:116",
+                    title="Arbitrary File Write via `BASE_EXPORT / name`",
+                    data_flow="request body -> target = BASE_EXPORT / name")
+        b = Finding(id="V2", cwe="CWE-22", location="app/ops.py:117",
+                    title="Arbitrary File Write via unvalidated `name`")
+        flag_duplicates([a, b])
+        self.assertEqual(b.duplicate_of, "V1")
+
+    def test_near_dup_different_files_kept_separate(self):
+        # Five races in five files must NOT be merged just for sharing a CWE.
+        fs = [Finding(id="V%d" % i, cwe="CWE-362", location="app/r%d.py:10" % i,
+                      title="TOCTOU race") for i in range(5)]
+        flag_duplicates(fs)
+        self.assertTrue(all(f.duplicate_of is None for f in fs))
+
     def test_restored_location_enables_precise_dedup(self):
         from vhlocal.consolidate import backfill_locations
         d = self._dir("eval CWE-94 at app/ops.py:76\n")
