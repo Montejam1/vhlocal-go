@@ -754,6 +754,117 @@ def _line_proximate(a: "Finding", b: "Finding") -> bool:
     return abs(la - lb) <= _LINE_PROXIMITY
 
 
+_BF_FILELINE = re.compile(r"([\w./+\-]+\.[A-Za-z0-9]{1,6}):(\d+)")
+_BF_BT = re.compile(r"`([A-Za-z_][\w./{}()\-]{1,})`")
+_BF_ROUTE = re.compile(r"(/[A-Za-z0-9_./{}\-]{3,})")
+_BF_SNAKE = re.compile(r"\b([a-z][a-z0-9]*_[a-z0-9_]{2,})\b")
+_BF_WORD = re.compile(r"[a-z0-9]{4,}")
+_BF_STOP = {"insecure", "unrestricted", "unsafe", "improper", "missing", "via",
+            "with", "from", "endpoint", "injection", "arbitrary", "vulnerability",
+            "additional", "instance", "duplicate", "validation", "critical",
+            "attacker", "controlled", "server", "side", "request", "generation"}
+
+
+def _bf_index(results_dir) -> List[tuple]:
+    """(location, lowercased-context) per candidate block cited in the raw hunt
+    output and the 2b/3 artifacts. The hunt samples carry the file:line the model
+    drops later, so this is the source of truth. Split by markdown headers so one
+    candidate's context can't bleed into another's; the primary location is the
+    LAST file:line in the block (the sink at the end of a data-flow chain)."""
+    entries = []
+    root = Path(results_dir)
+    files = sorted((root / "results").glob("*.md")) if (root / "results").is_dir() else []
+    files += [root / n for n in ("phase2b_output.md", "phase3_output.md",
+                                 "phase2b_handoff.md", "phase3d_output.md")]
+    for p in files:
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for block in re.split(r"(?m)(?=^#)", text):
+            b = block.strip()
+            if not b:
+                continue
+            locs = _BF_FILELINE.findall(b)
+            if not locs:
+                continue
+            primary = "{0}:{1}".format(locs[-1][0], locs[-1][1])
+            entries.append((primary, b.lower()))
+    return entries
+
+
+def _bf_idents(f: "Finding"):
+    strong, weak = set(), set()
+    for src in (getattr(f, "title", ""), getattr(f, "entry_point", ""),
+                getattr(f, "data_flow", "")):
+        s = src or ""
+        for m in _BF_BT.finditer(s):
+            strong.add(m.group(1).lower().strip("()"))
+        for m in _BF_ROUTE.finditer(s):
+            strong.add(m.group(1).lower())
+        sl = s.lower()
+        for m in _BF_SNAKE.finditer(sl):
+            strong.add(m.group(1))
+        for w in _BF_WORD.findall(sl):
+            if w not in _BF_STOP:
+                weak.add(w)
+    cwe = (getattr(f, "cwe", "") or getattr(f, "normalized_cwe", "") or "")
+    cweset = set()
+    nm = re.search(r"(\d+)", cwe)
+    if nm:
+        cweset.add("cwe-" + nm.group(1))
+    return {i for i in strong if len(i) > 2}, weak, cweset
+
+
+def _bf_relpath(loc: str, repo: str) -> str:
+    """Trim an absolute path to repo-relative for a clean report location."""
+    if repo:
+        name = Path(repo).name
+        i = loc.find("/" + name + "/")
+        if i != -1:
+            return loc[i + len(name) + 2:]
+    return loc
+
+
+def backfill_locations(findings: List["Finding"], results_dir, repo: str = "") -> int:
+    """Fill each finding's missing file:line from the raw hunt/2b evidence.
+
+    The model routinely abbreviates the Phase-4 report ("the rest follow the same
+    structure"), dropping file:line for most findings — which then breaks dedup,
+    votes, and chains. The locations still exist in the hunt samples, so match each
+    location-less finding to its evidence by identifier (function/route/keyword +
+    CWE) and restore the location deterministically. Only fills on a confident
+    match — a distinctive identifier, or the CWE plus a keyword — never guesses."""
+    needy = [f for f in findings
+             if not _BF_FILELINE.search(getattr(f, "location", "") or "")]
+    if not needy:
+        return 0
+    entries = _bf_index(results_dir)
+    if not entries:
+        return 0
+    filled = 0
+    for f in needy:
+        strong, weak, cweset = _bf_idents(f)
+        if not strong and not (cweset and weak):
+            continue
+        best_loc, best_score, best_strong = None, 0, 0
+        for loc, ctx in entries:
+            ss = sum(1 for i in strong if i in ctx)
+            sw = sum(1 for i in weak if i in ctx)
+            sc = sum(1 for i in cweset if i in ctx)
+            score = 3 * ss + sc * 2 + sw
+            if score > best_score:
+                best_score, best_loc, best_strong = score, loc, ss
+        # Confident only when a distinctive identifier hit, or the CWE plus a
+        # keyword did — not a lone generic word.
+        confident = best_loc and (best_strong >= 1
+                                  or (best_score >= 3 and cweset))
+        if confident:
+            f.location = _bf_relpath(best_loc, repo)
+            filled += 1
+    return filled
+
+
 def flag_duplicates(findings: List[Finding]) -> None:
     """Cluster reports of one defect under a canonical finding.
 
@@ -1027,6 +1138,9 @@ def _build_chains_safe(findings):
 def render(results_dir: Path) -> str:
     meta = load_meta(results_dir)
     findings = parse_findings(results_dir)
+    # Restore file:line the model dropped in the report, so dedup/votes/
+    # chains work (they key on location).
+    backfill_locations(findings, results_dir, meta.get("repo", ""))
     flag_duplicates(findings)
     apply_validation(findings, meta)
     apply_knowledge(findings)
@@ -1559,6 +1673,9 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     results_dir = Path(results_dir)
     meta = load_meta(results_dir)
     findings = parse_findings(results_dir)
+    # Restore file:line the model dropped in the report, so dedup/votes/
+    # chains work (they key on location).
+    backfill_locations(findings, results_dir, meta.get("repo", ""))
     flag_duplicates(findings)
     apply_validation(findings, meta)
     apply_knowledge(findings)

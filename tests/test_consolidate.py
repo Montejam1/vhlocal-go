@@ -347,6 +347,59 @@ class TestVulnerabilityLedger(unittest.TestCase):
         self.assertEqual(bank["runs_recorded"], 1)   # not double-counted
 
 
+class TestBackfillLocations(unittest.TestCase):
+    """The model abbreviates the report and drops file:line; backfill restores it
+    from the raw hunt evidence so dedup/votes/chains work."""
+
+    def _dir(self, hunt_md):
+        d = Path(tempfile.mkdtemp())
+        (d / "results").mkdir()
+        (d / "results" / "sg-1.md").write_text(hunt_md, encoding="utf-8")
+        return d
+
+    def test_backfills_from_hunt_evidence_by_ident_and_cwe(self):
+        from vhlocal.consolidate import backfill_locations
+        d = self._dir(
+            "## eval sink\nUnsafe eval of expr — CWE-94 at backend/app/ops.py:76\n\n"
+            "## pickle\npickle.loads of untrusted bytes — CWE-502 at backend/app/ops.py:61\n")
+        fs = [Finding(id="VULN-001", title="Unrestricted `eval()` of expression", cwe="CWE-94"),
+              Finding(id="VULN-002", title="Insecure pickle deserialization", cwe="CWE-502")]
+        n = backfill_locations(fs, d, "")
+        self.assertEqual(n, 2)
+        self.assertIn("ops.py:76", fs[0].location)
+        self.assertIn("ops.py:61", fs[1].location)
+
+    def test_no_fill_without_confident_match(self):
+        from vhlocal.consolidate import backfill_locations
+        d = self._dir("some code at x.py:5\n")
+        fs = [Finding(id="V1", title="Totally unrelated thing", cwe="CWE-999")]
+        self.assertEqual(backfill_locations(fs, d, ""), 0)
+        self.assertEqual(fs[0].location, "")
+
+    def test_existing_location_not_overwritten(self):
+        from vhlocal.consolidate import backfill_locations
+        d = self._dir("eval CWE-94 at other.py:9\n")
+        fs = [Finding(id="V1", title="`eval()` sink", cwe="CWE-94", location="real.py:1")]
+        backfill_locations(fs, d, "")
+        self.assertEqual(fs[0].location, "real.py:1")
+
+    def test_repo_prefix_trimmed_to_relative(self):
+        from vhlocal.consolidate import backfill_locations
+        d = self._dir("XML External Entity — CWE-611 at /home/u/myrepo/app/x.py:42\n")
+        fs = [Finding(id="V1", title="XML External Entity injection", cwe="CWE-611")]
+        backfill_locations(fs, d, "/home/u/myrepo")
+        self.assertEqual(fs[0].location, "app/x.py:42")
+
+    def test_restored_location_enables_precise_dedup(self):
+        from vhlocal.consolidate import backfill_locations
+        d = self._dir("eval CWE-94 at app/ops.py:76\n")
+        fs = [Finding(id="V1", title="`eval()` of expr", cwe="CWE-94"),
+              Finding(id="V2", title="Unsafe `eval()` of expr (duplicate)", cwe="CWE-94")]
+        backfill_locations(fs, d, "")
+        flag_duplicates(fs)
+        self.assertEqual(fs[1].duplicate_of, "V1")   # same file:line -> collapsed
+
+
 class TestDuplicates(unittest.TestCase):
     def setUp(self):
         self.d = Path(tempfile.mkdtemp())
