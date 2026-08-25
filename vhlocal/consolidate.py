@@ -755,6 +755,17 @@ def _line_proximate(a: "Finding", b: "Finding") -> bool:
 
 
 _BF_FILELINE = re.compile(r"([\w./+\-]+\.[A-Za-z0-9]{1,6}):(\d+)")
+_BF_CWE = re.compile(r"CWE[-\s]?(\d{1,4})", re.IGNORECASE)
+# The hunt/2b artifacts reference their own scratch files (sg-1_inj.md:214,
+# phase2b_output.md, README.md); those are NOT source locations. Only real source
+# code counts as a finding location.
+_BF_DOC_EXT = {"md", "markdown", "txt", "json", "jsonl", "sarif", "html", "htm",
+               "log", "csv", "out"}
+
+
+def _bf_is_source(fpath: str) -> bool:
+    ext = fpath.rsplit(".", 1)[-1].lower() if "." in fpath else ""
+    return ext != "" and ext not in _BF_DOC_EXT
 _BF_BT = re.compile(r"`([A-Za-z_][\w./{}()\-]{1,})`")
 _BF_ROUTE = re.compile(r"(/[A-Za-z0-9_./{}\-]{3,})")
 _BF_SNAKE = re.compile(r"\b([a-z][a-z0-9]*_[a-z0-9_]{2,})\b")
@@ -785,11 +796,14 @@ def _bf_index(results_dir) -> List[tuple]:
             b = block.strip()
             if not b:
                 continue
-            locs = _BF_FILELINE.findall(b)
+            locs = [(fp, ln) for (fp, ln) in _BF_FILELINE.findall(b)
+                    if _bf_is_source(fp)]
             if not locs:
                 continue
+            cm = _BF_CWE.search(b)
+            cwe = "CWE-" + cm.group(1) if cm else ""
             primary = "{0}:{1}".format(locs[-1][0], locs[-1][1])
-            entries.append((primary, b.lower()))
+            entries.append((primary, cwe, b.lower()))
     return entries
 
 
@@ -826,43 +840,99 @@ def _bf_relpath(loc: str, repo: str) -> str:
     return loc
 
 
+# Unambiguous title-keyword -> CWE, checked in order (specific before generic).
+# A conservative last resort when the evidence block carried no CWE either.
+_BF_TITLE_CWE = [
+    ("template injection", "CWE-94"), ("ssti", "CWE-94"),
+    ("deserializ", "CWE-502"), ("pickle", "CWE-502"),
+    ("code execution", "CWE-94"), ("eval", "CWE-94"), ("code injection", "CWE-94"),
+    ("xml external", "CWE-611"), ("xxe", "CWE-611"),
+    ("sql injection", "CWE-89"), ("nosql", "CWE-943"),
+    ("command injection", "CWE-78"), ("os command", "CWE-78"),
+    ("path traversal", "CWE-22"), ("arbitrary file write", "CWE-22"),
+    ("arbitrary file read", "CWE-22"), ("directory traversal", "CWE-22"),
+    ("open redirect", "CWE-601"),
+    ("ssrf", "CWE-918"), ("server-side request", "CWE-918"),
+    ("cross-site script", "CWE-79"), ("xss", "CWE-79"),
+    ("idor", "CWE-639"), ("insecure direct object", "CWE-639"),
+    ("privilege escalation", "CWE-269"), ("priv esc", "CWE-269"),
+    ("missing authoriz", "CWE-862"), ("missing authentication", "CWE-306"),
+    ("cors", "CWE-942"),
+    ("race condition", "CWE-362"), ("toctou", "CWE-362"),
+    ("weak crypto", "CWE-327"), ("insecure crypto", "CWE-327"),
+    ("hardcoded", "CWE-798"), ("weak random", "CWE-330"),
+    ("resource exhaustion", "CWE-400"), ("denial of service", "CWE-400"),
+]
+
+
+def _bf_title_cwe(f) -> str:
+    blob = ((getattr(f, "title", "") or "") + " " +
+            (getattr(f, "data_flow", "") or "")).lower()
+    for needle, cwe in _BF_TITLE_CWE:
+        if needle in blob:
+            return cwe
+    return ""
+
+
+def _bf_has_loc(f) -> bool:
+    return bool(_BF_FILELINE.search(getattr(f, "location", "") or ""))
+
+
+def _bf_has_cwe(f) -> bool:
+    return bool((getattr(f, "cwe", "") or "").strip())
+
+
 def backfill_locations(findings: List["Finding"], results_dir, repo: str = "") -> int:
-    """Fill each finding's missing file:line from the raw hunt/2b evidence.
+    """Restore each finding's missing file:line AND CWE from the raw hunt/2b
+    evidence.
 
     The model routinely abbreviates the Phase-4 report ("the rest follow the same
-    structure"), dropping file:line for most findings — which then breaks dedup,
-    votes, and chains. The locations still exist in the hunt samples, so match each
-    location-less finding to its evidence by identifier (function/route/keyword +
-    CWE) and restore the location deterministically. Only fills on a confident
-    match — a distinctive identifier, or the CWE plus a keyword — never guesses."""
-    needy = [f for f in findings
-             if not _BF_FILELINE.search(getattr(f, "location", "") or "")]
+    structure"), dropping the file:line and/or CWE for most findings — which breaks
+    dedup, votes, chains, and the canonical-severity labelling. Both still exist in
+    the hunt samples, so match each incomplete finding to its evidence block by
+    identifier (function/route/keyword + CWE) and restore whatever's missing. Only
+    fills on a confident match — a distinctive identifier, or the CWE plus a
+    keyword — never guesses. Returns the number of fields restored."""
+    needy = [f for f in findings if not _bf_has_loc(f) or not _bf_has_cwe(f)]
     if not needy:
         return 0
     entries = _bf_index(results_dir)
     if not entries:
         return 0
-    filled = 0
+    restored = 0
     for f in needy:
         strong, weak, cweset = _bf_idents(f)
         if not strong and not (cweset and weak):
             continue
-        best_loc, best_score, best_strong = None, 0, 0
-        for loc, ctx in entries:
+        best, best_score, best_strong = None, 0, 0
+        for loc, cwe, ctx in entries:
             ss = sum(1 for i in strong if i in ctx)
             sw = sum(1 for i in weak if i in ctx)
             sc = sum(1 for i in cweset if i in ctx)
             score = 3 * ss + sc * 2 + sw
             if score > best_score:
-                best_score, best_loc, best_strong = score, loc, ss
+                best_score, best, best_strong = score, (loc, cwe), ss
         # Confident only when a distinctive identifier hit, or the CWE plus a
         # keyword did — not a lone generic word.
-        confident = best_loc and (best_strong >= 1
-                                  or (best_score >= 3 and cweset))
-        if confident:
-            f.location = _bf_relpath(best_loc, repo)
-            filled += 1
-    return filled
+        confident = best and (best_strong >= 1 or (best_score >= 3 and cweset))
+        if not confident:
+            continue
+        loc, cwe = best
+        if not _bf_has_loc(f) and loc:
+            f.location = _bf_relpath(loc, repo)
+            restored += 1
+        if not _bf_has_cwe(f) and cwe:
+            f.cwe = cwe
+            restored += 1
+
+    # Last resort for any still-CWE-less finding: an unambiguous title keyword.
+    for f in needy:
+        if not _bf_has_cwe(f):
+            tc = _bf_title_cwe(f)
+            if tc:
+                f.cwe = tc
+                restored += 1
+    return restored
 
 
 def flag_duplicates(findings: List[Finding]) -> None:

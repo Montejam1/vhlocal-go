@@ -390,6 +390,31 @@ class TestBackfillLocations(unittest.TestCase):
         backfill_locations(fs, d, "/home/u/myrepo")
         self.assertEqual(fs[0].location, "app/x.py:42")
 
+    def test_cwe_restored_from_evidence(self):
+        from vhlocal.consolidate import backfill_locations
+        d = self._dir("## eval\nUnsafe eval of expr — CWE-94 at app/ops.py:76\n")
+        fs = [Finding(id="V1", title="Unrestricted `eval()` of expression", cwe="")]
+        backfill_locations(fs, d, "")
+        self.assertEqual(fs[0].cwe, "CWE-94")
+        self.assertIn("ops.py:76", fs[0].location)
+
+    def test_md_scratch_files_never_used_as_location(self):
+        # The 2b handoff references the hunt scratch files (sg-1_inj.md:214);
+        # those must never become a finding location.
+        from vhlocal.consolidate import backfill_locations
+        d = self._dir("## IDOR\nSee sg-1_inj.md:214 — IDOR CWE-639\n")
+        fs = [Finding(id="V1", title="IDOR in `get_customer`", cwe="")]
+        backfill_locations(fs, d, "")
+        self.assertNotIn(".md:", fs[0].location or "")
+
+    def test_title_cwe_fallback_when_no_evidence_cwe(self):
+        # No CWE in the evidence block, but the title names the class.
+        from vhlocal.consolidate import backfill_locations
+        d = self._dir("## xss\nReflected content at app/views.py:5\n")
+        fs = [Finding(id="V1", title="Reflected XSS via unsafe template", cwe="")]
+        backfill_locations(fs, d, "")
+        self.assertEqual(fs[0].cwe, "CWE-79")
+
     def test_restored_location_enables_precise_dedup(self):
         from vhlocal.consolidate import backfill_locations
         d = self._dir("eval CWE-94 at app/ops.py:76\n")
