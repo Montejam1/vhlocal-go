@@ -1244,6 +1244,23 @@ def _maybe_redact(findings, meta) -> int:
         return 0
 
 
+def _sbom_summary(results_dir, meta):
+    """SBOM summary for the Application Intelligence section — from the written
+    sbom.cdx.json if present (re-render), else built fresh from the repo. Never
+    fails the report."""
+    try:
+        from .sbom import SBOM_FILE, build_sbom, summary
+        p = Path(results_dir) / SBOM_FILE
+        if p.exists():
+            return summary(json.loads(p.read_text("utf-8")))
+        repo = meta.get("repo")
+        if repo and Path(repo).is_dir():
+            return summary(build_sbom(repo))
+    except Exception:  # pragma: no cover - defensive
+        pass
+    return None
+
+
 def _build_chains_safe(findings):
     """Deterministic exploit-chain analysis; never fails the report."""
     try:
@@ -1729,6 +1746,31 @@ def render(results_dir: Path) -> str:
                     _clean(f.fix).replace("|", "\\|")[:90]))
             A("")
 
+    # ---------------- Application Intelligence ----------------
+    sbom = _sbom_summary(results_dir, meta)
+    if sbom and sbom.get("total"):
+        A("## Application Intelligence")
+        A("")
+        A("### Software Bill of Materials")
+        A("")
+        eco = ", ".join("{0} {1}".format(v, k)
+                        for k, v in sorted(sbom["by_ecosystem"].items()))
+        A("**{0}** direct dependencies across {1} ecosystem(s) ({2}). Full "
+          "CycloneDX 1.5 SBOM in `{3}`.".format(
+              sbom["total"], len(sbom["by_ecosystem"]), eco, "sbom.cdx.json"))
+        A("")
+        A("| Component | Version | Ecosystem | License |")
+        A("|---|---|---|---|")
+        for c in sbom["components"][:60]:
+            nm = ("{0}/{1}".format(c["group"], c["name"]) if c.get("group") else c["name"])
+            A("| {0} | {1} | {2} | {3} |".format(
+                _clean(nm), c.get("version") or "—", c.get("ecosystem") or "—",
+                c.get("license") or "—"))
+        if sbom["total"] > 60:
+            A("")
+            A("_…and {0} more — see `sbom.cdx.json`._".format(sbom["total"] - 60))
+        A("")
+
     # ---------------- Scan Health ----------------
     agents = meta.get("agents") or []
     incomplete = [a for a in agents
@@ -1808,6 +1850,20 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     # render() below merges the run into the vuln ledger; this call is idempotent
     # and just returns the coverage summary for the machine-readable block.
     vuln_bank = _update_bank(findings, results_dir, meta)
+
+    # Application Intelligence: write the CycloneDX SBOM before render() so the
+    # report reads it back. Deterministic, never fails the report.
+    sbom_sum = None
+    try:
+        from .sbom import write_sbom
+        ts = None
+        fin = meta.get("finished_at")
+        if isinstance(fin, (int, float)) and fin:
+            ts = _dt.datetime.utcfromtimestamp(fin).strftime("%Y-%m-%dT%H:%M:%SZ")
+        sbom_sum = write_sbom(results_dir, meta.get("repo", ""), ts)
+    except Exception as exc:  # pragma: no cover - defensive
+        import logging
+        logging.getLogger(__name__).warning("SBOM generation failed: %s", exc)
 
     report_md = render(results_dir)
     md = results_dir / SCAN_REPORT_FILE
@@ -1901,6 +1957,9 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
         "chains": chains,
         # Report-only remediation coverage (null unless the run opted in).
         "remediation": remediation_summary,
+        # Application intelligence — deterministic SBOM (+ future: architecture,
+        # threat model). Full CycloneDX is in sbom.cdx.json.
+        "application_intelligence": {"sbom": sbom_sum},
         "findings": finding_dicts,
     }, indent=2), encoding="utf-8")
 

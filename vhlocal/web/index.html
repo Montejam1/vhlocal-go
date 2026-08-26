@@ -2244,6 +2244,12 @@ function healthPanelHTML(fj) {
   if (chains.length) extra.push(`<span class="hbadge alt">⛓ ${chains.length} exploit chain${chains.length===1?'':'s'}</span>`);
   const rem = fj && fj.remediation;
   if (rem && rem.total) extra.push(`<span class="hbadge alt">🩹 ${rem.with_fix}/${rem.total} fixes proposed</span>`);
+  const ai = (fj && fj.application_intelligence) || {};
+  const sbom = ai.sbom;
+  if (sbom && sbom.total) {
+    const ecos = Object.keys(sbom.by_ecosystem || {}).length;
+    extra.push(`<span class="hbadge alt" title="${Object.entries(sbom.by_ecosystem||{}).map(([k,v])=>`${v} ${esc(k)}`).join(', ')}">📦 ${sbom.total} dep${sbom.total===1?'':'s'}${ecos>1?` · ${ecos} ecosystems`:''}</span>`);
+  }
   if ((m.hunt_samples || 1) > 1) extra.push(`<span class="hbadge alt">🗳 ${m.hunt_samples}× sampled</span>`);
   if (m.redact) extra.push(`<span class="hbadge alt">🔒 redacted</span>`);
   const spent = m.budget_spent_usd || 0, capUsd = m.max_budget_usd || 0;
@@ -2275,6 +2281,7 @@ window.openReport = async function(id) {
       has('findings.sarif') ? `<a class="fbtn" href="${fileUrl('findings.sarif')}" download="findings.sarif">SARIF 2.1.0 ↓</a>` : '',
       has('findings.json') ? `<a class="fbtn" href="${fileUrl('findings.json')}" download="findings.json">findings.json ↓</a>` : '',
       has('run_manifest.json') ? `<a class="fbtn" href="${fileUrl('run_manifest.json')}" download="run_manifest.json">Manifest ↓</a>` : '',
+      has('sbom.cdx.json') ? `<a class="fbtn" href="${fileUrl('sbom.cdx.json')}" download="sbom.cdx.json">SBOM (CycloneDX) ↓</a>` : '',
     ].filter(Boolean).join('');
     v.innerHTML = `<div class="view-head">${esc(id)}</div>
       <div style="font-family:var(--mono);font-size:11.5px;color:var(--text-3);margin-bottom:12px">${esc(d.root)}</div>
