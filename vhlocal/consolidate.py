@@ -452,6 +452,268 @@ def _drop_placeholders(findings: List[Finding]) -> List[Finding]:
     return [f for f in findings if not _is_placeholder(f)]
 
 
+# --- hunt-evidence findings (deterministic, format-robust) ------------------
+# The per-partition hunt outputs (results/sg-*.md) are the richest, most
+# reliable finding source in a run: each carries descriptive titles, a
+# ``**Class**: CWE-…`` line, a ``**Severity**`` line, and a Summary table. A
+# fast local Phase 3/4 — or a truncated one that hit ``max_turns`` — can badly
+# under-report them, so when the downstream phases are thin we parse the hunt
+# evidence directly. Two robustness demands the GLM/gpt-oss outputs impose:
+#   * heading styles vary: "### [VULN-001] t", "## 3. VULN-001 — t", "#### VULN-1: t"
+#   * Summary-table column ORDER varies ("| ID | Title | CWE | Severity |" vs
+#     "| ID | Finding | Severity | CWE |"), so the table parse is HEADER-AWARE —
+#     a position-based parse silently swaps CWE and Severity on half the files.
+
+# The class agents number findings with their own prefixes — VULN-001, but also
+# NAV-01 / LOG-03 / INJ-02 / CRED-01 — and one file can carry both a write-up
+# heading and a cross-reference index row for the same id. Recognizing every
+# prefix lets the index row MERGE into the real write-up (whose title wins)
+# instead of leaking through as a titleless fragment.
+_HUNT_ID_PREFIX = r"(?:VULN|NAV|LOG|INJ|CRED|AUTHZ|FINDING)"
+_HUNT_HDR = re.compile(
+    r"^#{2,5}\s*(?:\d+(?:\.\d+)*\.?\s+)?\[?(?P<id>" + _HUNT_ID_PREFIX + r"[-\s]?\d+)\]?"
+    r"\s*[–\-:.]*\s*(?P<title>.*)$",
+    re.IGNORECASE | re.MULTILINE)
+# Trailing "— CRITICAL" / "- HIGH" on a heading title carries the severity when
+# there is no dedicated **Severity** line (the NAV/LOG heading style).
+_TRAIL_SEV = re.compile(
+    r"\s*[—\-–:]\s*(critical|high\+?|medium|moderate|low|informational|info)\s*$",
+    re.IGNORECASE)
+# "**Class**:" and "**Class:**" (colon inside or outside the bold); same for Severity.
+_HUNT_CLASS = re.compile(r"\*\*\s*Class\s*:?\s*\*\*\s*:?\s*(?P<v>.+)", re.IGNORECASE)
+_HUNT_SEV = re.compile(r"\*\*\s*(?:Severity|Risk)\s*:?\s*\*\*\s*:?\s*(?P<v>.+)",
+                       re.IGNORECASE)
+_HUNT_LOC = re.compile(r"\*\*\s*Location[^*]*\*\*\s*:?\s*(?P<v>.+)", re.IGNORECASE)
+_FILE_LINE = re.compile(r"([\w./\-]+\.\w+)\s*:\s*(\d+(?:\s*[-–]\s*\d+)?)")
+
+# Header cell → finding column. ``id`` matches exactly (so "Finding ID" is the id,
+# not the title); the rest match as substrings. Order matters: the permissive
+# ``title`` is resolved LAST so CWE/Severity/Location claim their own cells first
+# and "Finding"/"Description" falls through to title.
+_HUNT_COL_RX = {
+    "id": re.compile(r"^(id|#|vuln(\s*id)?|finding\s*id)$", re.IGNORECASE),
+    "cwe": re.compile(r"cwe|class|category", re.IGNORECASE),
+    "severity": re.compile(r"sever|risk|impact", re.IGNORECASE),
+    "location": re.compile(r"location|file|sink|site|path|line", re.IGNORECASE),
+    "title": re.compile(r"title|finding|description|summary|issue|vulnerab|name",
+                        re.IGNORECASE),
+}
+_HUNT_COL_ORDER = ("id", "cwe", "severity", "location", "title")
+
+
+# Some agents prefix the title cell with its own severity/CWE ("High - CWE-639 -
+# Object-level IDOR …"). Strip that leading metadata so the title is just the
+# title (the severity/CWE are parsed into their own fields). Spaced separators
+# only, so a real title like "Low-level cache poisoning" is never truncated.
+_LEAD_META = re.compile(
+    r"^\s*(?:(?:critical|high\+?|medium|moderate|low|informational|info)\s+[-–—:]\s+)?"
+    r"(?:CWE[-\s]?\d+(?:\s*/\s*\d+)?\s*[-–—:]\s+)?",
+    re.IGNORECASE)
+
+
+def _strip_lead_meta(title: str) -> str:
+    return _LEAD_META.sub("", title or "").strip()
+
+
+def _norm_hunt_fid(s: str) -> str:
+    """Normalise any class-agent finding id (VULN-001, NAV-01, LOG-3, INJ-02) so a
+    write-up heading and its cross-reference index row key together."""
+    m = re.search(_HUNT_ID_PREFIX + r"\D*(\d+)", (s or "").upper())
+    if not m:
+        return (s or "").upper().strip()
+    prefix = re.match(_HUNT_ID_PREFIX, m.group(0), re.IGNORECASE).group(0).upper()
+    return "{0}{1}".format(prefix, int(m.group(1)))
+
+
+def _first_cwe(text: str) -> str:
+    m = _CWE.search(text or "")
+    return "CWE-{0}".format(m.group(1)) if m else ""
+
+
+def _first_file_line(text: str) -> str:
+    m = _FILE_LINE.search((text or "").replace("`", ""))
+    if not m:
+        return ""
+    return "{0}:{1}".format(m.group(1), re.sub(r"\s", "", m.group(2)))
+
+
+def _sev_word(text: str) -> str:
+    m = _SEV_IN_TEXT.search(text or "")
+    return m.group(1) if m else ""
+
+
+def _iter_md_tables(text: str):
+    """Yield (header_cells, [data_row_cells, ...]) for each pipe table."""
+    lines = text.splitlines()
+    i, n = 0, len(lines)
+    while i < n:
+        line = lines[i]
+        if line.lstrip().startswith("|") and i + 1 < n \
+                and _is_divider(_cells(lines[i + 1])):
+            header = _cells(line)
+            rows = []
+            j = i + 2
+            while j < n and lines[j].lstrip().startswith("|"):
+                c = _cells(lines[j])
+                if not _is_divider(c):
+                    rows.append(c)
+                j += 1
+            yield header, rows
+            i = j
+        else:
+            i += 1
+
+
+def _map_hunt_columns(header: List[str]) -> Dict[str, int]:
+    """Map role → column index by HEADER NAME (order-independent). Each header
+    cell is claimed by at most one role; ``title`` resolves last."""
+    idx: Dict[str, int] = {}
+    used: set = set()
+    for role in _HUNT_COL_ORDER:
+        rx = _HUNT_COL_RX[role]
+        for k, h in enumerate(header):
+            if k in used:
+                continue
+            hh = _clean(h)
+            if rx.search(hh) if role != "id" else rx.match(hh):
+                idx[role] = k
+                used.add(k)
+                break
+    return idx
+
+
+def _parse_hunt_table(text: str) -> Dict[str, Dict[str, str]]:
+    """Header-aware Summary-table parse → {norm_id: {title, cwe, severity, location}}.
+    Only tables that actually describe findings (a title column plus a CWE,
+    severity, or id column) are consumed — verdict/route tables are ignored."""
+    out: Dict[str, Dict[str, str]] = {}
+    for header, rows in _iter_md_tables(text):
+        idx = _map_hunt_columns(header)
+        if "title" not in idx or not ({"cwe", "severity", "id"} & set(idx)):
+            continue
+
+        def cell(role, row):
+            k = idx.get(role)
+            return row[k] if k is not None and k < len(row) else ""
+
+        for r in rows:
+            fid = _norm_hunt_fid(cell("id", r)) if "id" in idx else ""
+            if not fid:
+                continue
+            title = _clean(cell("title", r))
+            rec = out.setdefault(fid, {})
+            if title and not rec.get("title"):
+                rec["title"] = title
+            if not rec.get("cwe"):
+                rec["cwe"] = _first_cwe(cell("cwe", r)) or _first_cwe(title)
+            if not rec.get("severity"):
+                rec["severity"] = _sev_word(cell("severity", r))
+            if not rec.get("location"):
+                rec["location"] = _first_file_line(cell("location", r))
+    return out
+
+
+def _parse_hunt_blocks(text: str) -> Dict[str, Dict[str, str]]:
+    """Per-finding write-up blocks → {norm_id: {title, cwe, severity, location}},
+    from the heading title + ``**Class**``/``**Severity**``/``**Location**`` lines."""
+    out: Dict[str, Dict[str, str]] = {}
+    heads = list(_HUNT_HDR.finditer(text))
+    for i, h in enumerate(heads):
+        fid = _norm_hunt_fid(h.group("id"))
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+        block = text[h.start():end]
+        title = (h.group("title") or "").strip().strip("–-:. ")
+        # A trailing "— CRITICAL" on the heading is the severity, not the title.
+        trail = _TRAIL_SEV.search(title)
+        head_sev = trail.group(1) if trail else ""
+        if trail:
+            title = title[:trail.start()].strip()
+        title = re.sub(r"\s*\(?CWE-\d+\)?\s*$", "", title).strip()
+        cm = _HUNT_CLASS.search(block)
+        cwe = _first_cwe(cm.group("v")) if cm else ""
+        if not cwe:
+            cwe = _first_cwe(title)
+        sm = _HUNT_SEV.search(block)
+        sev = _sev_word(sm.group("v")) if sm else head_sev
+        lm = _HUNT_LOC.search(block)
+        loc = _first_file_line(lm.group("v")) if lm else ""
+        rec = out.setdefault(fid, {})
+        if title and not rec.get("title"):
+            rec["title"] = title
+        if cwe and not rec.get("cwe"):
+            rec["cwe"] = cwe
+        if sev and not rec.get("severity"):
+            rec["severity"] = sev
+        if loc and not rec.get("location"):
+            rec["location"] = loc
+    return out
+
+
+def _parse_hunt_file(path: Path) -> List[Finding]:
+    try:
+        text = normalize_text(path.read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        return []
+    blocks = _parse_hunt_blocks(text)
+    table = _parse_hunt_table(text)
+    # Block ids are the real write-ups; table-only ids (a Summary row with no
+    # block) are kept too — the block is preferred field-by-field, the table fills.
+    ids = list(blocks.keys()) + [k for k in table if k not in blocks]
+    findings: List[Finding] = []
+    for fid in ids:
+        b = blocks.get(fid, {})
+        t = table.get(fid, {})
+        sev = b.get("severity") or t.get("severity") or ""
+        rank, label = _sev_key(sev)
+        findings.append(Finding(
+            id=fid,
+            title=_strip_lead_meta(b.get("title") or t.get("title") or ""),
+            severity=label, severity_rank=rank,
+            cwe=b.get("cwe") or t.get("cwe") or "",
+            location=b.get("location") or t.get("location") or "",
+            source=path.name,
+        ))
+    return findings
+
+
+_HUNT_REF_TITLE = re.compile(
+    r"see\s*§|cross-?class.*(see|owned)|owned by\b|^\s*" + _HUNT_ID_PREFIX
+    + r"[-_ ]?\d+\s*$", re.IGNORECASE)
+
+
+def _is_hunt_noise(f: "Finding") -> bool:
+    """A hunt row that is a cross-reference pointer or a bare id-code, not a
+    finding of its own — no CWE, no location, and a title that only points
+    elsewhere. (A pointer WITH a location/CWE is kept; dedup handles the rest.)"""
+    if f.cwe or f.location:
+        return False
+    return bool(_HUNT_REF_TITLE.search(_clean(f.title).strip()))
+
+
+def _hunt_evidence_findings(results_dir: Path) -> List[Finding]:
+    """Every finding across the per-partition hunt outputs (results/sg-*.md),
+    with fresh, unique display ids. Cross-partition duplicates are left for the
+    downstream root-cause dedup (flag_duplicates) to collapse."""
+    rdir = Path(results_dir) / "results"
+    if not rdir.is_dir():
+        return []
+    found: List[Finding] = []
+    for f in sorted(rdir.glob("sg-*.md")):
+        found.extend(_parse_hunt_file(f))
+    found = [f for f in _drop_placeholders(found) if not _is_hunt_noise(f)]
+    for i, fn in enumerate(found, 1):
+        fn.id = "VULN-{0:03d}".format(i)
+    return found
+
+
+def _wellformed_count(findings: List[Finding]) -> int:
+    """Findings an analyst could act on — a real CWE and a non-weak title. The
+    signal for choosing between finding sources: a source with more well-formed
+    findings is the better report, regardless of raw row count."""
+    return sum(1 for f in findings
+               if f.cwe and not _is_weak_title(f.title, f.id))
+
+
 def parse_findings(results_dir: Path) -> List[Finding]:
     """Extract findings. Phase 2b's CONFIRMED set is authoritative for the LIST.
 
@@ -486,10 +748,25 @@ def parse_findings(results_dir: Path) -> List[Finding]:
     # 14-finding report from being replaced by a 15-finding spine full of URLs.
     RECOVERY_MARGIN = 2
     if spine and len(spine) > len(report_findings) + RECOVERY_MARGIN:
-        return spine
-    if report_findings:
-        return report_findings
-    return spine or []
+        chosen = spine
+    elif report_findings:
+        chosen = report_findings
+    else:
+        chosen = spine or []
+
+    # Hunt evidence (results/sg-*.md) is the richest, most reliable source. When
+    # the downstream phases under-reported it — a fast local consolidation, a
+    # truncated Phase 4 (max_turns), or a partial/cancelled run — the chosen set
+    # is thin or full of table fragments. Parse the hunt evidence directly and
+    # prefer it when it yields substantially more *well-formed* findings (real
+    # CWE + descriptive title). Comparing well-formed counts (not raw rows) keeps
+    # a good, complete Phase-4 report from being displaced by hunt duplicates,
+    # while rescuing a report the model mangled. Cross-partition duplicates in
+    # the hunt set collapse later in flag_duplicates.
+    hunt = _hunt_evidence_findings(results_dir)
+    if hunt and _wellformed_count(hunt) > _wellformed_count(chosen) + RECOVERY_MARGIN:
+        return hunt
+    return chosen
 
 
 def _parse_report_tables(results_dir: Path) -> List[Finding]:
