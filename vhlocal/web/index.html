@@ -529,6 +529,36 @@
   .pill.z{background:var(--ok-weak);border-color:transparent;color:var(--ok)}
   .pill.p{color:var(--warn);border-color:transparent;background:var(--warn-weak)}
 
+  /* ---- Vulnerability ledger ---- */
+  .card .path{font-family:var(--mono);font-size:11px;color:var(--text-3);
+    margin:2px 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sevrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .sevchip{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;
+    border:1px solid transparent;white-space:nowrap}
+  .sevchip.crit{background:var(--err-weak);color:var(--err);
+    border-color:color-mix(in srgb,var(--err) 40%,transparent)}
+  .sevchip.high{background:var(--err-weak);color:var(--err)}
+  .sevchip.med{background:var(--warn-weak);color:var(--warn)}
+  .sevchip.low{background:var(--accent-weak);color:var(--accent)}
+  .sevchip.info{background:var(--surface-2);color:var(--text-2);border-color:var(--line)}
+  .ledger-head{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);padding-bottom:14px}
+  .ledger-head .path{white-space:normal;word-break:break-all}
+  .ledger-stats{display:flex;gap:20px}
+  .ledger-stats>div{display:flex;flex-direction:column;align-items:center}
+  .ledger-stats b{font-size:20px;font-weight:700;color:var(--text-1);line-height:1.1}
+  .ledger-stats span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3)}
+  .tablewrap{overflow-x:auto;margin-top:12px;border:1px solid var(--line);border-radius:var(--r-sm)}
+  table.ledgertbl{border-collapse:collapse;width:100%;font-size:12.5px}
+  table.ledgertbl th{text-align:left;padding:9px 12px;background:var(--surface-2);
+    color:var(--text-2);font-weight:600;position:sticky;top:0;border-bottom:1px solid var(--line);white-space:nowrap}
+  table.ledgertbl td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.ledgertbl tr:last-child td{border-bottom:none}
+  table.ledgertbl tr:hover td{background:var(--accent-weak)}
+  table.ledgertbl td.lt{min-width:260px;max-width:520px;color:var(--text-1)}
+  table.ledgertbl td.mono{font-family:var(--mono);font-size:11px;color:var(--text-2);white-space:nowrap}
+  table.ledgertbl td.loc{max-width:220px;overflow:hidden;text-overflow:ellipsis}
+
   .empty{color:var(--text-3);padding:44px 0;text-align:center;font-size:13px}
 
   .err-box{background:var(--err-weak);border:1px solid color-mix(in srgb,var(--err) 45%,transparent);
@@ -624,6 +654,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>
       Reports</button>
+    <button id="navLedger" onclick="navigate('ledger')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/><path d="M4 8h15M8 4v17"/></svg>
+      Ledger</button>
     <button id="navDocs" onclick="navigate('docs')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -2142,6 +2176,24 @@ const VIEWS = {
     },
     unmount() {},
   },
+  ledger: {
+    nav: 'navLedger',
+    mount(el) {
+      el.innerHTML = `
+        <div class="pane-head">
+          <h2>Vulnerability ledger</h2>
+          <span style="flex:1"></span>
+          <button class="secondary" onclick="loadLedgers()">Refresh</button>
+        </div>
+        <p style="color:var(--text-2);font-size:13px;margin:2px 0 14px">
+          A persistent, per-application memory of findings across every scan —
+          deduped by root cause, tracked as open / fixed / regressed, and scored
+          by how many independent runs confirmed each one.</p>
+        <div id="ledgerBody"><div class="empty">Loading…</div></div>`;
+      loadLedgers();
+    },
+    unmount() {},
+  },
   docs: {
     nav: 'navDocs',
     mount(el) { el.innerHTML = docsHTML(); wireDocs(); },
@@ -2221,6 +2273,124 @@ window.deleteReport = async function(id, label) {
     await loadReports();
   } catch (e) {
     alert('Delete failed: ' + e.message);
+  }
+};
+
+// ---- Vulnerability ledger (per-application memory of findings) ----
+const _SEV_ORDER = ['Critical','High+','High','Medium','Moderate','Low','Informational','Info','Unrated'];
+function _sevClass(sev) {
+  const s = (sev||'').toLowerCase();
+  if (s.indexOf('critical') === 0 || s === 'high+') return 'crit';
+  if (s.indexOf('high') === 0) return 'high';
+  if (s.indexOf('med') === 0 || s.indexOf('mod') === 0) return 'med';
+  if (s.indexOf('low') === 0) return 'low';
+  return 'info';
+}
+function _sevChips(bySev) {
+  const keys = Object.keys(bySev||{}).sort((a,b)=>{
+    const ia=_SEV_ORDER.indexOf(a), ib=_SEV_ORDER.indexOf(b);
+    return (ia<0?99:ia)-(ib<0?99:ib);
+  });
+  return keys.map(k=>`<span class="sevchip ${_sevClass(k)}">${bySev[k]} ${esc(k)}</span>`).join('');
+}
+
+window.loadLedgers = async function() {
+  const body = $('ledgerBody');
+  if (!body) return;
+  try {
+    const d = await api('/api/ledgers');
+    const ls = d.ledgers || [];
+    if (!ls.length) {
+      body.innerHTML = `<div class="empty">No ledgers yet. Run a scan with the
+        <b>vulnerability ledger</b> option enabled (or with a prior report on disk)
+        and each analyzed application appears here.</div>`;
+      return;
+    }
+    body.innerHTML = '<div class="cards">' + ls.map(s => {
+      const when = s.updated ? new Date(s.updated*1000).toLocaleString() : '';
+      const statusBits = [
+        s.open ? `<span class="pill f">${s.open} open</span>` : '',
+        s.fixed ? `<span class="pill z">${s.fixed} fixed</span>` : '',
+        s.regressed ? `<span class="pill p">${s.regressed} regressed</span>` : '',
+        s.reliable ? `<span class="pill">${s.reliable} reliable</span>` : '',
+      ].filter(Boolean).join('');
+      return `<div class="card" onclick="openLedger('${esc(s.slug)}')">
+        <h3>${esc(s.target_name)}</h3>
+        <div class="path" title="${esc(s.target)}">${esc(s.target)}</div>
+        <div class="meta">
+          <span class="pill">${s.total} tracked</span>
+          <span>${s.runs_recorded} run${s.runs_recorded===1?'':'s'}</span>
+          <span>${esc(when)}</span>
+        </div>
+        <div class="meta">${statusBits}</div>
+        <div class="sevrow">${_sevChips(s.by_severity)}</div>
+      </div>`;
+    }).join('') + '</div><div id="ledgerDetail" style="margin-top:22px"></div>';
+  } catch (e) {
+    body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
+  }
+};
+
+window.openLedger = async function(slug) {
+  const host = $('ledgerDetail');
+  if (host) { host.innerHTML = '<div class="empty">Loading ledger…</div>';
+              host.scrollIntoView({behavior:'smooth', block:'start'}); }
+  try {
+    const led = await api('/api/ledgers/' + encodeURIComponent(slug));
+    const sm = led.summary || {};
+    const fs = (led.findings || []).slice().sort((a,b) => {
+      const st = (x)=> x.status==='regressed'?0 : x.status==='open'?1 : 2;
+      if (st(a)!==st(b)) return st(a)-st(b);
+      const ia=_SEV_ORDER.indexOf(a.severity), ib=_SEV_ORDER.indexOf(b.severity);
+      if (ia!==ib) return (ia<0?99:ia)-(ib<0?99:ib);
+      return (b.confirmed_count||0)-(a.confirmed_count||0);
+    });
+    const conf = (c) => {
+      const k = (c||'').toLowerCase();
+      const cls = k==='reliable'?'z' : k==='provisional'?'p' : '';
+      return c ? `<span class="pill ${cls}">${esc(c)}</span>` : '';
+    };
+    const stChip = (st) => {
+      const map = {open:'f', regressed:'p', fixed:'z'};
+      return `<span class="pill ${map[st]||''}">${esc(st||'open')}</span>`;
+    };
+    const rows = fs.map(e => `
+      <tr>
+        <td><span class="sevchip ${_sevClass(e.severity)}">${esc(e.severity||'—')}</span></td>
+        <td class="lt">${esc(e.title||'—')}</td>
+        <td class="mono">${esc(e.canonical_cwe||e.family||'—')}</td>
+        <td class="mono loc">${esc(e.location||'—')}</td>
+        <td>${stChip(e.status)}</td>
+        <td title="confirmed in ${e.confirmed_count||0} run(s)">${e.confirmed_count||0}×${e.cross_family?' <span title="confirmed across model families">⨯fam</span>':''}</td>
+        <td>${conf(e.confidence)}</td>
+      </tr>`).join('');
+    host.innerHTML = `
+      <div class="ledger-head">
+        <div>
+          <h2 style="margin:0">${esc(sm.target_name||'')}</h2>
+          <div class="path" title="${esc(sm.target||'')}">${esc(sm.target||'')}</div>
+        </div>
+        <span style="flex:1"></span>
+        <div class="ledger-stats">
+          <div><b>${sm.total||0}</b><span>tracked</span></div>
+          <div><b>${sm.open||0}</b><span>open</span></div>
+          <div><b>${sm.regressed||0}</b><span>regressed</span></div>
+          <div><b>${sm.reliable||0}</b><span>reliable</span></div>
+          <div><b>${sm.runs_recorded||0}</b><span>runs</span></div>
+        </div>
+      </div>
+      <div class="sevrow" style="margin:10px 0 4px">${_sevChips(sm.by_severity)}</div>
+      <div class="tablewrap">
+        <table class="ledgertbl">
+          <thead><tr>
+            <th>Severity</th><th>Finding</th><th>CWE</th><th>Location</th>
+            <th>Status</th><th title="how many independent runs confirmed this">Seen</th><th>Confidence</th>
+          </tr></thead>
+          <tbody>${rows || '<tr><td colspan="7" class="empty">No findings recorded.</td></tr>'}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    if (host) host.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
   }
 };
 

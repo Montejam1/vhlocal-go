@@ -302,6 +302,14 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/profiles":
             from .profiles import list_profiles
             return self._json({"profiles": list_profiles()})
+        if path == "/api/ledgers":
+            from .membank import list_ledgers
+            return self._json({"ledgers": list_ledgers()})
+        if path.startswith("/api/ledgers/"):
+            from .membank import load_ledger
+            slug = urllib.parse.unquote(path[len("/api/ledgers/"):]).rstrip("/")
+            led = load_ledger(slug)
+            return self._json(led) if led else self._err("no such ledger", 404)
         if path.startswith("/api/reports/"):
             rest = path[len("/api/reports/"):]
             parts = rest.split("/", 1)
