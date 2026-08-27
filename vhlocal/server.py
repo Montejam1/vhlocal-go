@@ -257,6 +257,10 @@ class Handler(BaseHTTPRequestHandler):
         # compared or reverted to without a file swap. See index.legacy.html.
         if path in ("/legacy", "/legacy.html"):
             return self._serve_web("index.legacy.html")
+        # The pre-Instrument interface, preserved verbatim when the UI was
+        # restyled. Same functionality, previous look. See index.classic.html.
+        if path in ("/classic", "/classic.html"):
+            return self._serve_web("index.classic.html")
         if path.startswith("/static/"):
             return self._serve_web(path[len("/static/"):])
         if path == "/api/config":

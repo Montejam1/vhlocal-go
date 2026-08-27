@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>vhlocal — VulnHunter engine</title>
+<!-- Painted by paintFavicon() so the tab icon carries live scan state. -->
+<link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3C/svg%3E">
 <!-- Set the theme before first paint to avoid a flash of the wrong palette. -->
 <script>
   try {
@@ -18,49 +20,59 @@
      explicit data-theme always wins. One accent, reserved status hues.
      =================================================================== */
   :root{
-    --bg:#0b0e14; --surface-1:#12151d; --surface-2:#171b24; --surface-3:#1e232e;
-    --line:#262c38; --line-strong:#333b4a;
-    --text-1:#e8ecf3; --text-2:#9aa4b5; --text-3:#616d80;
-    --accent:#6d8bff; --accent-strong:#5a7bff; --accent-weak:rgba(109,139,255,.15);
-    --accent-ink:#fff;
-    --ok:#46c86a; --ok-weak:rgba(70,200,106,.15);
-    --warn:#e0a72e; --warn-weak:rgba(224,167,46,.15);
-    --err:#f2635a; --err-weak:rgba(242,99,90,.14);
-    --run:#52a8ff;
-    --r-sm:8px; --r:12px; --r-lg:16px;
-    --sh-1:0 1px 2px rgba(0,0,0,.35);
-    --sh-2:0 10px 30px -10px rgba(0,0,0,.55);
+    --bg:#131920; --surface-1:#1B2229; --surface-2:#202831; --surface-3:#242D36;
+    --line:#2E3841; --line-strong:#44525E;
+    --text-1:#EAF0F4; --text-2:#A3B2BD; --text-3:#71818C;
+    --accent:#4FC3CB; --accent-strong:#7BDDE4; --accent-weak:rgba(79,195,203,.14);
+    --accent-ink:#0B1417;
+    --ok:#5BD6A0; --ok-weak:rgba(91,214,160,.14);
+    --warn:#fe9d4a; --warn-weak:rgba(254,157,74,.13);
+    --err:#ec5162; --err-weak:rgba(236,81,98,.14);
+    --run:#4FC3CB;
+    /* Severity: warm ink is reserved for what the scan found. Measured ramp —
+       min adjacent dE 30.4 normal, 15.1 worst-case colour-vision. */
+    --sev-crit:#ec5162; --sev-high:#fe9d4a; --sev-med:#ffff9d;
+    --sev-low:var(--text-2); --sev-info:var(--text-3);
+    --r-xs:3px; --r-sm:5px; --r:7px; --r-lg:10px;
+    --sh-1:0 1px 0 rgba(0,0,0,.28);
+    --sh-2:0 14px 34px -18px rgba(0,0,0,.7);
+    --duration-exit:150ms; --duration-enter:210ms;
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,
       "Inter",system-ui,sans-serif;
     color-scheme:dark;
   }
+
   @media (prefers-color-scheme: light){
     :root:not([data-theme]){
-      --bg:#eef1f6; --surface-1:#ffffff; --surface-2:#f6f8fc; --surface-3:#eaeef5;
-      --line:#e0e6ef; --line-strong:#cdd6e3;
-      --text-1:#141a24; --text-2:#55617a; --text-3:#8b95a7;
-      --accent:#3a63ff; --accent-strong:#2f56f0; --accent-weak:rgba(58,99,255,.10);
-      --ok:#1f9d4d; --ok-weak:rgba(31,157,77,.12);
-      --warn:#b07914; --warn-weak:rgba(176,121,20,.12);
-      --err:#d5453b; --err-weak:rgba(213,69,59,.10);
-      --run:#2f77e0;
-      --sh-1:0 1px 2px rgba(16,24,40,.06);
-      --sh-2:0 12px 32px -12px rgba(16,24,40,.18);
+      --bg:#EEF1F3; --surface-1:#FFFFFF; --surface-2:#F5F7F9; --surface-3:#E8ECEF;
+      --line:#DDE3E8; --line-strong:#C2CCD4;
+      --text-1:#101619; --text-2:#54636E; --text-3:#7F8E99;
+      --accent:#0E7A82; --accent-strong:#0B646B; --accent-weak:rgba(14,122,130,.10);
+      --accent-ink:#FFFFFF;
+      --ok:#127A4B; --ok-weak:rgba(18,122,75,.12);
+      --warn:#a9531e; --warn-weak:rgba(169,83,30,.12);
+      --err:#79191b; --err-weak:rgba(121,25,27,.10);
+      --run:#0E7A82;
+      --sev-crit:#79191b; --sev-high:#a9531e; --sev-med:#c28e24;
+      --sh-1:0 1px 0 rgba(16,24,40,.05);
+      --sh-2:0 14px 34px -18px rgba(16,24,40,.22);
       color-scheme:light;
     }
   }
   :root[data-theme="light"]{
-    --bg:#eef1f6; --surface-1:#ffffff; --surface-2:#f6f8fc; --surface-3:#eaeef5;
-    --line:#e0e6ef; --line-strong:#cdd6e3;
-    --text-1:#141a24; --text-2:#55617a; --text-3:#8b95a7;
-    --accent:#3a63ff; --accent-strong:#2f56f0; --accent-weak:rgba(58,99,255,.10);
-    --ok:#1f9d4d; --ok-weak:rgba(31,157,77,.12);
-    --warn:#b07914; --warn-weak:rgba(176,121,20,.12);
-    --err:#d5453b; --err-weak:rgba(213,69,59,.10);
-    --run:#2f77e0;
-    --sh-1:0 1px 2px rgba(16,24,40,.06);
-    --sh-2:0 12px 32px -12px rgba(16,24,40,.18);
+    --bg:#EEF1F3; --surface-1:#FFFFFF; --surface-2:#F5F7F9; --surface-3:#E8ECEF;
+    --line:#DDE3E8; --line-strong:#C2CCD4;
+    --text-1:#101619; --text-2:#54636E; --text-3:#7F8E99;
+    --accent:#0E7A82; --accent-strong:#0B646B; --accent-weak:rgba(14,122,130,.10);
+    --accent-ink:#FFFFFF;
+    --ok:#127A4B; --ok-weak:rgba(18,122,75,.12);
+    --warn:#a9531e; --warn-weak:rgba(169,83,30,.12);
+    --err:#79191b; --err-weak:rgba(121,25,27,.10);
+    --run:#0E7A82;
+    --sev-crit:#79191b; --sev-high:#a9531e; --sev-med:#c28e24;
+    --sh-1:0 1px 0 rgba(16,24,40,.05);
+    --sh-2:0 14px 34px -18px rgba(16,24,40,.22);
     color-scheme:light;
   }
 
@@ -88,7 +100,6 @@
     box-shadow:0 2px 10px -2px var(--accent-weak)}
   .brand .logo svg{width:18px;height:18px;color:#fff}
   .brand h1{font-size:15.5px;margin:0;letter-spacing:-.01em;font-weight:650}
-  .brand .sub{color:var(--text-3);font-size:11.5px;margin-top:1px}
   header .spacer{flex:1}
 
   .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);
@@ -593,23 +604,188 @@
   .md .mdtable tr:last-child td{border-bottom:none}
 
   .view-head{font-size:16px;font-weight:600;margin:0 0 12px;letter-spacing:-.01em}
+
+  /* =====================================================================
+     INSTRUMENT — the 2026 restyle. Appended last so it wins by cascade
+     without disturbing the layout rules above.
+
+     Two rules carry the identity:
+       1. Warm ink is reserved for what the scan FOUND. Everything the tool
+          says about itself is cool. A warm pixel always means a finding.
+       2. Prose is sans; every piece of EVIDENCE is mono — file:line, CWE
+          ids, durations, token counts, model names, paths.
+     ===================================================================== */
+
+  /* ---- masthead: flat, hairline, no gradient blob ---- */
+  header{height:54px;box-shadow:none;border-bottom:1px solid var(--line);
+    background:var(--surface-1)}
+  /* ---- the mark: unboxed, so the bracket silhouette is the shape you
+         read. Resting is all petrol — which keeps rule 1 intact: a warm
+         pixel in the mark still means the scan found something. ---- */
+  /* Single-line lockup: no tagline, so the mark and the wordmark are sized
+     against each other rather than against a two-line stack. Cap height and
+     bracket height are matched, which is what makes them sit level. */
+  .brand{margin:0;display:block}
+  .brandbtn{display:flex;align-items:center;gap:11px;appearance:none;
+    background:none;border:0;color:inherit;font:inherit;cursor:pointer;
+    padding:5px 9px;margin-left:-9px;border-radius:var(--r-sm);
+    transition:background .14s}
+  /* A logo-home button should read as clickable on approach, not sit there
+     looking like a toolbar button. The hover surface is the whole affordance. */
+  .brandbtn:hover{background:var(--surface-2)}
+  .brandbtn:active{background:var(--surface-3)}
+  .brandbtn:focus-visible{outline:none;background:var(--surface-2);
+    box-shadow:0 0 0 3px var(--accent-weak)}
+  .brand .logo{background:none;border:0;border-radius:0;box-shadow:none;
+    width:34px;height:34px;display:grid;place-items:center;flex:none}
+  .brand .logo svg{color:var(--accent);width:31px;height:31px}
+  .brand .logo svg rect{fill:currentColor;stroke:none;transition:fill .22s}
+  .brand .wm{font-size:23px;font-weight:640;letter-spacing:-.04em;line-height:1;
+    color:var(--text-1)}
+  /* "local" is the promise the product is named for — the accent says it. */
+  .brand .wm span{color:var(--accent)}
+
+  /* Live states. The front bar is the only thing that moves or changes hue;
+     the brackets are constant, so the silhouette never wobbles. */
+  .brand .logo.is-run .bf{animation:mark-pulse 1.6s ease-in-out infinite}
+  @keyframes mark-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  @media (prefers-reduced-motion:reduce){.brand .logo.is-run .bf{animation:none}}
+  .brand .logo.s-crit .bf{fill:var(--sev-crit)}
+  .brand .logo.s-high .bf{fill:var(--sev-high)}
+  .brand .logo.s-med  .bf{fill:var(--sev-med)}
+  .brand .logo.s-stop .bf{fill:var(--sev-crit)}
+  .brand .logo.s-stop .bk{fill:var(--text-3)}
+
+  .seg{border-radius:var(--r-sm);padding:2px;background:var(--surface-2)}
+  .seg button{border-radius:var(--r-xs,3px);font-weight:500;font-size:12.5px}
+  .seg button.on{background:var(--surface-1);box-shadow:none;
+    border:1px solid var(--line)}
+  .iconbtn{border-radius:var(--r-sm)}
+
+  /* ---- evidence is mono ---- */
+  .badge, .pill, .jmeta, .meta, .kvrow .v, .mval, .pdur, .stat-row .v,
+  .tile .v, .metric-card .mv, .hstat .v, .pmeta, .dlrow, .tag{
+    font-variant-numeric:tabular-nums}
+  .badge{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;
+    text-transform:uppercase;border-radius:var(--r-sm);font-weight:600}
+  .pill{font-family:var(--mono);font-variant-numeric:tabular-nums;
+    border-radius:var(--r-sm)}
+  .tag{font-family:var(--mono);border-radius:var(--r-xs,3px)}
+
+  /* ---- surfaces: hairlines, not shadows ---- */
+  .panel,.card,.metacard,.tracker-card,.metric-card,.healthcard,.promptrec,
+  .pcard,.tile,.conn-cards>*{box-shadow:none;border-radius:var(--r)}
+  .card:hover{border-color:var(--accent);box-shadow:none}
+
+  /* ---- controls ---- */
+  input,select,textarea{border-radius:var(--r-sm)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-weak)}
+  .btn{border-radius:var(--r-sm);background:var(--accent);color:var(--accent-ink);
+    font-weight:600;letter-spacing:-.005em;box-shadow:none}
+  .btn:hover{background:var(--accent-strong)}
+  .secondary{border-radius:var(--r-sm);box-shadow:none}
+
+  /* =====================================================================
+     THE PHASE SPINE — the signature mark. Segment width is real elapsed
+     time; segment fill is state. Also the run's fingerprint once finished.
+     ===================================================================== */
+  .spine{display:flex;gap:2px;align-items:stretch;height:34px;margin:2px 0 0;
+    width:100%}
+  .spine .seg{position:relative;border-radius:2px;min-width:9px;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--surface-3);border:1px solid var(--line);
+    transition:filter .15s}
+  .spine .seg:first-child{border-radius:var(--r-sm) 2px 2px var(--r-sm)}
+  .spine .seg:last-child{border-radius:2px var(--r-sm) var(--r-sm) 2px}
+  .spine .seg:hover{filter:brightness(1.18)}
+  .spine .seg-k{font-family:var(--mono);font-size:10px;font-weight:600;
+    color:var(--accent-ink);opacity:.9;pointer-events:none}
+  /* Done is settled petrol; active is brighter, ringed and sweeping, so the
+     phase currently burning time is identifiable in a still frame — not only
+     while the animation runs. */
+  .spine .seg.done{background:color-mix(in srgb,var(--accent) 62%,transparent);
+    border-color:color-mix(in srgb,var(--accent) 62%,transparent)}
+  .spine .seg.done .seg-k{color:var(--accent-ink);opacity:.75}
+  .spine .seg.active{border-color:var(--accent-strong);
+    box-shadow:inset 0 0 0 1px var(--accent-strong);
+    background:linear-gradient(90deg,var(--accent),var(--accent-strong),var(--accent));
+    background-size:220% 100%;animation:spine-sweep 1.9s linear infinite}
+  .spine .seg.active .seg-k{opacity:1;font-weight:700}
+  .spine .seg.stopped{background:var(--sev-crit);border-color:var(--sev-crit)}
+  .spine .seg.pending{background:var(--surface-3)}
+  .spine .seg.pending .seg-k{color:var(--text-3)}
+  .spine .seg.unmeasured{background:transparent;border-style:dashed}
+  .spine .seg.unmeasured .seg-k{color:var(--text-3)}
+  @keyframes spine-sweep{to{background-position:-220% 0}}
+  @media (prefers-reduced-motion:reduce){.spine .seg.active{animation:none}}
+  .spine-scale{font-family:var(--mono);font-size:10.5px;color:var(--text-3);
+    margin-left:10px;padding-left:10px;border-left:1px solid var(--line)}
+  .tracker-cap{display:flex;align-items:center;flex-wrap:wrap}
+
+  /* ---- severity: the only warm ink on screen ---- */
+  .pill.crit,.sev-crit{color:var(--sev-crit);background:var(--err-weak);
+    border-color:color-mix(in srgb,var(--sev-crit) 34%,transparent)}
+  .pill.high,.sev-high{color:var(--sev-high);background:var(--warn-weak);
+    border-color:color-mix(in srgb,var(--sev-high) 34%,transparent)}
+  .pill.med,.sev-med{color:var(--sev-med);
+    background:color-mix(in srgb,var(--sev-med) 11%,transparent);
+    border-color:color-mix(in srgb,var(--sev-med) 30%,transparent)}
+  /* Low and Informational stay cool on purpose: they are the tool ranking its
+     own output, not a hot finding. Green would read "good" — a finding never is. */
+  .pill.low{color:var(--text-2);background:transparent;border-color:var(--line-strong)}
+  .pill.info{color:var(--text-3);background:transparent;border-color:var(--line)}
+  .sevstrip{gap:6px;margin-top:8px;flex-wrap:wrap}
+  .sevstrip .pill{padding:2px 8px;font-size:11px}
+  .sevstrip .pill b{font-weight:700;font-variant-numeric:tabular-nums}
+
+  /* ---- live feed: a log is evidence ---- */
+  #feed .ev{font-family:var(--mono);font-size:11.5px}
+  #feed .ev .tag{font-weight:600;letter-spacing:.06em}
+
+  /* =====================================================================
+     View transitions. Lateral tab-to-tab navigation gets a fade — never a
+     directional slide, which would imply a spatial depth that isn't there.
+     Browsers without the API skip this entirely.
+     ===================================================================== */
+  @keyframes vt-fade{from{opacity:0;filter:blur(3px)}to{opacity:1;filter:blur(0)}}
+  ::view-transition-old(vh-pane){
+    animation:var(--duration-exit) ease-in both vt-fade reverse}
+  ::view-transition-new(vh-pane){
+    animation:var(--duration-enter) ease-out var(--duration-exit) both vt-fade}
+  .pane{view-transition-name:vh-pane}
+  @media (prefers-reduced-motion:reduce){
+    ::view-transition-old(vh-pane),::view-transition-new(vh-pane){animation:none}
+  }
+
 </style>
 </head>
 <body>
 <header>
-  <div class="brand">
-    <span class="logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 3l7 3v5c0 4.4-3 8.3-7 10-4-1.7-7-5.6-7-10V6l7-3z"/>
-        <path d="M9.5 12.5l1.8 1.8 3.5-3.7"/>
-      </svg>
-    </span>
-    <div>
-      <h1>vhlocal</h1>
-      <div class="sub">VulnHunter engine · local models only</div>
-    </div>
-  </div>
+  <!-- The lockup is the dashboard button. Kept inside the <h1> so the page
+       still has its one top-level heading, and built from a real <button> so
+       Enter/Space and focus come from the platform rather than a handler. -->
+  <h1 class="brand">
+    <button type="button" class="brandbtn" onclick="navigate('home')"
+            title="Dashboard" aria-label="vhlocal — go to the dashboard">
+      <!-- THE MARK. Citation brackets holding two proportional bars — the two
+           rules of the design language in one glyph: evidence is bracketed,
+           measurement is proportional. The front bar is a live readout, so the
+           mark reports rather than decorates. See setMark(). -->
+      <span class="logo" id="brandMark" title="idle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"
+             stroke-linecap="round" stroke-linejoin="round" role="img"
+             aria-labelledby="brandMarkTitle">
+          <title id="brandMarkTitle">vhlocal</title>
+          <path d="M7.8 3.2H3.4v17.6h4.4"/>
+          <path d="M16.2 3.2h4.4v17.6h-4.4"/>
+          <rect class="bk" x="9.4" y="9.4" width="2.4" height="5.2" rx="1.2"/>
+          <rect class="bf" x="13.2" y="6.6" width="2.4" height="10.8" rx="1.2"/>
+        </svg>
+      </span>
+      <span class="wm">vh<span>local</span></span>
+    </button>
+  </h1>
   <span class="spacer"></span>
   <nav class="seg" role="tablist" aria-label="Primary">
     <button id="navHome" class="on" onclick="navigate('home')">
@@ -816,6 +992,8 @@
     const next = eff === 'dark' ? 'light' : 'dark';
     root.setAttribute('data-theme', next);
     try { localStorage.setItem('vhlocal.theme', next); } catch (e) {}
+    // The favicon is baked from token values, so it has to be re-baked.
+    if (typeof paintFavicon === 'function') paintFavicon();
   });
 })();
 
@@ -907,6 +1085,9 @@ async function api(path, opts) {
 }
 
 async function boot() {
+  // Paint the mark before the first await — boot talks to model backends that
+  // can be slow, and the tab should not sit on a blank icon meanwhile.
+  paintFavicon();
   CFG = await api('/api/config');
   $('rootHint').textContent = CFG.allow_roots.length === 1
     ? 'Allowed root: ' + CFG.allow_roots[0]
@@ -920,6 +1101,7 @@ async function boot() {
   toggleMulti();                     // per-phase overrides hidden until toggled
   loadProfiles();                    // scan-config presets
   await refresh();
+  refreshMarkSeverity();             // gives the mark its severity readout
   navigate('home');
   setInterval(refresh, 4000);
 }
@@ -1582,12 +1764,99 @@ function wireSettings(){
   renderEngineInfo();
 }
 
+/* =====================================================================
+   THE MARK AS A READOUT
+   The front bar carries state. It only ever shows a colour it can justify:
+   severity comes from the newest report's own `severities` counts, so the
+   mark never claims a severity nobody measured. When no report has been
+   read yet, the mark rests petrol rather than guessing.
+   ===================================================================== */
+const MARK = {run: false, sev: '', label: 'idle'};
+const SEV_VAR = {crit: '--sev-crit', high: '--sev-high',
+                 med: '--sev-med', stop: '--sev-crit'};
+
+function setMark(next) {
+  Object.assign(MARK, next);
+  const el = $('brandMark');
+  if (!el) return;
+  el.classList.toggle('is-run', !!MARK.run);
+  Object.keys(SEV_VAR).forEach(k => el.classList.toggle('s-' + k, MARK.sev === k));
+  el.title = MARK.label;
+  const t = $('brandMarkTitle');
+  if (t) t.textContent = 'vhlocal — ' + MARK.label;
+  document.title = MARK.run ? 'scanning · vhlocal' : 'vhlocal — VulnHunter engine';
+  paintFavicon();
+}
+
+// The favicon is the same geometry with the same state, so a background tab
+// reports too. Colours are read from the live tokens, so it follows the theme.
+function paintFavicon() {
+  const link = $('favicon');
+  if (!link) return;
+  const cs = getComputedStyle(document.documentElement);
+  const tok = (v, fb) => (cs.getPropertyValue(v) || '').trim() || fb;
+  const accent = tok('--accent', '#4FC3CB');
+  const front = MARK.sev ? tok(SEV_VAR[MARK.sev], accent) : accent;
+  const svg =
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' " +
+    "stroke='" + accent + "' stroke-width='2.8' stroke-linecap='round' " +
+    "stroke-linejoin='round'>" +
+    "<path d='M7.8 3.2H3.4v17.6h4.4'/><path d='M16.2 3.2h4.4v17.6h-4.4'/>" +
+    "<rect x='9.4' y='9.4' width='2.4' height='5.2' rx='1.2' fill='" +
+    (MARK.sev === 'stop' ? tok('--text-3', '#71818C') : accent) + "' stroke='none'/>" +
+    "<rect x='13.2' y='6.6' width='2.4' height='10.8' rx='1.2' fill='" +
+    front + "' stroke='none'/></svg>";
+  link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+
+// Highest severity actually counted in the newest report. Returns '' when
+// there is nothing to report — never a default colour.
+function markSeverityFromReports(list) {
+  const r = (list || [])[0];
+  if (!r || !r.severities) return {sev: '', label: ''};
+  const n = k => Number(r.severities[k] || 0);
+  // Same order and same key-to-class mapping as severityStrip(), including
+  // the combined 'high+' bucket — the mark must not disagree with the chips.
+  const steps = [['crit', 'critical'], ['crit', 'high+'],
+                 ['high', 'high'], ['med', 'medium']];
+  for (const [key, name] of steps) {
+    if (n(name) > 0) {
+      return {sev: key, label: 'latest report: ' + n(name) + ' ' + name};
+    }
+  }
+  const total = Number(r.findings || 0);
+  return {sev: '', label: total ? 'latest report: ' + total + ' findings' : 'latest report: no findings'};
+}
+
+async function refreshMarkSeverity() {
+  try {
+    const d = await api('/api/reports');
+    const m = markSeverityFromReports(d.reports);
+    if (!MARK.run) setMark(m);
+    else Object.assign(MARK, m);   // stash; applied when the run ends
+  } catch (e) { /* the mark simply stays at rest */ }
+}
+
+let _wasBusy = null;
+
 async function refresh() {
   const d = await api('/api/scans');
   jobs = d.jobs;
   const busy = $('busy');
   busy.textContent = d.busy ? 'scanning' : 'idle';
   busy.classList.toggle('live', !!d.busy);
+  // The newest job is jobs[0] — the store sorts by creation, descending.
+  const newest = jobs[0];
+  if (d.busy) {
+    setMark({run: true, sev: '', label: 'scanning'});
+  } else if (newest && ['error', 'stopped'].includes(newest.status)) {
+    setMark({run: false, sev: 'stop', label: 'last scan ' + newest.status});
+  } else {
+    setMark({run: false, sev: MARK.sev, label: MARK.label === 'scanning' ? 'idle' : MARK.label});
+  }
+  // A run just finished: the newest report is new, so re-read severity.
+  if (_wasBusy && !d.busy) refreshMarkSeverity();
+  _wasBusy = !!d.busy;
   renderJobs();
   // Only repaint the detail pane when the scans view actually owns it.
   if (view === 'scans' && sel) {
@@ -1703,6 +1972,82 @@ function phaseTracker(j){
   </div>`;
 }
 
+// ---------------------------------------------------------------------------
+// The phase spine. Segment width is real elapsed time, segment fill is state.
+// A run where phase 2 ate 26 of 28 minutes must look like that — six equal
+// tabs would be a lie of layout. Phases with no measurement yet are drawn as
+// narrow fixed ticks so that "unknown" never masquerades as "equal".
+// ---------------------------------------------------------------------------
+function phaseSpine(j){
+  const all = (CFG && Array.isArray(CFG.phases)) ? CFG.phases : [];
+  if (!all.length) return '';
+  let steps = all.slice();
+  const raw = String((j.spec && j.spec.phases) || 'all').trim();
+  if (raw && raw !== 'all') {
+    const keys = raw.split(',').map(s => s.trim());
+    const sub = all.filter(p => keys.includes(p.key));
+    if (sub.length) steps = sub;
+  }
+  const short = p => String(p.title || p.key).split(' — ')[0].split(',')[0].trim();
+  const curKey = j.phase ? String(j.phase).split(' — ')[0].trim() : null;
+  const curIndex = curKey ? steps.findIndex(p => p.key === curKey) : -1;
+  const isDone = j.status === 'done';
+  const stopped = ['failed','interrupted','cancelled'].includes(j.status);
+
+  const secsFor = (key, state) => {
+    if (typeof PHASE_T.secs[key] === 'number') return PHASE_T.secs[key];
+    if (state === 'active' && PHASE_T.startTs[key])
+      return Math.max(0, (Date.now()/1000) - PHASE_T.startTs[key]);
+    return null;
+  };
+
+  const rows = steps.map((p, i) => {
+    let state;
+    if (isDone) state = 'done';
+    else if (curIndex === -1) state = (j.status === 'running' && i === 0) ? 'active' : 'pending';
+    else if (i < curIndex) state = 'done';
+    else if (i === curIndex) state = stopped ? 'stopped' : 'active';
+    else state = 'pending';
+    return { p, state, secs: secsFor(p.key, state) };
+  });
+
+  const measured = rows.filter(r => r.secs != null && r.secs > 0);
+  const total = measured.reduce((a, r) => a + r.secs, 0);
+  const anyMeasured = measured.length > 0 && total > 0;
+
+  const segs = rows.map(r => {
+    // Measured phases share the bar in proportion; unmeasured ones take a
+    // fixed narrow basis and are marked so the difference is legible.
+    const flex = (r.secs != null && r.secs > 0 && anyMeasured)
+      ? `flex:${(r.secs / total * 100).toFixed(4)} 1 0;`
+      : 'flex:0 0 26px;';
+    const dur = r.secs != null ? fmtDur(r.secs) : 'not started';
+    const cls = 'seg ' + r.state + (r.secs == null ? ' unmeasured' : '');
+    return `<div class="${cls}" style="${flex}"
+      title="${esc(short(r.p))} — phase ${esc(r.p.key)} · ${esc(dur)}">
+      <span class="seg-k">${esc(r.p.key)}</span></div>`;
+  }).join('');
+
+  let caption;
+  if (isDone) caption = 'All phases complete';
+  else if (stopped) caption = curKey ? `Stopped during phase ${esc(curKey)}` : 'Stopped before starting';
+  else if (curIndex >= 0) caption = `Phase ${esc(curKey)} — ${esc(short(steps[curIndex]))}`
+      + (j.agent_total ? ` · agent ${j.agent_index}/${j.agent_total}` : '');
+  else caption = j.status === 'queued' ? 'Queued…' : 'Starting…';
+
+  const pct = j.agent_total ? Math.round(100 * j.agent_index / j.agent_total) : 0;
+  const showBar = !isDone && !stopped && j.agent_total;
+  const scale = anyMeasured
+    ? `<span class="spine-scale">width = elapsed · ${esc(fmtDur(total))} measured</span>`
+    : `<span class="spine-scale">no phase timings yet — widths are not to scale</span>`;
+
+  return `<div class="tracker-card">
+    <div class="spine">${segs}</div>
+    <div class="tracker-cap">${caption}${scale}</div>
+    ${showBar ? `<div class="prog"><i style="width:${pct}%"></i></div>` : ''}
+  </div>`;
+}
+
 function renderDetail(el, j) {
   const running = j.status === 'running' || j.status === 'queued';
   // Interrupted / cancelled / failed scans that got far enough to have a results
@@ -1728,7 +2073,7 @@ function renderDetail(el, j) {
       phases that already completed.</div>` : ''}
     ${j.error ? `<div class="err-box" style="margin-top:12px">${esc(j.error)}</div>` : ''}
     ${statTiles(j)}
-    ${phaseTracker(j)}
+    ${phaseSpine(j)}
     <div class="metacard"><table>
       <tr><th>Model</th><td>${esc(j.spec.model)}${j.spec.verify_model?` · verify: ${esc(j.spec.verify_model)}`:''}</td></tr>
       <tr><th>Phase</th><td>${esc(j.phase || '—')}</td></tr>
@@ -1799,6 +2144,9 @@ function closeStream() {
 function openStream(id) {
   closeStream();
   window._feedCache = '';
+  // The spine is drawn from real elapsed time, so it is rebuilt from the event
+  // replay (offset=0) every time a scan is opened — including finished ones.
+  PHASE_T = { secs: {}, startTs: {}, order: [] };
   es = new EventSource('/api/scans/' + id + '/events?offset=0');
   es.onmessage = (m) => {
     let ev; try { ev = JSON.parse(m.data); } catch { return; }
@@ -1812,7 +2160,19 @@ function openStream(id) {
   es.onerror = () => { /* server closes on job_end; polling keeps state fresh */ };
 }
 
+// Per-phase elapsed time, harvested from the event stream. phase_done carries
+// the authoritative `seconds`; a phase still running is measured from its
+// phase_start `ts`. Nothing here is estimated — an unmeasured phase stays
+// unmeasured rather than being given an invented width.
+let PHASE_T = { secs: {}, startTs: {}, order: [] };
+
 function appendEvent(ev) {
+  if (ev.type === 'phase_start' && ev.key != null) {
+    if (!PHASE_T.order.includes(ev.key)) PHASE_T.order.push(ev.key);
+    if (ev.ts) PHASE_T.startTs[ev.key] = ev.ts;
+  } else if (ev.type === 'phase_done' && ev.key != null) {
+    if (typeof ev.seconds === 'number') PHASE_T.secs[ev.key] = ev.seconds;
+  }
   let cls = '', tag = ev.type, text = '';
   if (ev.type === 'phase_start') { cls='phase'; tag='PHASE'; text = ev.key + ' — ' + ev.title; }
   else if (ev.type === 'agent_start') { cls='agent'; tag='AGENT'; text = `${ev.label} [${ev.index}/${ev.total}] via ${ev.model}`; }
@@ -2157,6 +2517,19 @@ const VIEWS = {
 let view = 'scans';
 
 window.navigate = function(name, opts) {
+  // Lateral navigation gets a cross-fade where the browser supports view
+  // transitions, and nothing at all where it doesn't. The swap itself is
+  // identical either way — the transition only wraps it.
+  const run = () => navigateNow(name, opts);
+  if (document.startViewTransition &&
+      !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.startViewTransition(run);
+  } else {
+    run();
+  }
+};
+
+function navigateNow(name, opts) {
   const next = VIEWS[name] ? name : 'scans';
   const el = $('view');
   // Always tear down first — re-navigating to the current view (e.g. picking a
@@ -2173,10 +2546,34 @@ window.navigate = function(name, opts) {
   });
   el.innerHTML = '';
   VIEWS[next].mount(el, opts || {});
-};
+}
 
 // Back-compat for any older call sites.
 window.setView = function(v) { navigate(v); };
+
+// Severity breakdown. The API has always returned `severities`; showing it is
+// what gives the measured warm ramp something to do. Zero-count severities are
+// omitted rather than drawn as empty chips — an absent class is not a finding
+// of zero, it is silence, and the two should not look alike.
+function severityStrip(sevs){
+  if (!sevs || typeof sevs !== 'object') return '';
+  const ORDER = [
+    ['critical', 'crit', 'Critical'],
+    ['high+',    'crit', 'High+'],
+    ['high',     'high', 'High'],
+    ['medium',   'med',  'Medium'],
+    ['low',      'low',  'Low'],
+    ['informational', 'info', 'Info'],
+  ];
+  const chips = ORDER.map(([key, cls, label]) => {
+    const n = Number(sevs[key] || 0);
+    if (!n) return '';
+    return `<span class="pill ${cls}" title="${esc(label)}">`
+      + `<b>${n}</b> ${esc(label.toLowerCase())}</span>`;
+  }).filter(Boolean);
+  if (!chips.length) return '';
+  return `<div class="meta sevstrip">${chips.join('')}</div>`;
+}
 
 window.loadReports = async function() {
   const body = $('reportsBody');
@@ -2193,6 +2590,7 @@ window.loadReports = async function() {
         ? `<span class="pill ${r.findings ? 'f' : 'z'}">${r.findings} finding${r.findings===1?'':'s'}</span>`
         : `<span class="pill p">incomplete</span>`;
       const label = (r.repo || r.name || '').replace(/'/g, "\\'");
+      const sev = severityStrip(r.severities);
       return `<div class="card" onclick="openReport('${esc(r.id)}')">
         <button class="delbtn" title="Delete this report"
           onclick="event.stopPropagation();deleteReport('${esc(r.id)}','${esc(label)}')">🗑</button>
@@ -2202,6 +2600,7 @@ window.loadReports = async function() {
           <span>${esc(r.model||'')}</span>
           <span>${esc(when)}</span>
         </div>
+        ${sev}
         <div class="meta">
           ${r.has_consolidated ? '<span class="pill">report</span>' : ''}
           <span>phases ${esc((r.phases_present||[]).join(', ') || '—')}</span>

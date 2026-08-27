@@ -1,0 +1,2381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vhlocal — VulnHunter engine</title>
+<!-- Set the theme before first paint to avoid a flash of the wrong palette. -->
+<script>
+  try {
+    var t = localStorage.getItem('vhlocal.theme');
+    if (t) document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+</script>
+<style>
+  /* ===================================================================
+     Design tokens. Dark is the default (this is a developer tool); light
+     applies via the OS query when no explicit choice is stored, and an
+     explicit data-theme always wins. One accent, reserved status hues.
+     =================================================================== */
+  :root{
+    --bg:#0b0e14; --surface-1:#12151d; --surface-2:#171b24; --surface-3:#1e232e;
+    --line:#262c38; --line-strong:#333b4a;
+    --text-1:#e8ecf3; --text-2:#9aa4b5; --text-3:#616d80;
+    --accent:#6d8bff; --accent-strong:#5a7bff; --accent-weak:rgba(109,139,255,.15);
+    --accent-ink:#fff;
+    --ok:#46c86a; --ok-weak:rgba(70,200,106,.15);
+    --warn:#e0a72e; --warn-weak:rgba(224,167,46,.15);
+    --err:#f2635a; --err-weak:rgba(242,99,90,.14);
+    --run:#52a8ff;
+    --r-sm:8px; --r:12px; --r-lg:16px;
+    --sh-1:0 1px 2px rgba(0,0,0,.35);
+    --sh-2:0 10px 30px -10px rgba(0,0,0,.55);
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,
+      "Inter",system-ui,sans-serif;
+    color-scheme:dark;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme]){
+      --bg:#eef1f6; --surface-1:#ffffff; --surface-2:#f6f8fc; --surface-3:#eaeef5;
+      --line:#e0e6ef; --line-strong:#cdd6e3;
+      --text-1:#141a24; --text-2:#55617a; --text-3:#8b95a7;
+      --accent:#3a63ff; --accent-strong:#2f56f0; --accent-weak:rgba(58,99,255,.10);
+      --ok:#1f9d4d; --ok-weak:rgba(31,157,77,.12);
+      --warn:#b07914; --warn-weak:rgba(176,121,20,.12);
+      --err:#d5453b; --err-weak:rgba(213,69,59,.10);
+      --run:#2f77e0;
+      --sh-1:0 1px 2px rgba(16,24,40,.06);
+      --sh-2:0 12px 32px -12px rgba(16,24,40,.18);
+      color-scheme:light;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#eef1f6; --surface-1:#ffffff; --surface-2:#f6f8fc; --surface-3:#eaeef5;
+    --line:#e0e6ef; --line-strong:#cdd6e3;
+    --text-1:#141a24; --text-2:#55617a; --text-3:#8b95a7;
+    --accent:#3a63ff; --accent-strong:#2f56f0; --accent-weak:rgba(58,99,255,.10);
+    --ok:#1f9d4d; --ok-weak:rgba(31,157,77,.12);
+    --warn:#b07914; --warn-weak:rgba(176,121,20,.12);
+    --err:#d5453b; --err-weak:rgba(213,69,59,.10);
+    --run:#2f77e0;
+    --sh-1:0 1px 2px rgba(16,24,40,.06);
+    --sh-2:0 12px 32px -12px rgba(16,24,40,.18);
+    color-scheme:light;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text-1);
+    font:14px/1.55 var(--sans);-webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;overflow:hidden}
+  ::selection{background:var(--accent-weak)}
+
+  /* Scrollbars — thin, recessive, themed. */
+  *{scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+  *::-webkit-scrollbar{width:10px;height:10px}
+  *::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px;
+    border:3px solid transparent;background-clip:content-box}
+  *::-webkit-scrollbar-thumb:hover{background:var(--text-3)}
+
+  /* ---------------- header ---------------- */
+  header{display:flex;align-items:center;gap:14px;padding:0 20px;height:58px;
+    flex:none;border-bottom:1px solid var(--line);background:var(--surface-1);
+    box-shadow:var(--sh-1);z-index:10}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .brand .logo{width:30px;height:30px;flex:none;display:grid;place-items:center;
+    border-radius:9px;background:linear-gradient(150deg,var(--accent),var(--accent-strong));
+    box-shadow:0 2px 10px -2px var(--accent-weak)}
+  .brand .logo svg{width:18px;height:18px;color:#fff}
+  .brand h1{font-size:15.5px;margin:0;letter-spacing:-.01em;font-weight:650}
+  .brand .sub{color:var(--text-3);font-size:11.5px;margin-top:1px}
+  header .spacer{flex:1}
+
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:999px;padding:3px;gap:2px}
+  .seg button{appearance:none;border:none;background:none;cursor:pointer;
+    font:inherit;font-size:12.5px;font-weight:550;color:var(--text-2);
+    padding:6px 15px;border-radius:999px;display:inline-flex;align-items:center;
+    gap:7px;transition:.15s;line-height:1}
+  .seg button:hover{color:var(--text-1)}
+  .seg button.on{background:var(--surface-1);color:var(--text-1);
+    box-shadow:var(--sh-1)}
+  .seg button svg{width:14px;height:14px}
+
+  .iconbtn{appearance:none;width:34px;height:34px;flex:none;border-radius:9px;
+    border:1px solid var(--line);background:var(--surface-2);color:var(--text-2);
+    cursor:pointer;display:grid;place-items:center;transition:.15s}
+  .iconbtn:hover{color:var(--text-1);border-color:var(--line-strong);
+    background:var(--surface-3)}
+  .iconbtn svg{width:16px;height:16px}
+  .sun{display:none} .moon{display:block}
+  :root[data-theme="light"] .sun{display:block}
+  :root[data-theme="light"] .moon{display:none}
+
+  .badge{font-size:11px;font-weight:600;padding:5px 11px 5px 9px;border-radius:999px;
+    border:1px solid var(--line);color:var(--text-2);background:var(--surface-2);
+    display:inline-flex;align-items:center;gap:7px;letter-spacing:.01em}
+  .badge::before{content:"";width:7px;height:7px;border-radius:50%;
+    background:var(--text-3)}
+  .badge.live{color:var(--run);border-color:color-mix(in srgb,var(--run) 40%,var(--line));
+    background:color-mix(in srgb,var(--run) 12%,transparent)}
+  .badge.live::before{background:var(--run);animation:pulse 1.3s infinite}
+  @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 color-mix(in srgb,var(--run) 55%,transparent)}
+    70%{opacity:.6;box-shadow:0 0 0 5px transparent}}
+
+  /* ---------------- layout ---------------- */
+  main{flex:1;min-height:0;display:grid;grid-template-columns:372px 1fr}
+  @media (max-width:920px){
+    body{overflow:auto} main{grid-template-columns:1fr}
+  }
+  .side{border-right:1px solid var(--line);background:var(--surface-1);
+    display:flex;flex-direction:column;min-height:0}
+  .sidescroll{flex:1;overflow-y:auto;min-height:0}
+  .pane{overflow-y:auto;padding:22px 26px;min-height:0}
+  @media (max-width:920px){ .pane{height:auto} .side{border-right:none;
+    border-bottom:1px solid var(--line)} }
+
+  section{padding:18px 18px;border-bottom:1px solid var(--line)}
+  .side h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;
+    color:var(--text-3);margin:0 0 4px;font-weight:700;display:flex;
+    align-items:center;gap:8px}
+  .side h2 .count{margin-left:auto;font-size:10.5px;font-weight:600;
+    color:var(--text-2);background:var(--surface-3);border-radius:999px;
+    padding:1px 8px;letter-spacing:0}
+
+  /* ---------------- form controls ---------------- */
+  label{display:block;font-size:12px;color:var(--text-2);margin:13px 0 5px;
+    font-weight:550}
+  label:first-of-type{margin-top:2px}
+  input,select,button,textarea{font:inherit}
+  input[type=text],input:not([type]),input[type=number],select{
+    color:var(--text-1);background:var(--surface-2);border:1px solid var(--line);
+    border-radius:var(--r-sm);padding:9px 11px;width:100%;transition:.15s}
+  input::placeholder{color:var(--text-3)}
+  input:hover,select:hover{border-color:var(--line-strong)}
+  input:focus,select:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-weak)}
+  select{appearance:none;cursor:pointer;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa4b5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat:no-repeat;background-position:right 10px center;padding-right:34px}
+
+  button{cursor:pointer;border:none;border-radius:var(--r-sm)}
+  .btn{background:var(--accent);color:var(--accent-ink);font-weight:600;
+    padding:11px 16px;width:100%;font-size:13.5px;display:inline-flex;
+    align-items:center;justify-content:center;gap:8px;transition:.15s;
+    box-shadow:0 1px 0 rgba(0,0,0,.04)}
+  .btn:hover{background:var(--accent-strong);box-shadow:var(--sh-2)}
+  .btn:active{transform:translateY(1px)}
+  .btn svg{width:16px;height:16px}
+  button.secondary{background:var(--surface-2);color:var(--text-1);
+    border:1px solid var(--line);font-weight:550;padding:8px 13px;width:auto;
+    transition:.15s}
+  button.secondary:hover{border-color:var(--line-strong);background:var(--surface-3)}
+  button:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
+
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .hint{font-size:11px;color:var(--text-3);margin-top:5px;line-height:1.45}
+  .hint code,.mono{font-family:var(--mono)}
+
+  /* toggle switch — a styled checkbox; JS still reads .checked */
+  /* model-mode radio pills */
+  .radios{display:flex;gap:7px;flex-wrap:wrap;margin:2px 0 10px}
+  .ropt{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;cursor:pointer;
+    font-size:12.5px;font-weight:550;border:1px solid var(--line);border-radius:999px;
+    background:var(--surface-2);color:var(--text-2);transition:.15s;user-select:none}
+  .ropt:hover{border-color:var(--line-strong);color:var(--text-1)}
+  .ropt input{width:auto;margin:0;accent-color:var(--accent)}
+  .ropt:has(input:checked){border-color:var(--accent);color:var(--accent);
+    background:var(--accent-weak)}
+  .ph{font-weight:400;color:var(--text-3);font-size:11px;text-transform:none;
+    margin-left:4px}
+  /* "Multiple models" toggle — a full-width pill under the model */
+  .multi-btn{display:flex;width:100%;justify-content:flex-start}
+  .multi-btn:has(input:checked){border-color:var(--accent);color:var(--accent);
+    background:var(--accent-weak)}
+  .switch-row{display:flex;align-items:center;gap:12px;margin:0;padding:9px 0;
+    cursor:pointer;font-weight:400}
+  .switch-row + .switch-row{border-top:1px solid var(--line)}
+  .switch-txt{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .switch-txt b{font-size:12.5px;font-weight:550;color:var(--text-1)}
+  .switch-txt small{font-size:11px;color:var(--text-3);line-height:1.4}
+  .switch{position:relative;flex:none;width:40px;height:23px;margin-left:auto}
+  .switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:2}
+  .switch .track{position:absolute;inset:0;border-radius:999px;
+    background:var(--surface-3);border:1px solid var(--line);transition:.18s}
+  .switch .track::after{content:"";position:absolute;top:2px;left:2px;width:17px;
+    height:17px;border-radius:50%;background:var(--text-2);transition:.18s;
+    box-shadow:var(--sh-1)}
+  .switch input:checked + .track{background:var(--accent);border-color:var(--accent)}
+  .switch input:checked + .track::after{transform:translateX(17px);background:#fff}
+  .switch input:focus-visible + .track{box-shadow:0 0 0 3px var(--accent-weak)}
+
+  /* square-checkbox opt-in (Vulnerability Ledger) */
+  .ledger-row{display:flex;align-items:center;gap:11px;margin-top:14px;padding:11px 13px;
+    cursor:pointer;border:1px solid var(--line);border-radius:var(--r);
+    background:var(--surface-2)}
+  .ledger-row input{flex:none;-webkit-appearance:none;appearance:none;margin:0;
+    width:19px;height:19px;border-radius:5px;border:1.5px solid var(--line);
+    background:var(--surface-3);cursor:pointer;position:relative;transition:.15s}
+  .ledger-row input:checked{background:var(--accent);border-color:var(--accent)}
+  .ledger-row input:checked::after{content:"";position:absolute;left:6px;top:2px;
+    width:4px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .ledger-row input:focus-visible{box-shadow:0 0 0 3px var(--accent-weak)}
+  .ledger-txt{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .ledger-txt b{font-size:12.5px;font-weight:550;color:var(--text-1)}
+  .ledger-txt small{font-size:11px;color:var(--text-3);line-height:1.4}
+
+  /* collapsible advanced options */
+  details.adv{margin-top:14px;border:1px solid var(--line);border-radius:var(--r);
+    background:var(--surface-2);overflow:hidden}
+  details.adv > summary{cursor:pointer;list-style:none;padding:11px 13px;
+    font-size:12.5px;font-weight:600;color:var(--text-1);display:flex;
+    align-items:center;gap:9px}
+  details.adv > summary::-webkit-details-marker{display:none}
+  details.adv > summary .chev{margin-left:auto;transition:.2s;color:var(--text-3)}
+  details.adv[open] > summary .chev{transform:rotate(180deg)}
+  details.adv > summary:hover{background:var(--surface-3)}
+  details.adv .adv-in{padding:4px 13px 14px;border-top:1px solid var(--line)}
+  .adv-group{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--text-3);font-weight:700;margin:15px 0 2px}
+
+  /* ---------------- job list ---------------- */
+  /* Scans list — collapsible + height-capped so it can't grow unbounded */
+  .scans-sec{border-top:1px solid var(--line)}
+  .scans-sec > summary{cursor:pointer;list-style:none;padding:14px 16px 8px;
+    display:flex;align-items:center;gap:8px}
+  .scans-sec > summary::-webkit-details-marker{display:none}
+  .scans-sec > summary .chev{margin-left:auto;color:var(--text-3);transition:.2s}
+  .scans-sec[open] > summary .chev{transform:rotate(180deg)}
+  .scans-sec > summary:hover h2{color:var(--text-2)}
+  .joblist{list-style:none;margin:0;padding:0 8px 8px;max-height:42vh;overflow-y:auto}
+  .joblist li{padding:10px 11px;border-radius:var(--r-sm);cursor:pointer;
+    display:flex;gap:10px;align-items:center;transition:.12s;margin-bottom:2px}
+  .joblist li:hover{background:var(--surface-2)}
+  .joblist li.sel{background:var(--accent-weak)}
+  .joblist li.sel .t{color:var(--text-1)}
+  .joblist > li[style]{color:var(--text-3);cursor:default;justify-content:center;
+    padding:26px 0;font-size:12.5px}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .s-queued{background:var(--text-3)}
+  .s-running{background:var(--run);box-shadow:0 0 0 3px color-mix(in srgb,var(--run) 22%,transparent);
+    animation:pulse 1.3s infinite}
+  .s-done{background:var(--ok)} .s-failed{background:var(--err)}
+  .s-cancelled{background:var(--warn)} .s-interrupted{background:var(--warn)}
+  .jmeta{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .jmeta .t{font-size:13px;font-weight:550;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;color:var(--text-1)}
+  .jmeta .d{font-size:11px;color:var(--text-3);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+
+  /* ---------------- settings drawer ---------------- */
+  .settings{flex:none;border-top:1px solid var(--line);background:var(--surface-1)}
+  .settings > summary{cursor:pointer;list-style:none;padding:13px 18px;
+    font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:9px}
+  .settings > summary::-webkit-details-marker{display:none}
+  .settings > summary .chev{margin-left:auto;color:var(--text-3);transition:.2s}
+  .settings[open] > summary .chev{transform:rotate(180deg)}
+  .settings > summary:hover{background:var(--surface-2)}
+  .settings .in{padding:0 18px 16px;max-height:56vh;overflow-y:auto}
+  .settings .in h3{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--text-3);margin:16px 0 7px;font-weight:700}
+  .kvrow{display:flex;justify-content:space-between;gap:12px;font-size:11px;
+    padding:6px 0;border-bottom:1px solid var(--line)}
+  .kvrow b{font-weight:500;color:var(--text-3);flex:none}
+  .kvrow span{color:var(--text-2);font-family:var(--mono);text-align:right;
+    overflow-wrap:anywhere;white-space:pre-line}
+  .cdot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--text-3)}
+  .cdot.ok{background:var(--ok);box-shadow:0 0 0 3px var(--ok-weak)}
+  .cdot.bad{background:var(--err);box-shadow:0 0 0 3px var(--err-weak)}
+
+  /* ---------------- detail pane ---------------- */
+  .detail-head{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+  .detail-head strong{font-family:var(--mono);font-size:13.5px;font-weight:600}
+  .metacard{margin-top:14px;border:1px solid var(--line);border-radius:var(--r);
+    background:var(--surface-1);overflow:hidden;box-shadow:var(--sh-1)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .metacard table td,.metacard table th{padding:9px 14px;
+    border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  .metacard table tr:last-child td,.metacard table tr:last-child th{border-bottom:none}
+  th{color:var(--text-3);font-weight:550;white-space:nowrap;width:96px}
+  td{color:var(--text-1)}
+  a{color:var(--accent);cursor:pointer;text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .prog{height:6px;background:var(--surface-3);border-radius:99px;overflow:hidden;
+    margin:16px 0}
+  .prog i{display:block;height:100%;border-radius:99px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-strong));
+    width:0;transition:width .4s ease}
+
+  .stat-row{margin:16px 0 0;grid-template-columns:repeat(3,1fr)}
+  @media (max-width:560px){ .stat-row{grid-template-columns:1fr} }
+  /* phase tracker — a "pizza-tracker" stepper across the scan's phases */
+  .tracker-card{margin:16px 0;padding:20px 16px 15px;border:1px solid var(--line);
+    border-radius:var(--r);background:var(--surface-1);box-shadow:var(--sh-1)}
+  .tracker{display:flex;align-items:flex-start;overflow-x:auto;padding-bottom:2px}
+  .step{flex:1 1 0;min-width:66px;display:flex;flex-direction:column;
+    align-items:center;position:relative;text-align:center}
+  .step .node{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+    font-size:11.5px;font-weight:700;border:2px solid var(--line);
+    background:var(--surface-2);color:var(--text-3);z-index:1;transition:.25s}
+  .step .lbl{margin-top:8px;font-size:11px;color:var(--text-3);font-weight:600;
+    white-space:nowrap}
+  /* connector line coming in from the previous node */
+  .step:not(:first-child)::before{content:"";position:absolute;top:14px;left:-50%;
+    width:100%;height:2px;background:var(--line);z-index:0;transition:.25s}
+  .step.done .node{background:var(--accent);border-color:var(--accent);color:#fff}
+  .step.done::before,.step.active::before{background:var(--accent)}
+  .step.active .node{border-color:var(--accent);color:var(--accent);
+    background:var(--surface-1);animation:nodepulse 1.8s infinite}
+  .step.active .lbl{color:var(--accent)}
+  .step.stopped .node{border-color:var(--err);color:var(--err);
+    background:var(--surface-1);box-shadow:0 0 0 4px var(--err-weak)}
+  .step.stopped .lbl{color:var(--err)}
+  @keyframes nodepulse{0%{box-shadow:0 0 0 0 var(--accent-weak)}
+    70%,100%{box-shadow:0 0 0 7px transparent}}
+  .tracker-cap{text-align:center;font-size:12px;color:var(--text-2);margin-top:15px;
+    font-weight:500}
+  .tracker-card .prog{margin:12px 0 2px}
+
+  .tabs{display:flex;gap:4px;margin:16px 0 14px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);padding-bottom:0}
+  .tabs button{width:auto;padding:8px 14px;font-size:12.5px;font-weight:550;
+    background:none;color:var(--text-2);border:none;border-bottom:2px solid transparent;
+    border-radius:0;margin-bottom:-1px;transition:.15s}
+  .tabs button:hover{color:var(--text-1)}
+  .tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+  /* Prompts tab: collapsible per-agent prompt records */
+  .promptrec{border:1px solid var(--line);border-radius:var(--r-sm);
+    background:var(--surface-1);margin-bottom:8px;overflow:hidden}
+  .promptrec > summary{cursor:pointer;list-style:none;padding:10px 13px;
+    display:flex;align-items:center;gap:10px;font-size:13px}
+  .promptrec > summary::-webkit-details-marker{display:none}
+  .promptrec > summary::before{content:"▸";color:var(--text-3);font-size:11px}
+  .promptrec[open] > summary::before{content:"▾"}
+  .promptrec .pmeta{margin-left:auto;font-size:11px;color:var(--text-3);
+    font-family:var(--mono)}
+  .promptrec pre{margin:0;border:none;border-top:1px solid var(--line);
+    border-radius:0;max-height:460px;overflow:auto;white-space:pre-wrap;
+    word-break:break-word}
+
+  pre{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r);
+    padding:14px;overflow:auto;font-family:var(--mono);font-size:12px;
+    white-space:pre-wrap;word-break:break-word;color:var(--text-1)}
+
+  /* live feed console */
+  #feed{background:var(--surface-1);border:1px solid var(--line);
+    border-radius:var(--r);padding:12px 14px;font-family:var(--mono);
+    font-size:11.5px;height:56vh;overflow-y:auto;box-shadow:var(--sh-1)}
+  .ev{padding:2px 0;display:flex;gap:10px;align-items:baseline;line-height:1.5}
+  .ev .tag{flex:none;width:64px;color:var(--text-3);font-size:10px;
+    text-transform:uppercase;letter-spacing:.04em;text-align:right;
+    padding-top:1px;font-weight:600}
+  .ev span:last-child{min-width:0;word-break:break-word}
+  .ev.phase{color:var(--accent);font-weight:600;margin-top:9px}
+  .ev.phase .tag{color:var(--accent)}
+  .ev.agent{color:var(--ok)} .ev.agent .tag{color:var(--ok)}
+  .ev.warn{color:var(--warn)} .ev.warn .tag{color:var(--warn)}
+  .ev.err{color:var(--err)} .ev.err .tag{color:var(--err)}
+
+  /* ---------------- reports ---------------- */
+  .pane-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    margin-bottom:6px}
+  .pane-head h2{margin:0;font-size:19px;font-weight:650;letter-spacing:-.01em;
+    color:var(--text-1);text-transform:none}
+  .cards{display:grid;gap:13px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+    margin-top:16px}
+  /* Settings → Connections cards (not clickable, unlike report .cards) */
+  .conn-cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    margin:4px 0 8px}
+  .conn-cards .card{cursor:default}
+  .conn-cards .card:hover{transform:none;box-shadow:var(--sh-1);border-color:var(--line)}
+  .conn-cards .card h3{font-family:var(--sans);white-space:normal}
+  .conn-cards .card label{margin-top:6px}
+
+  /* ---------------- dashboard (Home) ---------------- */
+  body.home .side, body.docs .side{display:none}   /* full-width, no scan rail */
+  body.home main, body.docs main{grid-template-columns:1fr}
+  .dashwrap{max-width:1140px;margin:0 auto}
+  .metric-cards{display:grid;gap:14px;
+    grid-template-columns:repeat(auto-fit,minmax(184px,1fr));margin:18px 0 4px}
+  .metric-card{background:var(--surface-1);border:1px solid var(--line);
+    border-radius:var(--r);padding:15px 16px;box-shadow:var(--sh-1);
+    display:flex;flex-direction:column;gap:9px}
+  .metric-card .ic{width:34px;height:34px;border-radius:9px;display:grid;
+    place-items:center;background:var(--accent-weak);color:var(--accent)}
+  .metric-card .ic svg{width:18px;height:18px}
+  .metric-card .mv{font-size:26px;font-weight:650;letter-spacing:-.02em;line-height:1}
+  .metric-card .ml{font-size:12px;color:var(--text-2);margin-top:-2px}
+  .metric-card .ms{font-size:11px;color:var(--text-3)}
+  .dash-grid{display:grid;gap:14px;grid-template-columns:1.35fr 1fr;margin:14px 0 4px}
+  @media (max-width:820px){ .dash-grid{grid-template-columns:1fr} }
+  .panel{background:var(--surface-1);border:1px solid var(--line);
+    border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh-1)}
+  .panel h3{margin:0 0 14px;font-size:11.5px;text-transform:uppercase;
+    letter-spacing:.07em;color:var(--text-3);font-weight:700}
+  .panel h3 small{text-transform:none;letter-spacing:0;font-weight:400}
+  /* findings-per-scan bar chart */
+  .bars{display:flex;align-items:flex-end;gap:5px;height:132px}
+  .bars .bar{flex:1;min-width:5px;height:100%;display:flex;flex-direction:column;
+    justify-content:flex-end;align-items:center;position:relative}
+  .bars .bar i{width:100%;border-radius:4px 4px 0 0;min-height:2px;
+    background:linear-gradient(180deg,var(--accent),var(--accent-strong));transition:.2s}
+  .bars .bar.zero i{background:var(--surface-3)}
+  .bars .bar:hover i{filter:brightness(1.15)}
+  .bars .bar .bv{position:absolute;top:-15px;font-size:10px;font-weight:600;
+    color:var(--text-2);opacity:0;transition:.15s}
+  .bars .bar:hover .bv{opacity:1}
+  /* by-model horizontal bars */
+  .mbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12px}
+  .mbar .mn{width:128px;flex:none;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;color:var(--text-1)}
+  .mbar .mt{flex:1;height:8px;background:var(--surface-3);border-radius:99px;overflow:hidden}
+  .mbar .mt i{display:block;height:100%;border-radius:99px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-strong))}
+  .mbar .mval{flex:none;color:var(--text-2);font-variant-numeric:tabular-nums;
+    width:70px;text-align:right}
+  /* per-phase duration cards */
+  .phase-cards{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+  .pcard{display:grid;grid-template-columns:170px 1fr 150px;gap:14px;align-items:center;
+    padding:11px 15px;border:1px solid var(--line);border-radius:var(--r-sm);
+    background:var(--surface-1);box-shadow:var(--sh-1)}
+  @media (max-width:640px){ .pcard{grid-template-columns:1fr;gap:6px} }
+  .pcard .pname{font-weight:600;font-size:13px}
+  .pcard .pname small{font-weight:400;color:var(--text-3);margin-left:6px}
+  .pcard .pdur{height:8px;background:var(--surface-3);border-radius:99px;overflow:hidden}
+  .pcard .pdur i{display:block;height:100%;border-radius:99px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-strong))}
+  .pcard .pmeta{font-size:11.5px;color:var(--text-3);text-align:right;white-space:nowrap}
+
+  /* ---------------- documentation ---------------- */
+  .docwrap{max-width:940px;margin:0 auto;padding-bottom:40px}
+  .doc-hero{margin:6px 0 22px}
+  .doc-hero h1{font-size:28px;letter-spacing:-.02em;margin:0 0 8px}
+  .doc-hero p{color:var(--text-2);font-size:14.5px;line-height:1.65;margin:0;max-width:720px}
+  .doc-hero .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+  .doc-hero .tags span{font-size:11px;font-weight:600;padding:4px 9px;border-radius:99px;
+    background:var(--surface-2);border:1px solid var(--line);color:var(--text-2)}
+  /* clickable pipeline map */
+  .pipe{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:0 0 30px;
+    border:1px solid var(--line);border-radius:var(--r);background:var(--surface-1);
+    padding:8px;box-shadow:var(--sh-1)}
+  .pipe a{flex:1;min-width:112px;text-decoration:none;display:flex;flex-direction:column;
+    gap:3px;padding:11px 12px;border-radius:var(--r-sm);position:relative;transition:.14s}
+  .pipe a:hover{background:var(--surface-2)}
+  .pipe a .pk{font-size:10.5px;font-weight:700;color:var(--accent);letter-spacing:.04em}
+  .pipe a .pt{font-size:12.5px;font-weight:600;color:var(--text-1);line-height:1.25}
+  .pipe a .pd{font-size:11px;color:var(--text-3)}
+  .pipe a:not(:last-child)::after{content:"→";position:absolute;right:-7px;top:50%;
+    transform:translateY(-50%);color:var(--text-3);font-size:13px;z-index:1}
+  @media (max-width:720px){ .pipe a:not(:last-child)::after{display:none} }
+  /* per-phase deep-dive sections */
+  .doc-sec{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r);
+    box-shadow:var(--sh-1);padding:22px 24px;margin:0 0 18px;scroll-margin-top:80px}
+  .doc-sec > .badge{display:inline-flex;align-items:center;gap:8px;font-size:11px;
+    font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);
+    background:var(--accent-weak);padding:4px 10px;border-radius:99px;margin-bottom:12px}
+  .doc-sec h2{font-size:20px;letter-spacing:-.01em;margin:0 0 4px}
+  .doc-sec .lead{color:var(--text-2);font-size:14px;line-height:1.6;margin:0 0 16px;max-width:740px}
+  .doc-io{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 16px}
+  @media (max-width:560px){ .doc-io{grid-template-columns:1fr} }
+  .doc-io div{border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 13px;
+    background:var(--surface-2)}
+  .doc-io div .k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--text-3);margin-bottom:4px}
+  .doc-io div .v{font-size:12.5px;color:var(--text-1);font-family:var(--mono);line-height:1.5;
+    word-break:break-word}
+  .doc-sec h3{font-size:13px;margin:18px 0 9px;color:var(--text-1);
+    text-transform:uppercase;letter-spacing:.04em}
+  .doc-sec p{color:var(--text-2);font-size:13.5px;line-height:1.68;margin:0 0 11px}
+  .doc-sec ul{margin:0 0 12px;padding-left:19px}
+  .doc-sec li{color:var(--text-2);font-size:13.5px;line-height:1.62;margin-bottom:7px}
+  .doc-sec li b, .doc-sec p b{color:var(--text-1);font-weight:600}
+  .doc-sec code{font-family:var(--mono);font-size:12px;background:var(--surface-3);
+    padding:1.5px 5px;border-radius:5px;color:var(--text-1)}
+  .doc-sec .gate{display:grid;grid-template-columns:26px 1fr;gap:11px;align-items:start;
+    padding:11px 0;border-top:1px solid var(--line)}
+  .doc-sec .gate .gn{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+    font-weight:700;font-size:12px;background:var(--accent-weak);color:var(--accent)}
+  .doc-sec .gate .gt{font-size:13.5px;line-height:1.55;color:var(--text-2)}
+  .doc-sec .gate .gt b{color:var(--text-1)}
+  .doc-note{border-left:3px solid var(--accent);background:var(--surface-2);
+    padding:11px 15px;border-radius:0 var(--r-sm) var(--r-sm) 0;margin:14px 0;
+    font-size:13px;color:var(--text-2);line-height:1.6}
+  .doc-note b{color:var(--text-1)}
+  .cls{display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:start;
+    padding:10px 0;border-top:1px solid var(--line)}
+  .cls .ct{font-weight:700;font-size:12px;color:var(--accent);padding-top:2px}
+  .cls .cd{font-size:13px;color:var(--text-2);line-height:1.55}
+  .cls .cd b{color:var(--text-1)}
+  .card{background:var(--surface-1);border:1px solid var(--line);
+    border-radius:var(--r);padding:15px 16px;cursor:pointer;position:relative;
+    transition:.15s;box-shadow:var(--sh-1)}
+  .card:hover{border-color:var(--line-strong);box-shadow:var(--sh-2);
+    transform:translateY(-1px)}
+  .card h3{margin:0 0 9px;font-size:14px;font-weight:600;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:26px;
+    color:var(--text-1)}
+  .delbtn{position:absolute;top:11px;right:11px;background:none;border:none;
+    cursor:pointer;font-size:13px;line-height:1;padding:4px 5px;border-radius:6px;
+    opacity:.4;color:var(--text-3);width:auto;transition:.15s}
+  .delbtn:hover{opacity:1;background:var(--err-weak);color:var(--err)}
+  .card .meta{font-size:11.5px;color:var(--text-3);display:flex;gap:8px;
+    flex-wrap:wrap;align-items:center}
+  .card .meta + .meta{margin-top:8px}
+  .pill{font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:999px;
+    border:1px solid var(--line);color:var(--text-2);background:var(--surface-2)}
+  .pill.f{background:var(--err-weak);border-color:transparent;color:var(--err)}
+  .pill.z{background:var(--ok-weak);border-color:transparent;color:var(--ok)}
+  .pill.p{color:var(--warn);border-color:transparent;background:var(--warn-weak)}
+
+  .empty{color:var(--text-3);padding:44px 0;text-align:center;font-size:13px}
+
+  .err-box{background:var(--err-weak);border:1px solid color-mix(in srgb,var(--err) 45%,transparent);
+    border-radius:var(--r-sm);padding:11px 13px;margin-bottom:12px;font-size:12.5px;
+    color:var(--text-1)}
+  #formErr:empty{display:none}
+  .warn-banner{background:var(--warn-weak);
+    border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);
+    border-radius:var(--r-sm);padding:11px 13px;font-size:12px;color:var(--text-1);
+    margin:12px 0 0;line-height:1.55}
+  .warn-banner b{color:var(--warn)}
+  #costNote{margin-top:8px}
+  #costNote:empty{display:none}
+
+  .fbtn{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;
+    background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);
+    font-weight:600;font-size:13px;margin-bottom:14px;transition:.15s;
+    text-decoration:none}
+  .fbtn:hover{background:var(--accent-strong);text-decoration:none;
+    box-shadow:var(--sh-2)}
+  /* secondary download buttons (SARIF / manifest / json) */
+  .dlrow{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 14px}
+  .dlrow .fbtn{margin-bottom:0}
+  .dlrow .fbtn:not(:first-child){background:var(--surface-2);color:var(--text-1);
+    border:1px solid var(--line)}
+  .dlrow .fbtn:not(:first-child):hover{background:var(--surface-3);box-shadow:none}
+  /* Scan Health panel on the report detail */
+  .healthcard{border:1px solid var(--line);border-radius:var(--r);
+    background:var(--surface-1);box-shadow:var(--sh-1);padding:13px 16px;margin:0 0 14px}
+  .healthcard .hrow{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+  .hbadge{font-size:12px;font-weight:700;padding:4px 11px;border-radius:99px}
+  .hbadge.ok{background:var(--ok-weak,rgba(34,160,90,.14));color:var(--ok,#1a8a4d)}
+  .hbadge.warn{background:var(--warn-weak,rgba(200,140,0,.16));color:var(--warn,#b8860b)}
+  .hbadge.alt{background:var(--surface-2);color:var(--text-2);border:1px solid var(--line)}
+  .hstat{font-size:12.5px;color:var(--text-2)}
+  .hreasons{margin:10px 0 0;padding-left:18px}
+  .hreasons li{font-size:12.5px;color:var(--text-2);line-height:1.55;margin-bottom:3px}
+
+  /* ---------------- markdown ---------------- */
+  .md{font-size:14px;line-height:1.7;color:var(--text-1)}
+  .md .mdh{font-size:15px;font-weight:650;margin:22px 0 9px;color:var(--text-1);
+    text-transform:none;letter-spacing:-.01em}
+  .md h3.mdh{font-size:18px;margin-top:26px}
+  .md .mdp{margin:0 0 11px}
+  .md .mdlist{margin:0 0 13px;padding-left:22px}
+  .md .mdlist li{margin-bottom:5px}
+  .md .mdq{margin:0 0 13px;padding:10px 14px;border-left:3px solid var(--accent);
+    background:var(--surface-2);border-radius:0 var(--r-sm) var(--r-sm) 0;
+    color:var(--text-2)}
+  .md .mdhr{border:none;border-top:1px solid var(--line);margin:20px 0}
+  .md .mdcode{background:var(--surface-2);border:1px solid var(--line);
+    border-radius:var(--r-sm);padding:12px;font-size:12px;overflow-x:auto}
+  .md code{background:var(--surface-2);border:1px solid var(--line);
+    border-radius:5px;padding:1px 6px;font-family:var(--mono);font-size:12px}
+  .md .mdtable{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 15px;
+    display:block;overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-sm)}
+  .md .mdtable th,.md .mdtable td{border-bottom:1px solid var(--line);
+    border-right:1px solid var(--line);padding:8px 11px;text-align:left;
+    vertical-align:top}
+  .md .mdtable th{background:var(--surface-2);color:var(--text-2);font-weight:600;
+    width:auto;white-space:normal}
+  .md .mdtable tr:last-child td{border-bottom:none}
+
+  .view-head{font-size:16px;font-weight:600;margin:0 0 12px;letter-spacing:-.01em}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3l7 3v5c0 4.4-3 8.3-7 10-4-1.7-7-5.6-7-10V6l7-3z"/>
+        <path d="M9.5 12.5l1.8 1.8 3.5-3.7"/>
+      </svg>
+    </span>
+    <div>
+      <h1>vhlocal</h1>
+      <div class="sub">VulnHunter engine · local models only</div>
+    </div>
+  </div>
+  <span class="spacer"></span>
+  <nav class="seg" role="tablist" aria-label="Primary">
+    <button id="navHome" class="on" onclick="navigate('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg>
+      Home</button>
+    <button id="navScans" onclick="navigate('scans')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      Scans</button>
+    <button id="navReports" onclick="navigate('reports')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>
+      Reports</button>
+    <button id="navDocs" onclick="navigate('docs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      Docs</button>
+    <button id="navSettings" onclick="navigate('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.14.6.65 1.05 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings</button>
+  </nav>
+  <button class="iconbtn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">
+    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8z"/></svg>
+    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
+  <span class="badge" id="busy">idle</span>
+</header>
+
+<main>
+  <div class="side">
+   <div class="sidescroll">
+    <section>
+      <h2>New scan</h2>
+      <div id="formErr" style="margin-top:10px"></div>
+      <label>Repository path</label>
+      <input id="repo" placeholder="/path/to/your/repo" spellcheck="false" autocomplete="off">
+      <div class="hint" id="rootHint"></div>
+
+      <label for="profile">Profile <span style="text-transform:none;font-weight:400;color:var(--text-3)">— presets the scan options below</span></label>
+      <select id="profile" onchange="applyProfile(this.value)"><option value="">Custom (no preset)</option></select>
+      <div class="hint" id="profileHint"></div>
+
+      <label style="margin-bottom:2px">Model</label>
+      <div class="radios">
+        <label class="ropt"><input type="radio" name="mmode" value="local" checked onchange="setModelMode('local')">Open-weight</label>
+        <label class="ropt"><input type="radio" name="mmode" value="paid" onchange="setModelMode('paid')">Paid 💲</label>
+      </div>
+
+      <!-- primary (hunt / default) model -->
+      <select id="owModel"></select>
+      <select id="paidModel" style="display:none;margin-top:7px"></select>
+      <div class="hint" id="paidNote" style="display:none;color:var(--warn)">💲 Paid per token — code is sent to OpenRouter.</div>
+
+      <!-- Multiple models: a toggle under the model; overrides expand below it -->
+      <label class="ropt multi-btn" style="margin-top:10px">
+        <input type="checkbox" id="multiToggle" onchange="toggleMulti()">
+        Multiple models <span class="ph">a different model per phase</span>
+      </label>
+      <div id="multiModelArea" style="display:none;margin-top:8px">
+        <div class="hint" style="margin:0 0 6px">The model above runs the hunt (Phase 2). Override the other phases here — blank = same as the hunt model.</div>
+        <label for="reconModel">Recon <span class="ph">Phase 1</span></label>
+        <select id="reconModel"></select>
+        <label for="verifyModel">Verify <span class="ph">Phase 2b</span></label>
+        <select id="verifyModel"></select>
+        <label for="reproduceModel">Reproduce &amp; report <span class="ph">Phases 3–4</span></label>
+        <select id="reproduceModel"></select>
+      </div>
+      <div class="hint">Options come from your <a onclick="navigate('settings')">Connections</a> in Settings.</div>
+
+      <details class="adv">
+        <summary>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.14.6.65 1.05 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Scan options
+          <svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+        <div class="adv-in">
+          <div class="row" style="margin-top:6px">
+            <div>
+              <label>Phases</label>
+              <input id="phases" value="all" spellcheck="false" autocomplete="off">
+            </div>
+            <div>
+              <label>Max partitions</label>
+              <input id="maxPart" type="number" value="8" min="1" max="32">
+            </div>
+          </div>
+
+          <label for="phase2Mode">Phase 2 fan-out</label>
+          <select id="phase2Mode">
+            <option value="split">Split — one agent per class (thorough, slower)</option>
+            <option value="combined">Combined — one agent per partition (~3× faster, quality-uncertain)</option>
+          </select>
+
+          <div class="row" style="margin-top:12px">
+            <div>
+              <label for="reasoningEffort">Reasoning effort</label>
+              <select id="reasoningEffort">
+                <option value="">Default</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+            <div>
+              <label for="concurrency">Parallel agents</label>
+              <input id="concurrency" type="number" value="1" min="1" max="8">
+            </div>
+          </div>
+          <div class="hint">Parallel agents need <code>OLLAMA_NUM_PARALLEL</code> on Ollama; on OpenRouter they overlap freely (bounded by your rate limits).</div>
+
+          <label for="maxOutTokens">Max output tokens <span style="text-transform:none;font-weight:400;color:var(--text-3)">(cloud backends)</span></label>
+          <input id="maxOutTokens" type="number" value="32768" min="0" step="1024">
+          <div class="hint">Caps completion length per call. On paid gateways (OpenRouter) it also caps the up-front <b>credit reservation</b> — <b>lower it if you hit a 402</b>. 0 = uncapped.</div>
+
+          <div class="row" style="margin-top:12px">
+            <div>
+              <label for="huntSamples">Hunt samples</label>
+              <input id="huntSamples" type="number" value="1" min="1" max="5">
+            </div>
+            <div>
+              <label for="maxBudget" style="display:flex;align-items:center;gap:7px">
+                <input type="checkbox" id="budgetOn" onchange="toggleBudget()" style="width:auto;margin:0">
+                <span>Budget cap (USD)</span>
+              </label>
+              <input id="maxBudget" type="number" value="5" min="0" step="0.5" disabled>
+            </div>
+          </div>
+          <div class="hint"><b>Hunt samples</b>: run each hunt agent N× and union the findings — raises recall on the volatile access-control class a single pass misses (2b still filters false positives). Multiplies hunt cost ~N×. <b>Budget cap</b>: optional — tick the box to enforce a hard USD ceiling on paid backends; the run halts gracefully before exceeding it. Off = no cap. Local models are free, so a cap is inert there.</div>
+
+          <div class="adv-group">Toggles</div>
+          <div class="hint" style="margin:2px 0 6px">Connections (Ollama / OpenAI / OpenRouter) live in <b>Settings</b>. To continue an interrupted scan, open it under <b>Scans</b> and use <b>Resume</b>.</div>
+          <label class="switch-row">
+            <span class="switch-txt"><b>Enforce coverage</b><small>trace every enumerated route — may add agents</small></span>
+            <span class="switch"><input type="checkbox" id="enforceCoverage" checked><span class="track"></span></span>
+          </label>
+          <label class="switch-row">
+            <span class="switch-txt"><b>Seed recon with route list</b><small>hand Phase 1 the full attack surface</small></span>
+            <span class="switch"><input type="checkbox" id="seedRoutes"><span class="track"></span></span>
+          </label>
+          <label class="switch-row">
+            <span class="switch-txt"><b>IaC / CI-CD lens</b><small>audit Terraform · Docker · K8s · Actions — auto-skips if none present</small></span>
+            <span class="switch"><input type="checkbox" id="iacLens" checked><span class="track"></span></span>
+          </label>
+          <label class="switch-row">
+            <span class="switch-txt"><b>Seed from prior report <span style="color:var(--warn)">(Mode B)</span></b><small>re-verify prior hot spots — correlates runs; off for benchmarking</small></span>
+            <span class="switch"><input type="checkbox" id="seedPrior"><span class="track"></span></span>
+          </label>
+        </div>
+      </details>
+
+      <div id="costNote"></div>
+      <label class="ledger-row" title="Merge this run's confirmed findings into this target's persistent vulnerability ledger, and score the run's recall against everything the ledger already knows. Off by default so throwaway runs don't pollute the bank.">
+        <input type="checkbox" id="ledger">
+        <span class="ledger-txt"><b>Include in Vulnerability Ledger</b><small>accumulate confirmed findings across runs of this target &amp; score recall</small></span>
+      </label>
+      <label class="ledger-row" style="margin-top:10px" title="Mask card numbers (Luhn+IIN), SSNs, and credentials in the written report, findings.json, SARIF, and HTML. The finding keeps its location and CWE — only the literal secret value is masked. Enable when a report will be shared or archived.">
+        <input type="checkbox" id="redact">
+        <span class="ledger-txt"><b>Redact secrets &amp; PII in outputs</b><small>mask cards / SSNs / credentials in the report artifacts at write time</small></span>
+      </label>
+      <label class="ledger-row" style="margin-top:10px" title="Write a structured remediation DTO per finding (remediation/<VULN>/remediate.json + summary.md) with the proposed fix and status. Report-only — no source is modified.">
+        <input type="checkbox" id="remediate">
+        <span class="ledger-txt"><b>Write remediation DTOs</b><small>per-finding proposed-fix records under remediation/ — report-only, source untouched</small></span>
+      </label>
+      <button class="btn" id="start" style="margin-top:14px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg>
+        Start scan</button>
+      <div class="hint" style="text-align:center">Scans run one at a time — a single GPU.</div>
+    </section>
+
+    <details class="scans-sec" id="scansSec" open>
+      <summary>
+        <h2 style="margin:0;display:inline-flex">Scans <span class="count" id="jobCount">0</span></h2>
+        <svg class="chev" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </summary>
+      <ul class="joblist" id="jobs"></ul>
+    </details>
+   </div>
+
+  </div>
+
+  <!-- The rail is static. Only this pane swaps; see the VIEWS registry. -->
+  <div class="pane" id="view"></div>
+</main>
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Theme toggle. The initial value is applied inline in <head> to avoid a flash;
+// this only handles the click and keeps the stored preference in sync.
+// ---------------------------------------------------------------------------
+(function themeInit(){
+  const btn = document.getElementById('themeBtn');
+  btn.addEventListener('click', () => {
+    const root = document.documentElement;
+    const cur = root.getAttribute('data-theme');
+    const eff = cur || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    const next = eff === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('vhlocal.theme', next); } catch (e) {}
+  });
+})();
+
+// Minimal, dependency-free Markdown renderer for the phase artifacts.
+// Escapes first, then applies inline/block rules — so model-authored content
+// can never inject markup into this page. Deliberately small: headings,
+// tables, code, lists, rules, links, emphasis. Anything else stays literal.
+function mdRender(src){
+  const esc = t => t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const inline = t => esc(t)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  const lines = src.replace(/\r\n?/g,'\n').split('\n');
+  const out = []; let i = 0;
+  const isRow = l => /^\s*\|.*\|\s*$/.test(l);
+  const isDiv = l => /^\s*\|[\s:|-]+\|\s*$/.test(l);
+
+  while (i < lines.length){
+    const L = lines[i];
+
+    if (/^```/.test(L)){                       // fenced code
+      const buf = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++;
+      out.push('<pre class="mdcode">'+esc(buf.join('\n'))+'</pre>');
+      continue;
+    }
+    if (isRow(L) && isDiv(lines[i+1]||'')){    // table
+      const cells = r => r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const head = cells(L); i += 2;
+      const body = [];
+      while (i < lines.length && isRow(lines[i])) body.push(cells(lines[i++]));
+      out.push('<table class="mdtable"><thead><tr>' +
+        head.map(h=>'<th>'+inline(h)+'</th>').join('') + '</tr></thead><tbody>' +
+        body.map(r=>'<tr>'+r.map(c=>'<td>'+inline(c)+'</td>').join('')+'</tr>').join('') +
+        '</tbody></table>');
+      continue;
+    }
+    let m;
+    if ((m = L.match(/^(#{1,6})\s+(.*)$/))){
+      out.push('<h'+(m[1].length+2)+' class="mdh">'+inline(m[2])+'</h'+(m[1].length+2)+'>');
+      i++; continue;
+    }
+    if (/^\s*([-*_])\1{2,}\s*$/.test(L)){ out.push('<hr class="mdhr">'); i++; continue; }
+    if (/^\s*>/.test(L)){
+      const buf=[];
+      while(i<lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/,''));
+      out.push('<blockquote class="mdq">'+inline(buf.join(' '))+'</blockquote>');
+      continue;
+    }
+    if (/^\s*([-*+]|\d+\.)\s+/.test(L)){
+      const ord = /^\s*\d+\./.test(L); const buf=[];
+      while(i<lines.length && /^\s*([-*+]|\d+\.)\s+/.test(lines[i]))
+        buf.push(lines[i++].replace(/^\s*([-*+]|\d+\.)\s+/,''));
+      out.push('<'+(ord?'ol':'ul')+' class="mdlist">'+
+        buf.map(b=>'<li>'+inline(b)+'</li>').join('')+'</'+(ord?'ol':'ul')+'>');
+      continue;
+    }
+    if (!L.trim()){ i++; continue; }
+    const para=[];
+    while(i<lines.length && lines[i].trim() && !/^(#{1,6}\s|```|\s*>|\s*([-*+]|\d+\.)\s)/.test(lines[i])
+          && !isRow(lines[i])) para.push(lines[i++]);
+    out.push('<p class="mdp">'+inline(para.join(' '))+'</p>');
+  }
+  return out.join('\n');
+}
+
+const $ = (id) => document.getElementById(id);
+let CFG = null, jobs = [], sel = null, es = null, evCount = 0, tab = 'live';
+
+const fmtDur = (s) => {
+  s = Math.max(0, Math.round(s||0));
+  if (s < 60) return s + 's';
+  const m = Math.floor(s/60);
+  return m < 60 ? m + 'm ' + (s%60) + 's' : Math.floor(m/60) + 'h ' + (m%60) + 'm';
+};
+const esc = (t) => String(t==null?'':t).replace(/[&<>]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const ct = r.headers.get('content-type') || '';
+  const body = ct.includes('json') ? await r.json() : await r.text();
+  if (!r.ok) throw new Error((body && body.error) || r.statusText);
+  return body;
+}
+
+async function boot() {
+  CFG = await api('/api/config');
+  $('rootHint').textContent = CFG.allow_roots.length === 1
+    ? 'Allowed root: ' + CFG.allow_roots[0]
+    : CFG.allow_roots.length + ' allowed roots (see Settings)';
+  loadStoredConns();
+  // Re-establish the OpenRouter key in the engine's memory from the browser
+  // store (survives engine restarts) before we list its catalogue.
+  await pushStoredOpenRouterKey();
+  await refreshAllModels();          // populate the model pickers
+  setModelMode(modelMode());         // apply the default (open-weight) mode
+  toggleMulti();                     // per-phase overrides hidden until toggled
+  loadProfiles();                    // scan-config presets
+  await refresh();
+  navigate('home');
+  setInterval(refresh, 4000);
+}
+
+// Scan-config profiles: preset the New-Scan options in one click. The operator
+// can still tweak any field afterward — a profile is a starting point.
+let PROFILES = [];
+async function loadProfiles() {
+  try {
+    const d = await api('/api/profiles');
+    PROFILES = d.profiles || [];
+    const sel = $('profile');
+    if (!sel) return;
+    for (const p of PROFILES) {
+      const o = document.createElement('option');
+      o.value = p.name; o.textContent = p.name + (p.builtin ? '' : ' (custom)');
+      sel.appendChild(o);
+    }
+  } catch (e) { /* profiles are optional */ }
+}
+
+// override key -> [element id, kind]
+const _PROFILE_FIELDS = {
+  hunt_samples: ['huntSamples', 'val'], max_partitions: ['maxPart', 'val'],
+  phase2_mode: ['phase2Mode', 'val'], phases: ['phases', 'val'],
+  concurrency: ['concurrency', 'val'], reasoning_effort: ['reasoningEffort', 'val'],
+  max_output_tokens: ['maxOutTokens', 'val'], max_budget_usd: ['maxBudget', 'val'],
+  iac_lens: ['iacLens', 'chk'], remediate: ['remediate', 'chk'],
+  redact: ['redact', 'chk'], ledger: ['ledger', 'chk'],
+  seed_routes: ['seedRoutes', 'chk'], seed_prior: ['seedPrior', 'chk'],
+  enforce_coverage: ['enforceCoverage', 'chk'],
+};
+window.applyProfile = function(name) {
+  const hint = $('profileHint');
+  if (!name) { if (hint) hint.textContent = ''; return; }
+  const p = PROFILES.find(x => x.name === name);
+  if (!p) return;
+  for (const [key, val] of Object.entries(p.overrides || {})) {
+    const map = _PROFILE_FIELDS[key];
+    if (!map) continue;
+    const el = $(map[0]);
+    if (!el) continue;
+    if (map[1] === 'chk') el.checked = !!val;
+    else el.value = val;
+  }
+  // A profile that sets a positive budget also enables the cap toggle.
+  if ((p.overrides || {}).max_budget_usd > 0) { $('budgetOn').checked = true; }
+  toggleBudget();
+  if (hint) hint.textContent = p.description || '';
+};
+
+// Budget cap is opt-in — the number field is live only when the box is ticked.
+window.toggleBudget = function() {
+  const b = $('maxBudget'); if (b) b.disabled = !$('budgetOn').checked;
+};
+
+// ---------------------------------------------------------------------------
+// Connections + models. Connections (Ollama / OpenAI / OpenRouter) are set in
+// the Settings tab; the scan form's Model / Verify / per-phase pickers aggregate
+// the models across whichever connections are reachable. Each option encodes its
+// backend, so a selection carries the connection it came from.
+// ---------------------------------------------------------------------------
+const CONN_LABEL = { ollama: 'Ollama', openai: 'OpenAI', openrouter: 'OpenRouter' };
+const SEP = '\u001f';   // unit separator between backend and model in option values
+let CONNS = { ollama: {host: ''}, openai: {host: ''}, openrouter: {} };
+let CONN_MODELS = { ollama: [], openai: [], openrouter: [] };
+let CONN_STATUS = { ollama: '', openai: '', openrouter: '' };
+let CONN_MSG = { ollama: '', openai: '', openrouter: '' };
+let MODELS = [];
+
+function connHost(backend){
+  if (backend === 'openrouter') return '';    // fixed cloud host, server-side
+  return (CONNS[backend] && CONNS[backend].host) || '';
+}
+
+function loadStoredConns(){
+  CONNS.ollama.host = localStorage.getItem('vhlocal.conn.ollama')
+    || localStorage.getItem('vhlocal.host.ollama')
+    || CFG.defaults.ollama_host || 'http://localhost:11434';
+  CONNS.openai.host = localStorage.getItem('vhlocal.conn.openai')
+    || localStorage.getItem('vhlocal.host.openai')
+    || CFG.defaults.openai_host || 'http://localhost:8080';
+}
+
+function saveConnHost(backend, host){
+  host = (host || '').trim();
+  CONNS[backend].host = host;
+  if (host) localStorage.setItem('vhlocal.conn.' + backend, host);
+  else localStorage.removeItem('vhlocal.conn.' + backend);
+}
+
+async function refreshConn(backend){
+  CONN_STATUS[backend] = 'checking';
+  renderConnStatus(backend);
+  try {
+    const host = connHost(backend);
+    const q = '/api/models?backend=' + encodeURIComponent(backend)
+      + (backend === 'openrouter' ? '' : '&host=' + encodeURIComponent(host));
+    const m = await api(q);
+    CONN_MODELS[backend] = (m.models || []).map(
+      x => ({ backend, model: x.name, tier: x.tier }));
+    CONN_STATUS[backend] = 'ok';
+    CONN_MSG[backend] = CONN_MODELS[backend].length + ' model'
+      + (CONN_MODELS[backend].length === 1 ? '' : 's');
+  } catch (e) {
+    CONN_MODELS[backend] = [];
+    CONN_STATUS[backend] = 'bad';
+    CONN_MSG[backend] = e.message;
+  }
+  renderConnStatus(backend);
+  rebuildModels();   // incremental: each connection fills in as it resolves
+}
+
+async function refreshAllModels(){
+  await Promise.all(['ollama', 'openai', 'openrouter'].map(refreshConn));
+}
+
+function rebuildModels(){
+  MODELS = [].concat(CONN_MODELS.ollama, CONN_MODELS.openai, CONN_MODELS.openrouter);
+  fillRoleSelects();
+}
+
+function optionsFrom(list, includeDefault){
+  let html = includeDefault ? '<option value="">— same as Hunt —</option>' : '';
+  for (const m of list){
+    const tier = m.tier ? ' [' + m.tier + ']' : '';
+    html += '<option value="' + esc(m.backend + SEP + m.model) + '">'
+      + esc(m.model) + esc(tier) + ' · ' + esc(CONN_LABEL[m.backend]) + '</option>';
+  }
+  return html;
+}
+
+const ROLE_SELECTS = ['owModel', 'paidModel', 'verifyModel',
+                      'reconModel', 'reproduceModel'];
+
+function fillRoleSelects(){
+  const local = MODELS.filter(m => m.backend !== 'openrouter');
+  const paid = MODELS.filter(m => m.backend === 'openrouter');
+  // Paid (OpenRouter) models are only in play when the Paid radio is on — so the
+  // per-phase overrides are local-only unless Paid is selected.
+  const overrideList = modelMode() === 'paid' ? MODELS : local;
+  const cur = {};
+  ROLE_SELECTS.forEach(id => { cur[id] = ($(id) || {}).value; });
+  if ($('owModel')) $('owModel').innerHTML = local.length
+    ? optionsFrom(local, false)
+    : '<option value="">— no local models — add a connection in Settings —</option>';
+  if ($('paidModel')) $('paidModel').innerHTML = paid.length
+    ? optionsFrom(paid, false)
+    : '<option value="">— no OpenRouter models (set a key / reload in Settings) —</option>';
+  ['verifyModel', 'reconModel', 'reproduceModel'].forEach(id => {
+    if ($(id)) $(id).innerHTML = optionsFrom(overrideList, true);
+  });
+  ROLE_SELECTS.forEach(id => {
+    if (cur[id] && $(id) && [...$(id).options].some(o => o.value === cur[id]))
+      $(id).value = cur[id];
+  });
+  // default the open-weight Model to the engine default model when unset
+  const def = MODELS.find(m => m.model === CFG.defaults.model);
+  if (def && !cur.owModel && $('owModel')) {
+    const v = def.backend + SEP + def.model;
+    if ([...$('owModel').options].some(o => o.value === v)) $('owModel').value = v;
+  }
+}
+
+// Open-weight vs paid: grey the open-weight field and reveal the OpenRouter
+// dropdown when "paid" is selected.
+function setModelMode(mode){
+  const paid = mode === 'paid';
+  const ow = $('owModel');
+  if (ow){ ow.disabled = paid; ow.style.opacity = paid ? '.45' : ''; }
+  if ($('paidModel')) $('paidModel').style.display = paid ? '' : 'none';
+  if ($('paidNote')) $('paidNote').style.display = paid ? '' : 'none';
+  // Repopulate the per-phase overrides: paid models appear only in Paid mode.
+  fillRoleSelects();
+}
+
+function modelMode(){
+  const r = document.querySelector('input[name="mmode"]:checked');
+  return (r && r.value) || 'local';
+}
+
+// "Multiple models" toggle: reveal the per-phase override pickers below it.
+function toggleMulti(){
+  const on = ($('multiToggle') || {}).checked;
+  if ($('multiModelArea')) $('multiModelArea').style.display = on ? '' : 'none';
+}
+
+// Resolve a role selector to {backend, model, host}, or null for "same as Hunt".
+function parseRole(id){
+  const v = ($(id) || {}).value || '';
+  if (!v) return null;
+  const i = v.indexOf(SEP);
+  if (i < 0) return null;
+  const backend = v.slice(0, i), model = v.slice(i + 1);
+  return { backend, model, host: connHost(backend) };
+}
+
+function renderOrKeyStatus(keySet){
+  const el = $('orKeyStatus');
+  if (!el) return;
+  el.innerHTML = keySet
+    ? 'API key: <b style="color:var(--ok)">set</b> · '
+      + '<a onclick="clearOpenRouterKey()">forget</a>'
+    : 'API key: <b style="color:var(--err)">not set</b> — scans will fail until '
+      + 'you add one.';
+}
+
+// Set the key in this browser (localStorage) AND in the engine's memory. It is
+// deliberately never placed in the scan payload, so it can't reach jobs.json or
+// scan_meta. The input is cleared after saving so the secret isn't left visible.
+window.saveOpenRouterKey = async function(){
+  const inp = $('orKey');
+  const k = ((inp && inp.value) || '').trim();
+  if (!k) return;
+  localStorage.setItem('vhlocal.openrouter_key', k);
+  try {
+    const r = await api('/api/openrouter-key', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({api_key: k}),
+    });
+    CFG.defaults.openrouter_key_set = !!r.key_set;
+    renderOrKeyStatus(r.key_set);
+    if (inp) inp.value = '';
+    refreshConn('openrouter');   // key can affect access; refresh the catalogue
+  } catch (e) { alert('Could not save key: ' + e.message); }
+};
+
+window.clearOpenRouterKey = async function(){
+  localStorage.removeItem('vhlocal.openrouter_key');
+  try {
+    const r = await api('/api/openrouter-key', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({api_key: ''}),
+    });
+    CFG.defaults.openrouter_key_set = !!r.key_set;
+    renderOrKeyStatus(r.key_set);
+  } catch (e) { /* best-effort */ }
+  const inp = $('orKey');
+  if (inp) inp.value = '';
+};
+
+// The engine holds the key only in memory, so a restart loses it. Re-push the
+// browser-stored key on boot so it survives engine restarts without re-entry.
+async function pushStoredOpenRouterKey(){
+  const k = localStorage.getItem('vhlocal.openrouter_key');
+  if (!k) return;
+  try {
+    const r = await api('/api/openrouter-key', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({api_key: k}),
+    });
+    CFG.defaults.openrouter_key_set = !!r.key_set;
+  } catch (e) { /* offline / server down — status will show not-set */ }
+}
+
+function renderEngineInfo() {
+  if (!$('engineInfo')) return;
+  const rows = [
+    ['Skill dir', CFG.skill_dir],
+    ['Reports', CFG.reports_dir],
+    ['Scan roots', (CFG.allow_roots || []).join('\n')],
+    ['Default model', CFG.defaults.model],
+    ['Context', (CFG.defaults.num_ctx || 0).toLocaleString() + ' tokens'],
+  ];
+  $('engineInfo').innerHTML = rows.map(
+    ([k, v]) => `<div class="kvrow"><b>${esc(k)}</b><span>${esc(v || '—')}</span></div>`
+  ).join('');
+}
+
+// Per-connection reachability line in the Settings tab (only when mounted).
+function renderConnStatus(backend){
+  const el = $('cs-' + backend);
+  if (!el) return;
+  const st = CONN_STATUS[backend];
+  const cls = st === 'ok' ? 'ok' : st === 'bad' ? 'bad' : '';
+  const txt = st === 'checking' ? 'checking…' : (CONN_MSG[backend] || 'not tested');
+  el.innerHTML = '<span class="cdot ' + cls + '" style="display:inline-block;'
+    + 'margin-right:6px;vertical-align:middle"></span>' + esc(txt);
+}
+
+// Test/refresh a connection from the Settings tab, then rebuild the model lists.
+window.testConn = function(backend){
+  if (backend !== 'openrouter'){
+    const inp = $('conn-' + backend + '-host');
+    if (inp) saveConnHost(backend, inp.value);
+  }
+  refreshConn(backend);
+};
+
+function docsHTML(){
+  return `
+  <div class="docwrap">
+    <div class="doc-hero">
+      <h1>How VulnHunter works</h1>
+      <p>VulnHunter audits a codebase with a fixed, six-phase pipeline. Each phase
+        runs in its own LLM agent context, reads the previous phases' output files,
+        and writes exactly one output of its own. The agent is <b>static-only</b> —
+        it reads, greps, and globs the source and writes findings; it never executes
+        the target's code and never reaches the network except to talk to the model
+        server. The sections below describe exactly what each phase does.</p>
+      <div class="tags">
+        <span>Static analysis</span><span>LLM-driven</span>
+        <span>1 → 2 → 2b → 3 → 3d → 4</span><span>Per-phase model routing</span>
+      </div>
+    </div>
+
+    <div class="pipe">
+      <a data-goto="phase1"><span class="pk">PHASE 1</span><span class="pt">Recon</span><span class="pd">map the attack surface</span></a>
+      <a data-goto="phase2"><span class="pk">PHASE 2</span><span class="pt">Hunt</span><span class="pd">forward-trace every input</span></a>
+      <a data-goto="phase2b"><span class="pk">PHASE 2b</span><span class="pt">Verify</span><span class="pd">disprove candidates</span></a>
+      <a data-goto="phase3"><span class="pk">PHASE 3</span><span class="pt">Reproduce</span><span class="pd">PoC + exploit test</span></a>
+      <a data-goto="phase3d"><span class="pk">PHASE 3d</span><span class="pt">Sweep</span><span class="pd">find every instance</span></a>
+      <a data-goto="phase4"><span class="pk">PHASE 4</span><span class="pt">Report</span><span class="pd">compile findings</span></a>
+    </div>
+
+    <!-- PHASE 1 -->
+    <section class="doc-sec" id="phase1">
+      <span class="badge">Phase 1 · up to 90 turns</span>
+      <h2>Recon — attack surface mapping</h2>
+      <p class="lead">Map the complete attack surface — every input, sink, entry
+        point, and trust boundary — and carve the app into subgraph partitions
+        <i>before</i> hunting any specific bug.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">the target repo (no prior phase)</div></div>
+        <div><div class="k">Writes</div><div class="v">phase1_output.md</div></div>
+      </div>
+      <h3>What it does</h3>
+      <ul>
+        <li><b>Structural overview.</b> Globs every source language (excluding
+          tests, vendored, and generated code) to identify languages, frameworks,
+          and module layout.</li>
+        <li><b>Sink pre-pass.</b> Greps the whole repo for every dangerous sink
+          pattern and records each one's <code>file:line</code> into a sink
+          inventory — including a per-app completeness cross-check and a
+          URL-concatenation sweep for SSRF / path-traversal sinks.</li>
+        <li><b>Input inventory.</b> Enumerates <b>every</b> external-data entry
+          point (HTTP, RPC, CLI, queues, WebSocket, file processors, cron over
+          attacker-writable stores, middleware…). Every input is logged with its
+          location, source type, entry point, and trust level. It enumerates
+          <i>all</i> sibling inputs of a DTO, not just the dangerous-looking ones,
+          and records zero-input endpoints as auth-bypass candidates.</li>
+        <li><b>Indirect-dispatch detection.</b> Finds function maps, callback
+          registries, factories, and message-framework dispatch, adding each
+          dispatched handler as its own entry point.</li>
+        <li><b>Subgraph partitioning.</b> Builds a two-level call graph, factors out
+          shared infrastructure (anything imported by most handlers, plus auth /
+          logging / ORM / sanitizers), then uses <b>union-find</b> to group entry
+          points that share app-specific code into partitions — the units Phase 2
+          parallelizes over. Each partition is marked <code>PRODUCTION</code> or
+          <code>DEV-ONLY</code>; dev-only code is not hunted.</li>
+        <li><b>Threat model.</b> One row per entry-point group, each field cited as
+          <code>file:line</code> or <code>NONE</code>: app-layer auth enforcement,
+          <i>cryptographic</i> caller-identity binding, and per-resource
+          authorization. It is deliberately pessimistic — prose, naming, config
+          opt-outs, and "the gateway handles it" claims are inadmissible; only code
+          at a real line counts. This establishes the attacker's baseline
+          capabilities used later by Gate 3.</li>
+      </ul>
+      <div class="doc-note"><b>Output contract.</b> An Attack Surface Report whose
+        Input Inventory, Threat Model, and Subgraph Partitions tables are
+        machine-parsed to fan out Phase 2 — every production app must appear in at
+        least one partition.</div>
+    </section>
+
+    <!-- PHASE 2 -->
+    <section class="doc-sec" id="phase2">
+      <span class="badge">Phase 2 · fan-out · up to 80 turns each</span>
+      <h2>Hunt — forward tracing</h2>
+      <p class="lead">Trace every inventoried input forward to a disposition,
+        evaluating it against dangerous sinks by vulnerability class. This is the
+        only phase that fans out into many parallel agents.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">phase1_output.md</div></div>
+        <div><div class="k">Writes</div><div class="v">results/ (one file per agent)</div></div>
+      </div>
+      <h3>How the fan-out works</h3>
+      <p>The runner parses the partition table from Phase 1 and dispatches
+        <b>one agent per (partition × vulnerability class)</b>, plus exactly
+        <b>one sink-driven agent</b>. If the model's partition plan omitted any
+        enumerated route file, the harness appends deterministic subsystem
+        partitions so nothing is skipped. Partitions are capped (default 8).</p>
+      <h3>The three vulnerability classes</h3>
+      <div class="cls"><div class="ct">INJ</div><div class="cd"><b>Injection.</b>
+        SQL, command, path traversal, SSRF / URL injection, XSS (all variants),
+        open redirect, XXE, LDAP, code eval / SSTI, and file upload.</div></div>
+      <div class="cls"><div class="ct">NAV</div><div class="cd"><b>Navigation &amp;
+        access control.</b> CSRF, IDOR, auth bypass, conditional-validation bypass,
+        identity spoofing, confused-deputy, mass assignment, parameter pollution,
+        and unsafe deserialization.</div></div>
+      <div class="cls"><div class="ct">LOG</div><div class="cd"><b>Logic &amp;
+        crypto.</b> Race conditions, cache / state isolation, credential scope,
+        resource exhaustion, prototype pollution, integer overflow, and weak
+        cryptography.</div></div>
+      <div class="doc-note"><b>Split vs. combined.</b> In <b>split</b> mode (default)
+        each class gets its own agent per partition — three times the agents, most
+        thorough. In <b>combined</b> mode a single agent per partition covers all
+        three classes — about 3× fewer agents and faster. The <b>sink-driven</b>
+        agent is different from all of these: it works <i>backward</i> from the
+        sink inventory, tracing each dangerous sink to whoever can reach it, to
+        catch anything the input-forward pass missed.</div>
+      <h3>The hard gates (every candidate must pass, in order)</h3>
+      <div class="gate"><div class="gn">0</div><div class="gt"><b>Intended behavior.</b>
+        Is this the feature's designed purpose (a proxy forwarding a
+        caller-supplied URL)? Does not apply when a security check is conditionally
+        skipped.</div></div>
+      <div class="gate"><div class="gn">1</div><div class="gt"><b>Reachability.</b>
+        Grep every call site; dead code and tests don't count. Route registration
+        is not the same as code reachability.</div></div>
+      <div class="gate"><div class="gn">2a</div><div class="gt"><b>Attacker-controlled?</b>
+        Trace the value's origin through any stores back to an external input.</div></div>
+      <div class="gate"><div class="gn">2b</div><div class="gt"><b>Effective sanitization?</b>
+        Read the actual defense's source; it must be context-matched to the sink.
+        A sanitizer for the wrong context is not a mitigation.</div></div>
+      <div class="gate"><div class="gn">3</div><div class="gt"><b>New capability?</b>
+        State the concrete outcome the attacker gains; eliminate only by citing a
+        <code>file:line</code> that already grants the same outcome.</div></div>
+      <div class="doc-note"><b>Output contract.</b> Each input gets a disposition —
+        CANDIDATE / SAFE / NO-MATCH / CROSS-CLASS / DESIGN-INTENT — with the data
+        flow cited at every step. Confirmed IDs are assigned as <code>VULN-NNN</code>.
+        These are <i>candidates</i>, not yet confirmed.</div>
+    </section>
+
+    <!-- PHASE 2b -->
+    <section class="doc-sec" id="phase2b">
+      <span class="badge">Phase 2b · up to 70 turns</span>
+      <h2>Verify — adversarial falsification</h2>
+      <p class="lead">Try to <b>disprove</b> every Phase 2 candidate with full-codebase
+        visibility. Historically about half of raw candidates are false positives;
+        this phase is where they're cut.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">results/ (all hunt output)</div></div>
+        <div><div class="k">Writes</div><div class="v">phase2b_output.md + phase2b_handoff.md</div></div>
+      </div>
+      <h3>What it does</h3>
+      <p>It builds a flat <b>candidate manifest</b> — the verdict table must have one
+        row per candidate, because a missing row means a finding was silently
+        dropped. It then works through a fixed checklist, attempting to refute each
+        finding:</p>
+      <div class="gate"><div class="gn">1</div><div class="gt"><b>All gates answered?</b>
+        Fill any blank Gate 0–3. Note: <b>authentication is not a Gate 2a failure</b>
+        — a gated <code>pickle.loads</code> is still confirmed, with the auth listed
+        as a precondition.</div></div>
+      <div class="gate"><div class="gn">2</div><div class="gt"><b>Re-verify reachability</b>
+        with fresh eyes; route registration ≠ code reachability.</div></div>
+      <div class="gate"><div class="gn">3</div><div class="gt"><b>Defenses source→sink.</b>
+        Read the actual library source and search the whole codebase for shared
+        defenses; a scope-mismatched sanitizer is a bug, not a mitigation.</div></div>
+      <div class="gate"><div class="gn">4</div><div class="gt"><b>Severity calibrated?</b>
+        Impact-to-tier match, attacker identity, and (for deserialization) whether a
+        gadget actually exists.</div></div>
+      <div class="gate"><div class="gn">5</div><div class="gt"><b>Downgrade discipline.</b>
+        Before eliminating anything, grep and read <i>all</i> call sites and their
+        callers; a finding clears only when every call site is proven safe.</div></div>
+      <div class="gate"><div class="gn">6</div><div class="gt"><b>Conditional-validation
+        bypass.</b> Enumerate every check skipped when a gating input is absent; one
+        uncovered "No" and the finding stands.</div></div>
+      <div class="gate"><div class="gn">7</div><div class="gt"><b>Comment skepticism.</b>
+        Map every "by design" / "downstream validates" / "internal only" claim to the
+        gate it falsely satisfies, and re-verify empirically.</div></div>
+      <div class="gate"><div class="gn">8</div><div class="gt"><b>Authorization-delegation
+        ladder</b> (CWE-639): verified crypto origin + caller scope → Informational;
+        crypto origin only → Medium; neither → original severity. "Crypto origin"
+        means a signature or mTLS cert checked in code, not a header-presence
+        check.</div></div>
+      <div class="gate"><div class="gn">9</div><div class="gt"><b>Universal auth-gap
+        rollup.</b> If authentication is absent platform-wide, collapse the related
+        findings into one <code>VULN-PLATFORM-AUTHN</code>; if only authorization is
+        absent, one <code>VULN-PLATFORM-AUTHZ</code>. Subsumed findings stay in the
+        table marked <code>SUBSUMED-BY</code>.</div></div>
+      <div class="doc-note"><b>The core rule.</b> A finding is a false positive
+        <i>only</i> with evidence — a specific defense at a <code>file:line</code>
+        between source and sink. <b>Authentication is never that evidence</b>; it's a
+        precondition on a still-confirmed finding. Only CONFIRMED findings pass to
+        Phase 3, via a compact <code>phase2b_handoff.md</code>.</div>
+    </section>
+
+    <!-- PHASE 3 -->
+    <section class="doc-sec" id="phase3">
+      <span class="badge">Phase 3 · up to 80 turns</span>
+      <h2>Reproduce, test &amp; fix</h2>
+      <p class="lead">Prove each confirmed finding is exploitable end-to-end with a
+        PoC and an executable exploit test, then document a fix. Anything that can't
+        be proven is downgraded.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">phase2b_handoff.md (confirmed set)</div></div>
+        <div><div class="k">Writes</div><div class="v">phase3_output.md + poc/ + exploit_tests/</div></div>
+      </div>
+      <h3>What it does</h3>
+      <ul>
+        <li><b>Completeness check.</b> Maps every confirmed High/Medium finding to a
+          sequential <code>VULN-NNN</code>; the row count must equal Phase 2b's
+          confirmed count. A finding can only be removed by an explicit failing
+          exploit test.</li>
+        <li><b>Reproduce.</b> Writes one PoC per finding. When bash is explicitly
+          enabled it may be a runnable script; otherwise it is a <b>static data-flow
+          trace</b> — a concrete attacker input, a <code>file:line</code> at every
+          propagation step, and the literal dangerous string at the sink.</li>
+        <li><b>Exploit test (mandatory).</b> An executable test that proves the
+          <i>attacker's goal is achieved</i> — SQLi returns unauthorized data, path
+          traversal reads outside the directory, IDOR retrieves another user's
+          resource, and so on. <b>PASS</b> keeps the finding; a mitigated or failing
+          test downgrades it to a code smell. You must write the PoC and test files
+          <i>before</i> reclassifying anything as a smell, documenting the exact
+          payload and the specific blocking defense.</li>
+        <li><b>Fixes (documented only).</b> Per finding: strategy, the exact files to
+          change, and why it works — fixing the root cause at the right layer. This
+          phase never edits the target's source.</li>
+      </ul>
+      <div class="doc-note"><b>Output contract.</b> Only findings whose exploit test
+        PASSes proceed. Every finding carries a PoC path and an exploit-test path.</div>
+    </section>
+
+    <!-- PHASE 3d -->
+    <section class="doc-sec" id="phase3d">
+      <span class="badge">Phase 3d · deterministic (no model)</span>
+      <h2>Sweep — root-cause instances</h2>
+      <p class="lead">Once a finding is confirmed, find every <i>other</i> place its
+        root cause occurs across the full codebase — so a pattern found once isn't
+        missed in five other files.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">phase3_output.md (confirmed findings)</div></div>
+        <div><div class="k">Writes</div><div class="v">phase3d_output.md</div></div>
+      </div>
+      <h3>What a root-cause sweep is</h3>
+      <p>For each confirmed finding it takes the underlying vulnerable construction
+        (its "root cause") and greps the <b>entire codebase — ignoring partition
+        boundaries</b> — for both the source pattern and the dangerous sink,
+        catching instances no inventoried input reached (cron jobs, workers,
+        internal RPC). Every new instance is triaged and, if it looks live, must run
+        the <i>full</i> pipeline again (Gates → PoC → exploit test) before it becomes
+        a new <code>VULN-NNN</code>.</p>
+      <h3>Why it's deterministic</h3>
+      <p>By default this phase runs <b>no model agent at all</b>. The runner builds
+        the sweep mechanically: it maps each finding's CWE to a fixed regex
+        sink-pattern table (for example CWE-502 → <code>pickle.loads</code> /
+        <code>yaml.load</code>; CWE-78 → <code>os.system</code> /
+        <code>subprocess</code>; CWE-94 → <code>eval</code> / <code>exec</code>),
+        greps with ripgrep scoped to the finding's language, filters out test and
+        comment matches, and reports the total count and the extra instances.
+        Logic and authorization CWEs (IDOR, missing-authz, races) have no syntactic
+        sink, so they're honestly reported as not sweepable rather than inventing a
+        pattern. A fixed table plus a plain grep means the same input always yields
+        the same output — that's the guarantee.</p>
+      <div class="doc-note"><b>Output contract.</b> A sweep table — root cause, grep
+        pattern, total found, candidates, mitigated, dev-only, remaining. Any
+        remaining instance must be triaged before the report.</div>
+    </section>
+
+    <!-- PHASE 4 -->
+    <section class="doc-sec" id="phase4">
+      <span class="badge">Phase 4 · up to 50 turns</span>
+      <h2>Report</h2>
+      <p class="lead">Compile every confirmed finding, code smell, resolved input,
+        and the sweep table into the final human-readable report.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">phase1 + phase2b + phase3 + phase3d outputs</div></div>
+        <div><div class="k">Writes</div><div class="v">README.md (+ links to poc/ &amp; exploit_tests/)</div></div>
+      </div>
+      <h3>What it does</h3>
+      <ul>
+        <li><b>One row per exploit-test PASS</b>, not per root cause — two root
+          causes with eight confirmed sinks produce eight findings, each with its own
+          data flow, PoC, and exploit test.</li>
+        <li>A <b>Code Quality / Defense-in-Depth</b> section captures downgraded
+          near-misses, security config, a crypto inventory, and gaps — with the
+          rationale for every downgrade.</li>
+        <li>A <b>resolved input inventory</b> shows every input's final disposition,
+          plus a "not found / excluded" section for the classes that came back
+          clean.</li>
+        <li>Includes the Phase 3d sweep table.</li>
+      </ul>
+      <div class="doc-note"><b>Validation rule.</b> A finding is invalid if its PoC or
+        exploit-test field is empty — each must be a real, clickable path to a saved
+        artifact. The report header records run ID, repository, date, branch + commit,
+        model, and the findings summary, and the summary row count must equal the
+        finding count.</div>
+    </section>
+
+    <div class="doc-note" style="margin-top:26px">Phases can run on <b>different
+      models</b> — for example recon and reporting on a cheap local model and the
+      hunt on a stronger one — configured per role in <a onclick="navigate('settings')">Settings</a>
+      and the New Scan form. A run can also opt into the <b>Vulnerability Ledger</b>
+      to accumulate confirmed findings across runs of the same target and score each
+      run's recall.</div>
+  </div>`;
+}
+function wireDocs(){
+  document.querySelectorAll('.pipe a[data-goto]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const t = document.getElementById(a.getAttribute('data-goto'));
+      if (t) t.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  });
+}
+
+function settingsHTML(){
+  return `
+    <div class="pane-head"><h2>Settings</h2></div>
+    <h2>Connections</h2>
+    <div class="hint" style="margin:-4px 0 12px">Where models come from. Set a host
+      (or key), press <b>Test</b>, and that connection's models appear in the New
+      scan pickers — each tagged with where it came from.</div>
+    <div class="conn-cards">
+      <div class="card">
+        <h3>Ollama <span style="font-weight:400;color:var(--text-3);font-size:12px">· local</span></h3>
+        <div class="hint" id="cs-ollama"></div>
+        <label style="margin-top:8px">Host</label>
+        <div style="display:flex;gap:7px">
+          <input id="conn-ollama-host" spellcheck="false" placeholder="http://host:11434">
+          <button class="secondary" onclick="testConn('ollama')">Test</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>OpenAI-compatible <span style="font-weight:400;color:var(--text-3);font-size:12px">· local</span></h3>
+        <div class="hint" id="cs-openai"></div>
+        <label style="margin-top:8px">Server URL</label>
+        <div style="display:flex;gap:7px">
+          <input id="conn-openai-host" spellcheck="false" placeholder="http://localhost:8080">
+          <button class="secondary" onclick="testConn('openai')">Test</button>
+        </div>
+        <div class="hint" style="margin-top:6px">mlx_lm / vLLM / LM Studio. <span class="mono">/v1</span> added automatically.</div>
+      </div>
+      <div class="card">
+        <h3>OpenRouter <span style="color:var(--warn);font-size:12px">· cloud 💲</span></h3>
+        <div class="hint" id="cs-openrouter"></div>
+        <div class="warn-banner">
+          <b>💲 Paid cloud API.</b> Bills your account per token and <b>sends your
+          code off this machine</b>. Use deliberately.
+        </div>
+        <label style="margin-top:8px">API key</label>
+        <div style="display:flex;gap:7px">
+          <input id="orKey" type="password" spellcheck="false" autocomplete="off" placeholder="sk-or-…">
+          <button class="secondary" onclick="saveOpenRouterKey()">Save</button>
+        </div>
+        <div class="hint" id="orKeyStatus" style="margin-top:8px"></div>
+        <div class="hint" style="margin-top:6px">Stored in this browser + the engine's
+          memory only — <b>never written to disk</b>. Or set
+          <span class="mono">$VHLOCAL_OPENROUTER_API_KEY</span>.</div>
+        <div class="hint" style="margin-top:6px">Prices per token: <b>free</b> · <b>$</b>
+          · <b>$$</b> · <b>$$$</b> · <b>$$$$</b>. <a onclick="testConn('openrouter')">Reload catalogue</a></div>
+      </div>
+    </div>
+    <h2>Engine</h2>
+    <div id="engineInfo"></div>
+    <h2>Interface</h2>
+    <div class="hint">Prefer the previous interface? The classic UI is still served
+      at <a href="/legacy" target="_blank" rel="noopener">/legacy</a>.</div>`;
+}
+
+function wireSettings(){
+  const oh = $('conn-ollama-host'); if (oh) oh.value = CONNS.ollama.host;
+  const ah = $('conn-openai-host'); if (ah) ah.value = CONNS.openai.host;
+  ['ollama', 'openai', 'openrouter'].forEach(renderConnStatus);
+  renderOrKeyStatus(CFG.defaults.openrouter_key_set);
+  const ok = $('orKey');
+  if (ok) ok.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); saveOpenRouterKey(); }
+  });
+  renderEngineInfo();
+}
+
+async function refresh() {
+  const d = await api('/api/scans');
+  jobs = d.jobs;
+  const busy = $('busy');
+  busy.textContent = d.busy ? 'scanning' : 'idle';
+  busy.classList.toggle('live', !!d.busy);
+  renderJobs();
+  // Only repaint the detail pane when the scans view actually owns it.
+  if (view === 'scans' && sel) {
+    const j = jobs.find(x => x.id === sel);
+    if (j) renderDetail($('view'), j);
+  }
+  // Keep the dashboard's live scan fresh (the tracker + token/finding tiles).
+  if (view === 'home') {
+    const running = jobs.find(x => ['running', 'queued'].includes(x.status));
+    if (running && $('dashScan')) { running._kind = 'scan'; renderPhaseOverview(running); }
+  }
+}
+
+function renderJobs() {
+  const ul = $('jobs');
+  $('jobCount').textContent = jobs.length;
+  if (!jobs.length) { ul.innerHTML = '<li style="color:var(--text-3)">No scans yet</li>'; return; }
+  ul.innerHTML = jobs.map(j => `
+    <li class="${j.id===sel?'sel':''}" onclick="select('${j.id}')">
+      <span class="dot s-${j.status}"></span>
+      <span class="jmeta">
+        <span class="t">${esc((j.spec.repo||'').split('/').pop())}</span>
+        <span class="d">${esc(j.status)} · ${esc(j.spec.model||'')} · ${fmtDur(j.elapsed)}</span>
+      </span>
+    </li>`).join('');
+}
+
+window.select = async function(id) {
+  sel = id; evCount = 0; tab = 'live';
+  renderJobs();
+  // The rail is visible from every view, so a click here navigates rather than
+  // silently painting a pane the user isn't looking at.
+  navigate('scans');
+};
+
+const fmtTokens = (n) => {
+  n = n || 0;
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
+  return String(n);
+};
+
+// Three live stat tiles above the tracker: model running, tokens used, vulns.
+// Vulns are unknown until Phase 2b confirms, so the tile reads "—" until then.
+function statTiles(j){
+  const tokens = (j.prompt_tokens || 0) + (j.completion_tokens || 0);
+  const model = j.current_model || (j.spec && j.spec.model) || '—';
+  let vulns, vsub;
+  if (j.findings_stage) {
+    vulns = String(j.findings_count || 0);
+    vsub = j.findings_stage === 'final' ? 'confirmed' : 'confirmed so far';
+  } else {
+    vulns = '—';
+    vsub = 'after Phase 2b';
+  }
+  return `<div class="kpis stat-row">
+    <div class="tile"><div class="k">Model running</div>
+      <div class="v" style="font-size:15px;word-break:break-all">${esc(model)}</div></div>
+    <div class="tile"><div class="k">Tokens used</div>
+      <div class="v">${fmtTokens(tokens)}</div>
+      <div class="s">${(j.prompt_tokens||0).toLocaleString()} in · ${(j.completion_tokens||0).toLocaleString()} out</div></div>
+    <div class="tile"><div class="k">Vulnerabilities</div>
+      <div class="v">${esc(vulns)}</div><div class="s">${esc(vsub)}</div></div>
+  </div>`;
+}
+
+// A "pizza-tracker" stepper across the scan's phases: which are done, which is
+// live, which are still to come. Driven by CFG.phases (the ordered phase list)
+// and the job's current `phase`. Re-rendered on every refresh so it advances.
+function phaseTracker(j){
+  const all = (CFG && Array.isArray(CFG.phases)) ? CFG.phases : [];
+  if (!all.length) return '';
+  // Which phases this scan runs: "all" (or empty) = every phase; else a comma
+  // list of keys. A range/unknown spec falls back to the full list.
+  let steps = all.slice();
+  const raw = String((j.spec && j.spec.phases) || 'all').trim();
+  if (raw && raw !== 'all') {
+    const keys = raw.split(',').map(s => s.trim());
+    const sub = all.filter(p => keys.includes(p.key));
+    if (sub.length) steps = sub;
+  }
+  const short = p => String(p.title || p.key).split(' — ')[0].split(',')[0].trim();
+  const curKey = j.phase ? String(j.phase).split(' — ')[0].trim() : null;
+  const curIndex = curKey ? steps.findIndex(p => p.key === curKey) : -1;
+  const isDone = j.status === 'done';
+  const stopped = ['failed','interrupted','cancelled'].includes(j.status);
+
+  const nodes = steps.map((p, i) => {
+    let state;
+    if (isDone) state = 'done';
+    else if (curIndex === -1) state = (j.status === 'running' && i === 0) ? 'active' : 'pending';
+    else if (i < curIndex) state = 'done';
+    else if (i === curIndex) state = stopped ? 'stopped' : 'active';
+    else state = 'pending';
+    const glyph = state === 'done' ? '✓' : state === 'stopped' ? '!' : esc(p.key);
+    return `<div class="step ${state}" title="${esc(short(p))} — phase ${esc(p.key)}">`
+      + `<span class="node">${glyph}</span><span class="lbl">${esc(short(p))}</span></div>`;
+  }).join('');
+
+  const pct = j.agent_total ? Math.round(100 * j.agent_index / j.agent_total) : 0;
+  let caption;
+  if (isDone) caption = 'All phases complete';
+  else if (stopped) caption = curKey ? `Stopped during phase ${esc(curKey)}` : 'Stopped before starting';
+  else if (curIndex >= 0) caption = `Phase ${esc(curKey)} — ${esc(short(steps[curIndex]))}`
+      + (j.agent_total ? ` · agent ${j.agent_index}/${j.agent_total}` : '');
+  else caption = j.status === 'queued' ? 'Queued…' : 'Starting…';
+
+  const showBar = !isDone && !stopped && j.agent_total;
+  return `<div class="tracker-card">
+    <div class="tracker">${nodes}</div>
+    <div class="tracker-cap">${caption}</div>
+    ${showBar ? `<div class="prog"><i style="width:${pct}%"></i></div>` : ''}
+  </div>`;
+}
+
+function renderDetail(el, j) {
+  const running = j.status === 'running' || j.status === 'queued';
+  // Interrupted / cancelled / failed scans that got far enough to have a results
+  // directory can be continued from the last completed phase.
+  const resumable = !running && j.results_dir
+    && ['interrupted','cancelled','failed'].includes(j.status);
+  el.innerHTML = `
+    <div class="detail-head">
+      <span class="dot s-${j.status}"></span>
+      <strong>${esc(j.spec.repo)}</strong>
+      <span class="badge">${esc(j.status)}</span>
+      <span style="flex:1"></span>
+      ${running ? `<button class="secondary" onclick="cancel('${j.id}')">Cancel</button>` : ''}
+      ${resumable ? `<button class="btn" style="width:auto;padding:8px 15px"
+        title="Continue this scan from the last completed phase"
+        onclick="resumeScan('${j.id}')">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/></svg>
+        Resume</button>` : ''}
+    </div>
+    ${resumable ? `<div class="hint" style="margin-top:8px">This scan stopped before
+      finishing. <b>Resume</b> continues in its existing results directory, skipping
+      phases that already completed.</div>` : ''}
+    ${j.error ? `<div class="err-box" style="margin-top:12px">${esc(j.error)}</div>` : ''}
+    ${statTiles(j)}
+    ${phaseTracker(j)}
+    <div class="metacard"><table>
+      <tr><th>Model</th><td>${esc(j.spec.model)}${j.spec.verify_model?` · verify: ${esc(j.spec.verify_model)}`:''}</td></tr>
+      <tr><th>Phase</th><td>${esc(j.phase || '—')}</td></tr>
+      <tr><th>Agent</th><td>${esc(j.agent_label||'—')} ${j.agent_total?`(${j.agent_index}/${j.agent_total})`:''}</td></tr>
+      <tr><th>Elapsed</th><td>${fmtDur(j.elapsed)}</td></tr>
+      <tr><th>Results</th><td style="font-family:var(--mono);font-size:11.5px">${esc(j.results_dir||'—')}</td></tr>
+      ${j.usage?`<tr><th>Usage</th><td style="font-family:var(--mono);font-size:11.5px">${esc(j.usage)}</td></tr>`:''}
+    </table></div>
+    <div class="tabs">
+      <button class="${tab==='live'?'on':''}" onclick="setTab('live')">Live feed</button>
+      <button class="${tab==='files'?'on':''}" onclick="setTab('files')">Artifacts</button>
+      <button class="${tab==='prompts'?'on':''}" onclick="setTab('prompts')">Prompts</button>
+      <button class="${tab==='log'?'on':''}" onclick="setTab('log')">Log</button>
+    </div>
+    <div id="tabbody">${tab==='live' ? '<div id="feed"></div>' : '<div class="empty">Loading…</div>'}</div>`;
+  if (tab === 'live') {
+    const f = $('feed');
+    if (f && window._feedCache) f.innerHTML = window._feedCache;
+    if (f) f.scrollTop = f.scrollHeight;
+  } else if (tab === 'log') {
+    loadLog(j.id);
+  } else if (tab === 'prompts') {
+    loadPrompts(j.id);
+  } else {
+    loadFiles(j.id);
+  }
+}
+
+window.setTab = function(t) {
+  tab = t;
+  const j = jobs.find(x => x.id === sel);
+  if (j) renderDetail($('view'), j);
+};
+
+window.cancel = async function(id) {
+  try { await api('/api/scans/' + id + '/cancel', {method:'POST'}); }
+  catch (e) { alert(e.message); }
+  refresh();
+};
+
+// Continue an interrupted/cancelled/failed scan: re-submit its OWN spec pointed
+// at the existing results directory with resume on, so the engine skips phases
+// that already completed. A new job id tracks the continuation.
+window.resumeScan = async function(id) {
+  const j = jobs.find(x => x.id === id);
+  if (!j) return;
+  if (!j.results_dir) { alert('This scan has no results directory to resume.'); return; }
+  const payload = Object.assign({}, j.spec || {}, {
+    out: j.results_dir,
+    resume: true,
+  });
+  try {
+    const job = await api('/api/scans', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    await refresh();
+    select(job.id);
+  } catch (e) {
+    alert('Resume failed: ' + e.message);
+  }
+};
+
+function closeStream() {
+  if (es) { es.close(); es = null; }
+}
+
+function openStream(id) {
+  closeStream();
+  window._feedCache = '';
+  es = new EventSource('/api/scans/' + id + '/events?offset=0');
+  es.onmessage = (m) => {
+    let ev; try { ev = JSON.parse(m.data); } catch { return; }
+    evCount++;
+    appendEvent(ev);
+    if (ev.type === 'phase_done' || ev.type === 'job_end' || ev.type === 'scan_done') {
+      refresh();
+      if (ev.type === 'job_end' && view === 'reports') loadReports();
+    }
+  };
+  es.onerror = () => { /* server closes on job_end; polling keeps state fresh */ };
+}
+
+function appendEvent(ev) {
+  let cls = '', tag = ev.type, text = '';
+  if (ev.type === 'phase_start') { cls='phase'; tag='PHASE'; text = ev.key + ' — ' + ev.title; }
+  else if (ev.type === 'agent_start') { cls='agent'; tag='AGENT'; text = `${ev.label} [${ev.index}/${ev.total}] via ${ev.model}`; }
+  else if (ev.type === 'agent_done') { cls='agent'; tag='DONE'; text = `${ev.label} — ${ev.turns} turns (${ev.stopped_reason})`; }
+  else if (ev.type === 'agent_skip') { tag='SKIP'; text = ev.label + ' (already done)'; }
+  else if (ev.type === 'phase_done') { cls='phase'; tag='PHASE'; text = `${ev.key} finished in ${fmtDur(ev.seconds)} · produced=${ev.produced}`; }
+  else if (ev.type === 'fanout_plan') { cls='phase'; tag='PLAN'; text = `${ev.agents} agents over ${ev.partitions.length} partitions: ${ev.partitions.join(', ')}`; }
+  else if (ev.type === 'scan_start') { cls='phase'; tag='START'; text = `${ev.model} · ctx ${ev.num_ctx} · phases ${ev.phases.join(',')}`; }
+  else if (ev.type === 'scan_done') { cls='phase'; tag='END'; text = `${fmtDur(ev.seconds)} · ${ev.usage||''}${ev.cancelled?' · CANCELLED':''}`; }
+  else if (ev.type === 'error') { cls='err'; tag='ERROR'; text = ev.message; }
+  else if (ev.type === 'log') {
+    text = ev.message;
+    if (ev.level === 'WARNING') cls='warn';
+    else if (ev.level === 'ERROR' || ev.level === 'CRITICAL') cls='err';
+    tag = ev.level === 'INFO' ? 'log' : ev.level.toLowerCase();
+  } else { text = JSON.stringify(ev); }
+
+  const html = `<div class="ev ${cls}"><span class="tag">${esc(tag)}</span><span>${esc(text)}</span></div>`;
+  window._feedCache = (window._feedCache || '') + html;
+  const f = $('feed');
+  if (f) {
+    const atBottom = f.scrollHeight - f.scrollTop - f.clientHeight < 40;
+    f.insertAdjacentHTML('beforeend', html);
+    if (atBottom) f.scrollTop = f.scrollHeight;
+  }
+}
+
+async function loadFiles(id) {
+  try {
+    const d = await api('/api/scans/' + id + '/artifacts');
+    const body = $('tabbody');
+    if (!d.files.length) { body.innerHTML = '<div class="empty">No artifacts yet.</div>'; return; }
+    const order = (p) => p === 'SCAN_REPORT.md' ? 0 : p === 'README.md' ? 1
+      : p === 'findings.json' ? 2 : p.startsWith('phase') ? 3 : 4;
+    d.files.sort((a,b) => order(a.path)-order(b.path) || a.path.localeCompare(b.path));
+    body.innerHTML = `<div class="metacard"><table><tr><th>File</th><th style="width:90px">Size</th></tr>` +
+      d.files.map(f => `<tr><td><a onclick="viewFile('${id}','${esc(f.path)}')">${esc(f.path)}</a></td>
+        <td style="color:var(--text-3)">${(f.size/1024).toFixed(1)} KB</td></tr>`).join('') +
+      `</table></div><div id="viewer" style="margin-top:16px"></div>`;
+  } catch (e) {
+    $('tabbody').innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
+  }
+}
+
+async function loadLog(id) {
+  const body = $('tabbody');
+  body.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await fetch('/api/scans/' + id + '/log');
+    const t = await r.text();
+    body.innerHTML = `<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">`
+      + `This scan's lines from the central log.</div><pre>${esc(t)}</pre>`;
+    const pre = body.querySelector('pre');
+    if (pre) pre.scrollTop = pre.scrollHeight;
+  } catch (e) {
+    body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
+  }
+}
+
+// Render the exact system + per-agent task prompts from prompts.jsonl.
+function promptsHTML(recs) {
+  const sys = recs.find(r => r.kind === 'system');
+  const agents = recs.filter(r => r.kind === 'agent');
+  let html = '<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">'
+    + 'The exact prompts sent to the model. The <b>system prompt</b> is shared by '
+    + 'every agent; each entry below is one agent\'s task (the user turn that starts it). '
+    + 'Multi-turn tool exchanges are not shown — see the Log for those.</div>';
+  if (sys) html += `<details class="promptrec"><summary><b>System prompt</b>`
+    + `<span class="pmeta">shared · ${sys.prompt.length.toLocaleString()} chars</span></summary>`
+    + `<pre>${esc(sys.prompt)}</pre></details>`;
+  html += agents.map(a => `<details class="promptrec"><summary><b>${esc(a.label)}</b>`
+    + `<span class="pmeta">phase ${esc(a.phase)} · ${(a.chars||0).toLocaleString()} chars</span></summary>`
+    + `<pre>${esc(a.prompt)}</pre></details>`).join('');
+  return html;
+}
+
+async function loadPrompts(id) {
+  const body = $('tabbody');
+  body.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await fetch('/api/scans/' + id + '/file?path=prompts.jsonl');
+    if (!r.ok) { body.innerHTML = '<div class="empty">No prompts captured yet — they appear as each phase starts.</div>'; return; }
+    const txt = await r.text();
+    const recs = txt.trim().split('\n').filter(Boolean)
+      .map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean);
+    if (!recs.length) { body.innerHTML = '<div class="empty">No prompts captured yet.</div>'; return; }
+    body.innerHTML = promptsHTML(recs);
+  } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+}
+
+window.viewFile = async function(id, path) {
+  const v = $('viewer');
+  v.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await fetch(`/api/scans/${id}/file?path=` + encodeURIComponent(path));
+    const t = await r.text();
+    v.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
+      ? `<div class="md">${mdRender(t)}</div>` : `<pre>${esc(t)}</pre>`);
+    v.scrollIntoView({behavior:'smooth', block:'start'});
+  } catch (e) { v.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+};
+
+// ---------------------------------------------------------------------------
+// Dashboard (Home). Aggregate metrics across all scans + a phase-by-phase
+// overview of the latest (or running) scan with per-phase deep-dive.
+// ---------------------------------------------------------------------------
+const PHASE_ARTIFACT = { '1': 'phase1_output.md', '2b': 'phase2b_output.md',
+  '3': 'phase3_output.md', '3d': 'phase3d_output.md', '4': 'SCAN_REPORT.md' };
+
+const DASH_ICONS = {
+  scans: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
+  vuln: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 8.3-7 10-4-1.7-7-5.6-7-10V6l7-3z"/><path d="M12 8v4M12 16h.01"/></svg>',
+  tok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>',
+  avg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 4-6"/></svg>',
+  time: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+};
+
+function metricCard(icon, value, label, sub){
+  return `<div class="metric-card"><div class="ic">${icon}</div>
+    <div class="mv">${esc(String(value))}</div>
+    <div class="ml">${esc(label)}</div>
+    ${sub ? `<div class="ms">${esc(sub)}</div>` : ''}</div>`;
+}
+
+function renderScanChart(reports){
+  const el = $('dashChart'); if (!el) return;
+  const data = (reports || []).slice(0, 16).reverse();   // oldest left, newest right
+  if (!data.length) { el.innerHTML = '<div class="empty" style="padding:24px 0">No scans yet.</div>'; return; }
+  const max = Math.max(1, ...data.map(r => r.findings || 0));
+  el.innerHTML = '<div class="bars">' + data.map(r => {
+    const f = r.findings || 0;
+    const when = r.created ? new Date(r.created * 1000).toLocaleDateString() : '';
+    const title = `${r.model || ''} · ${when} · ${f} finding${f === 1 ? '' : 's'}`;
+    return `<div class="bar ${f ? '' : 'zero'}" title="${esc(title)}">`
+      + `<span class="bv">${f}</span><i style="height:${f ? Math.max(Math.round(f / max * 100), 4) : 2}%"></i></div>`;
+  }).join('') + '</div>'
+    + `<div class="hint" style="margin-top:9px">Last ${data.length} scans · newest at right · hover for detail</div>`;
+}
+
+function renderByModel(byModel){
+  const el = $('dashByModel'); if (!el) return;
+  const rows = Object.entries(byModel || {})
+    .map(([m, v]) => ({ m, avg: v.scans ? v.findings / v.scans : 0, scans: v.scans }))
+    .sort((a, b) => b.avg - a.avg);
+  if (!rows.length) { el.innerHTML = '<div class="empty">—</div>'; return; }
+  const max = Math.max(1, ...rows.map(r => r.avg));
+  el.innerHTML = rows.map(r => `<div class="mbar">
+    <span class="mn" title="${esc(r.m)}">${esc(r.m)}</span>
+    <span class="mt"><i style="width:${Math.round(r.avg / max * 100)}%"></i></span>
+    <span class="mval">${r.avg.toFixed(1)} <span style="color:var(--text-3)">· ${r.scans}×</span></span>
+  </div>`).join('');
+}
+
+async function loadDashboard(){
+  let reports = [];
+  try {
+    const s = await api('/api/stats');
+    if ($('dashMetrics')) $('dashMetrics').innerHTML =
+        metricCard(DASH_ICONS.scans, s.scans, 'Scans run')
+      + metricCard(DASH_ICONS.vuln, s.findings, 'Vulnerabilities found', s.avg_findings_per_scan + ' avg / scan')
+      + metricCard(DASH_ICONS.tok, fmtTokens(s.total_tokens), 'Tokens used',
+             s.prompt_tokens ? fmtTokens(s.prompt_tokens) + ' in · ' + fmtTokens(s.completion_tokens) + ' out' : '')
+      + metricCard(DASH_ICONS.avg, fmtTokens(s.avg_tokens_per_scan), 'Avg tokens / scan')
+      + metricCard(DASH_ICONS.time, fmtDur(s.total_seconds), 'Total scan time', fmtDur(s.avg_seconds_per_scan) + ' avg / scan');
+    renderByModel(s.by_model);
+  } catch (e) { if ($('dashMetrics')) $('dashMetrics').innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+
+  try { reports = (await api('/api/reports')).reports || []; } catch (e) { /* ignore */ }
+  renderScanChart(reports);
+
+  // Latest scan: a running job, else the newest job, else newest report.
+  try {
+    const d = await api('/api/scans');
+    const jobs2 = (d.jobs || []).slice().sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+    let target = jobs2.find(j => ['running', 'queued'].includes(j.status)) || jobs2[0];
+    if (target) target._kind = 'scan';
+    else if (reports[0]) target = Object.assign({ _kind: 'report' }, reports[0]);
+    renderPhaseOverview(target);
+  } catch (e) { $('dashScan').innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+}
+
+async function renderPhaseOverview(t){
+  const el = $('dashScan');
+  if (!t) { el.innerHTML = '<div class="empty">No scans yet. Start one under Scans.</div>'; return; }
+  const running = t._kind === 'scan' && ['running', 'queued'].includes(t.status);
+  const repo = (t.spec && t.spec.repo) || t.repo || t.id;
+  const model = (t.spec && t.spec.model) || t.model || '';
+  const head = `<div class="detail-head">
+      <span class="dot s-${esc(t.status || 'done')}"></span>
+      <strong>${esc((repo || '').split('/').pop())}</strong>
+      <span class="badge">${esc(t.status || 'done')}</span>
+      <span style="color:var(--text-3);font-size:12px">${esc(model)}</span>
+      <span style="flex:1"></span>
+      <button class="secondary" onclick="${t._kind === 'scan'
+        ? `select('${esc(t.id)}')` : `navigate('reports')`}">Open ${t._kind === 'scan' ? 'scan' : 'reports'} →</button>
+    </div>`;
+
+  if (running) {   // live: reuse the tracker + stat tiles
+    el.innerHTML = head + statTiles(t) + phaseTracker(t)
+      + '<div class="hint">Phase-by-phase details appear here once the scan finishes; open the scan for the live feed.</div>';
+    return;
+  }
+
+  // finished: read scan_meta for per-phase timings + agent roster
+  const base = t._kind === 'report' ? '/api/reports/' : '/api/scans/';
+  let meta = null;
+  try {
+    const r = await fetch(base + encodeURIComponent(t.id) + '/file?path=scan_meta.json');
+    if (r.ok) meta = JSON.parse(await r.text());
+  } catch (e) { /* no meta */ }
+  if (!meta) { el.innerHTML = head + '<div class="empty">No phase metadata for this scan.</div>'; return; }
+
+  const all = (CFG.phases || []);
+  const timings = meta.phase_timings || {};
+  const completed = meta.phases_completed || [];
+  const agents = meta.agents || [];
+  const maxDur = Math.max(1, ...all.map(p => timings[p.key] || 0));
+  const cards = all.map(p => {
+    const done = completed.includes(p.key);
+    const ags = agents.filter(a => String(a.phase) === p.key);
+    const dur = timings[p.key] || 0;
+    const short = String(p.title || p.key).split(' — ')[0].split(',')[0].trim();
+    const canView = PHASE_ARTIFACT[p.key] || p.key === '2';
+    const nag = ags.length ? ags.length + ' agent' + (ags.length === 1 ? '' : 's')
+      : (p.key === '3d' ? 'deterministic' : '—');
+    return `<div class="pcard">
+      <div class="pname">${esc(p.key)} ${esc(short)}
+        <small>${done ? '✓' : '·'}</small></div>
+      <div class="pdur" title="${dur ? fmtDur(dur) : ''}"><i style="width:${Math.round(dur / maxDur * 100)}%"></i></div>
+      <div class="pmeta">${dur ? fmtDur(dur) : '—'} · ${esc(nag)}
+        ${canView ? ` · <a onclick="dashPhase('${esc(t._kind)}','${esc(t.id)}','${esc(p.key)}')">details</a>` : ''}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = head + `<div class="phase-cards">${cards}</div>`
+    + `<div id="dashPhaseBody" style="margin-top:16px"></div>`;
+}
+
+// Deep-dive into one phase: its output artifact, or (phase 2) its agent roster
+// with a link into each hunt agent's result file.
+window.dashPhase = async function(kind, id, key){
+  const body = $('dashPhaseBody');
+  body.innerHTML = '<div class="empty">Loading…</div>';
+  const base = kind === 'report' ? '/api/reports/' : '/api/scans/';
+  if (key === '2'){
+    // Phase-2 fan-out: list agents (label → results/<sg>_<class>.md) from scan_meta
+    try {
+      const mr = await fetch(base + encodeURIComponent(id) + '/file?path=scan_meta.json');
+      const meta = mr.ok ? JSON.parse(await mr.text()) : {};
+      const ags = (meta.agents || []).filter(a => String(a.phase) === '2');
+      body.innerHTML = `<div class="view-head">Phase 2 — Hunt (${ags.length} agents)</div>`
+        + `<div class="metacard"><table><tr><th style="width:auto">Agent</th><th>Model</th><th>Turns</th><th>Stopped</th><th></th></tr>`
+        + ags.map(a => {
+            const file = 'results/' + String(a.label || '').replace(/^p2:/, '').replace(/:/g, '_') + '.md';
+            return `<tr><td>${esc(a.label)}</td><td style="font-size:11.5px">${esc(a.model||'')}</td>`
+              + `<td>${esc(a.turns)}</td><td style="color:var(--text-3)">${esc(a.stopped_reason||'')}</td>`
+              + `<td><a onclick="dashFile('${esc(kind)}','${esc(id)}','${esc(file)}')">view ↗</a></td></tr>`;
+          }).join('')
+        + `</table></div><div id="dashFileBody" style="margin-top:14px"></div>`;
+    } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+    return;
+  }
+  dashFile(kind, id, PHASE_ARTIFACT[key], body);
+};
+
+window.dashFile = async function(kind, id, path, into){
+  const body = into || $('dashFileBody') || $('dashPhaseBody');
+  body.innerHTML = '<div class="empty">Loading…</div>';
+  const base = kind === 'report' ? '/api/reports/' : '/api/scans/';
+  try {
+    const r = await fetch(base + encodeURIComponent(id) + '/file?path=' + encodeURIComponent(path));
+    if (!r.ok) throw new Error('could not read ' + path);
+    const txt = await r.text();
+    body.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
+      ? `<div class="md">${mdRender(txt)}</div>` : `<pre>${esc(txt)}</pre>`);
+    body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+};
+
+// ---------------------------------------------------------------------------
+// View registry. The left rail is permanent; only #view swaps. Each view owns
+// its DOM and its teardown, so resources (the SSE stream in particular) are
+// released by construction on navigate rather than by remembering to do it.
+// ---------------------------------------------------------------------------
+const VIEWS = {
+  home: {
+    nav: 'navHome',
+    mount(el) {
+      el.innerHTML = `
+        <div class="dashwrap">
+          <div class="pane-head"><h2>Dashboard</h2>
+            <span style="flex:1"></span>
+            <button class="secondary" onclick="loadDashboard()">Refresh</button>
+          </div>
+          <div id="dashMetrics" class="metric-cards"></div>
+          <div class="dash-grid">
+            <div class="panel"><h3>Findings per scan <small>· recent</small></h3><div id="dashChart"></div></div>
+            <div class="panel"><h3>By model <small>· avg findings / scan</small></h3><div id="dashByModel"></div></div>
+          </div>
+          <h2 style="margin-top:24px">Latest scan</h2>
+          <div id="dashScan"><div class="empty">Loading…</div></div>
+        </div>`;
+      loadDashboard();
+    },
+    unmount() { closeStream(); },
+  },
+  scans: {
+    nav: 'navScans',
+    mount(el) {
+      const j = jobs.find(x => x.id === sel);
+      if (j) { renderDetail(el, j); openStream(j.id); }
+      else { el.innerHTML = '<div class="empty">Select a scan, or start one.</div>'; }
+    },
+    unmount() { closeStream(); },
+  },
+  reports: {
+    nav: 'navReports',
+    mount(el) {
+      el.innerHTML = `
+        <div class="pane-head">
+          <h2>Reports</h2>
+          <span id="reportsDir" style="color:var(--text-3);font-size:12px;font-family:var(--mono)"></span>
+          <span style="flex:1"></span>
+          <button class="secondary" onclick="loadReports()">Refresh</button>
+        </div>
+        <div id="reportsBody" style="margin-top:8px"><div class="empty">Loading…</div></div>`;
+      loadReports();
+    },
+    unmount() {},
+  },
+  docs: {
+    nav: 'navDocs',
+    mount(el) { el.innerHTML = docsHTML(); wireDocs(); },
+    unmount() {},
+  },
+  settings: {
+    nav: 'navSettings',
+    mount(el) { el.innerHTML = settingsHTML(); wireSettings(); },
+    unmount() {},
+  },
+};
+
+let view = 'scans';
+
+window.navigate = function(name, opts) {
+  const next = VIEWS[name] ? name : 'scans';
+  const el = $('view');
+  // Always tear down first — re-navigating to the current view (e.g. picking a
+  // different scan) must still release the previous view's resources.
+  const cur = VIEWS[view];
+  if (cur && cur.unmount) cur.unmount();
+  view = next;
+  // Home and Docs are full-width canvases — hide the New-scan rail there.
+  document.body.classList.toggle('home', next === 'home');
+  document.body.classList.toggle('docs', next === 'docs');
+  Object.keys(VIEWS).forEach(k => {
+    const b = $(VIEWS[k].nav);
+    if (b) b.className = (k === next ? 'on' : '');
+  });
+  el.innerHTML = '';
+  VIEWS[next].mount(el, opts || {});
+};
+
+// Back-compat for any older call sites.
+window.setView = function(v) { navigate(v); };
+
+window.loadReports = async function() {
+  const body = $('reportsBody');
+  try {
+    const d = await api('/api/reports');
+    $('reportsDir').textContent = d.reports_dir;
+    if (!d.reports.length) {
+      body.innerHTML = '<div class="empty">No reports yet. Run a scan and they appear here.</div>';
+      return;
+    }
+    body.innerHTML = '<div class="cards">' + d.reports.map(r => {
+      const when = r.created ? new Date(r.created*1000).toLocaleString() : (r.stamp||'');
+      const fp = r.has_report
+        ? `<span class="pill ${r.findings ? 'f' : 'z'}">${r.findings} finding${r.findings===1?'':'s'}</span>`
+        : `<span class="pill p">incomplete</span>`;
+      const label = (r.repo || r.name || '').replace(/'/g, "\\'");
+      return `<div class="card" onclick="openReport('${esc(r.id)}')">
+        <button class="delbtn" title="Delete this report"
+          onclick="event.stopPropagation();deleteReport('${esc(r.id)}','${esc(label)}')">🗑</button>
+        <h3>${esc(r.repo || r.name)}</h3>
+        <div class="meta">
+          ${fp}
+          <span>${esc(r.model||'')}</span>
+          <span>${esc(when)}</span>
+        </div>
+        <div class="meta">
+          ${r.has_consolidated ? '<span class="pill">report</span>' : ''}
+          <span>phases ${esc((r.phases_present||[]).join(', ') || '—')}</span>
+          <span>${(r.size/1024).toFixed(0)} KB</span>
+        </div>
+      </div>`;
+    }).join('') + '</div><div id="reportView" style="margin-top:20px"></div>';
+  } catch (e) {
+    body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
+  }
+};
+
+window.deleteReport = async function(id, label) {
+  if (!confirm(`Delete this report and all its artifacts?\n\n${label || id}\n\nThis cannot be undone.`)) return;
+  try {
+    await api('/api/reports/' + encodeURIComponent(id), {method: 'DELETE'});
+    await loadReports();
+  } catch (e) {
+    alert('Delete failed: ' + e.message);
+  }
+};
+
+function healthPanelHTML(fj) {
+  // Scan Health from findings.json run_status (+ ledger/redaction if present).
+  const rs = (fj && fj.run_status) || {};
+  const reasons = rs.coverage_degraded_reasons || [];
+  const degraded = (rs.coverage_status && rs.coverage_status !== 'complete') || reasons.length;
+  const cov = fj && fj.coverage;
+  const counts = (fj && fj.counts) || {};
+  const total = Object.values(counts).reduce((a,b)=>a+b,0);
+  const chip = degraded
+    ? `<span class="hbadge warn">⚠ Coverage degraded</span>`
+    : `<span class="hbadge ok">✓ Clean run</span>`;
+  const covLine = cov ? `<div class="hstat">${cov.reviewed}/${cov.total_entry_points} entry points reviewed</div>` : '';
+  const findLine = `<div class="hstat">${total} finding${total===1?'':'s'}${
+    Object.keys(counts).length ? ' · ' + Object.entries(counts).map(([k,v])=>`${v} ${esc(k)}`).join(', ') : ''}</div>`;
+  const m = (fj && fj.meta) || {};
+  const extra = [];
+  const chains = (fj && fj.chains) || [];
+  if (chains.length) extra.push(`<span class="hbadge alt">⛓ ${chains.length} exploit chain${chains.length===1?'':'s'}</span>`);
+  const rem = fj && fj.remediation;
+  if (rem && rem.total) extra.push(`<span class="hbadge alt">🩹 ${rem.with_fix}/${rem.total} fixes proposed</span>`);
+  if ((m.hunt_samples || 1) > 1) extra.push(`<span class="hbadge alt">🗳 ${m.hunt_samples}× sampled</span>`);
+  if (m.redact) extra.push(`<span class="hbadge alt">🔒 redacted</span>`);
+  const spent = m.budget_spent_usd || 0, capUsd = m.max_budget_usd || 0;
+  if (spent || capUsd) extra.push(`<span class="hstat">💵 $${(+spent).toFixed(2)}${capUsd ? ` / $${(+capUsd).toFixed(2)} cap` : ''}</span>`);
+  const reasonList = reasons.length
+    ? `<ul class="hreasons">${reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>` : '';
+  return `<div class="healthcard">
+    <div class="hrow">${chip}${covLine}${findLine}${extra.join('')}</div>${reasonList}</div>`;
+}
+
+window.openReport = async function(id) {
+  const v = $('reportView');
+  v.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const d = await api(`/api/reports/${encodeURIComponent(id)}/files`);
+    const order = (p) => p === 'SCAN_REPORT.md' ? 0 : p === 'README.md' ? 1
+      : p === 'findings.json' ? 2 : p.startsWith('phase') ? 3 : 4;
+    d.files.sort((a,b) => order(a.path)-order(b.path) || a.path.localeCompare(b.path));
+    const has = (n) => d.files.some(f => f.path === n);
+    const fileUrl = (n) => `/api/reports/${encodeURIComponent(id)}/file?path=${encodeURIComponent(n)}`;
+    // Scan Health from findings.json (best-effort).
+    let health = '';
+    if (has('findings.json')) {
+      try { health = healthPanelHTML(await (await fetch(fileUrl('findings.json'))).json()); }
+      catch (e) { /* ignore */ }
+    }
+    const dl = [
+      has('SCAN_REPORT.html') ? `<a class="fbtn" href="${fileUrl('SCAN_REPORT.html')}" target="_blank" rel="noopener">Open full report ↗</a>` : '',
+      has('findings.sarif') ? `<a class="fbtn" href="${fileUrl('findings.sarif')}" download="findings.sarif">SARIF 2.1.0 ↓</a>` : '',
+      has('findings.json') ? `<a class="fbtn" href="${fileUrl('findings.json')}" download="findings.json">findings.json ↓</a>` : '',
+      has('run_manifest.json') ? `<a class="fbtn" href="${fileUrl('run_manifest.json')}" download="run_manifest.json">Manifest ↓</a>` : '',
+    ].filter(Boolean).join('');
+    v.innerHTML = `<div class="view-head">${esc(id)}</div>
+      <div style="font-family:var(--mono);font-size:11.5px;color:var(--text-3);margin-bottom:12px">${esc(d.root)}</div>
+      ${health}
+      <div class="dlrow">${dl}</div>
+      <div class="metacard"><table><tr><th>File</th><th style="width:90px">Size</th></tr>` +
+      d.files.map(f => `<tr><td><a onclick="viewReportFile('${esc(id)}','${esc(f.path)}')">${esc(f.path)}</a></td>
+        <td style="color:var(--text-3)">${(f.size/1024).toFixed(1)} KB</td></tr>`).join('') +
+      `</table></div><div id="reportFile" style="margin-top:16px"></div>`;
+    const first = ['SCAN_REPORT.md','README.md'].find(n => has(n));
+    if (first) viewReportFile(id, first);
+    v.scrollIntoView({behavior:'smooth', block:'start'});
+  } catch (e) { v.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+};
+
+window.viewReportFile = async function(id, path) {
+  const t = $('reportFile');
+  t.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await fetch(`/api/reports/${encodeURIComponent(id)}/file?path=` + encodeURIComponent(path));
+    const txt = await r.text();
+    t.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
+      ? `<div class="md">${mdRender(txt)}</div>` : `<pre>${esc(txt)}</pre>`);
+  } catch (e) { t.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+};
+
+$('start').onclick = async function() {
+  $('formErr').innerHTML = '';
+  // The hunt/default model is the primary field (open-weight or paid).
+  const hunt = parseRole(modelMode() === 'paid' ? 'paidModel' : 'owModel');
+  if (!hunt) {
+    $('formErr').innerHTML = '<div class="err-box">Pick a model. If the list is '
+      + 'empty, configure a connection in <a onclick="navigate(\'settings\')">Settings</a>.</div>';
+    return;
+  }
+  const multi = ($('multiToggle') || {}).checked;
+  // Validate Phases here so a stray value (e.g. a browser-autofilled host) fails
+  // with a clear message instead of the engine's cryptic "unknown phase(s)".
+  let phases = ($('phases').value || '').trim() || 'all';
+  if (phases.toLowerCase() !== 'all') {
+    const valid = new Set((CFG.phases || []).map(p => p.key));
+    const keys = phases.split(',').map(s => s.trim()).filter(Boolean);
+    const bad = keys.filter(k => !valid.has(k));
+    if (!keys.length || bad.length) {
+      $('formErr').innerHTML = '<div class="err-box">Invalid <b>Phases</b>: '
+        + esc(phases) + '. Use <code>all</code> or a comma list of '
+        + [...valid].join(', ') + '.</div>';
+      $('phases').value = 'all';
+      return;
+    }
+    phases = keys.join(',');
+  }
+  const payload = {
+    repo: $('repo').value.trim(),
+    // hunt / default model carries its connection (backend + host)
+    model: hunt.model, backend: hunt.backend, host: hunt.host || null,
+    phases: phases,
+    max_partitions: parseInt($('maxPart').value || '8', 10),
+    enforce_coverage: $('enforceCoverage').checked,
+    seed_routes: $('seedRoutes').checked,
+    seed_prior: $('seedPrior').checked,
+    ledger: $('ledger').checked,
+    redact: $('redact').checked,
+    remediate: $('remediate').checked,
+    phase2_mode: $('phase2Mode').value,
+    concurrency: parseInt($('concurrency').value || '1', 10),
+    reasoning_effort: $('reasoningEffort').value || null,
+    max_output_tokens: parseInt($('maxOutTokens').value || '32768', 10),
+    hunt_samples: parseInt($('huntSamples').value || '1', 10),
+    // Budget cap is opt-in: only enforced when the box is ticked; 0 = no cap.
+    max_budget_usd: $('budgetOn').checked ? parseFloat($('maxBudget').value || '0') : 0,
+    iac_lens: $('iacLens').checked,
+  };
+  // Per-phase overrides only when "Multiple models" is on (each blank field
+  // falls back to the hunt model). Otherwise one model runs every phase.
+  if (multi) {
+    const vr = parseRole('verifyModel');
+    if (vr) { payload.verify_model = vr.model; payload.verify_backend = vr.backend; payload.verify_host = vr.host || null; }
+    const rc = parseRole('reconModel');
+    if (rc) { payload.recon_model = rc.model; payload.recon_backend = rc.backend; payload.recon_host = rc.host || null; }
+    const rp = parseRole('reproduceModel');
+    if (rp) { payload.reproduce_model = rp.model; payload.reproduce_backend = rp.backend; payload.reproduce_host = rp.host || null; }
+  }
+  if (!payload.repo) { $('formErr').innerHTML = '<div class="err-box">Repository path is required.</div>'; return; }
+  this.disabled = true;
+  try {
+    const job = await api('/api/scans', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    await refresh();
+    select(job.id);
+  } catch (e) {
+    $('formErr').innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
+  } finally { this.disabled = false; }
+};
+
+boot().catch(e => {
+  document.body.insertAdjacentHTML('afterbegin',
+    `<div class="err-box" style="margin:20px">${esc(e.message)}</div>`);
+});
+</script>
+</body>
+</html>

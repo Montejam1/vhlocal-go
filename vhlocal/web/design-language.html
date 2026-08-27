@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vhlocal — Instrument</title>
+<style>
+/* ============================================================
+   INSTRUMENT — a design language for vhlocal
+   Dark-first. No webfonts (the report must stay offline/self-contained).
+   ============================================================ */
+:root{
+  color-scheme: dark;
+  /* ---- neutrals: cool graphite, not navy ---- */
+  --ground:#131920; --panel:#1B2229; --raised:#242D36; --sunken:#141B21;
+  --line:#2E3841; --line-hi:#44525E;
+  --ink-1:#EAF0F4; --ink-2:#A3B2BD; --ink-3:#71818C;
+  /* ---- instrument accent: petrol. 38–69 ΔE from every severity step ---- */
+  --signal:#4FC3CB; --signal-hi:#7BDDE4; --signal-weak:rgba(79,195,203,.14);
+  --signal-line:rgba(79,195,203,.34);
+  /* ---- severity: warm, reserved. min adjacent ΔE 30.4 (normal), 15.1 (worst CVD) ---- */
+  --sev-crit:#ec5162; --sev-high:#fe9d4a; --sev-med:#ffff9d;
+  --sev-low:var(--ink-2); --sev-info:var(--ink-3);
+  --crit-weak:rgba(236,81,98,.14); --high-weak:rgba(254,157,74,.13); --med-weak:rgba(255,255,157,.10);
+  /* ---- geometry: crisper than the current 8/12/16 ---- */
+  --r-xs:3px; --r-sm:5px; --r:7px; --r-lg:10px;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","DejaVu Sans Mono",monospace;
+}
+:root[data-theme="light"], :root:not([data-theme="dark"]) .lightbox{
+  color-scheme: light;
+  --ground:#EEF1F3; --panel:#FFFFFF; --raised:#F5F7F9; --sunken:#E8ECEF;
+  --line:#DDE3E8; --line-hi:#C2CCD4;
+  --ink-1:#101619; --ink-2:#54636E; --ink-3:#7F8E99;
+  --signal:#0E7A82; --signal-hi:#0B646B; --signal-weak:rgba(14,122,130,.10);
+  --signal-line:rgba(14,122,130,.30);
+  --sev-crit:#79191b; --sev-high:#a9531e; --sev-med:#c28e24;
+  --crit-weak:rgba(121,25,27,.10); --high-weak:rgba(169,83,30,.10); --med-weak:rgba(194,142,36,.13);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    color-scheme: light;
+    --ground:#EEF1F3; --panel:#FFFFFF; --raised:#F5F7F9; --sunken:#E8ECEF;
+    --line:#DDE3E8; --line-hi:#C2CCD4;
+    --ink-1:#101619; --ink-2:#54636E; --ink-3:#7F8E99;
+    --signal:#0E7A82; --signal-hi:#0B646B; --signal-weak:rgba(14,122,130,.10);
+    --signal-line:rgba(14,122,130,.30);
+    --sev-crit:#79191b; --sev-high:#a9531e; --sev-med:#c28e24;
+    --crit-weak:rgba(121,25,27,.10); --high-weak:rgba(169,83,30,.10); --med-weak:rgba(194,142,36,.13);
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink-1);font-family:var(--sans);
+  font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px 96px}
+
+/* ---------- type scale: discipline, not novelty faces ---------- */
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.022em;line-height:1.15}
+h1{font-size:clamp(38px,6vw,62px);letter-spacing:-.035em;font-weight:640}
+h2{font-size:26px;margin-bottom:6px}
+h3{font-size:15px;letter-spacing:-.01em}
+p{margin:0 0 14px;color:var(--ink-2);max-width:66ch}
+b,strong{color:var(--ink-1);font-weight:600}
+/* the mono rule: every piece of evidence */
+code,.ev{font-family:var(--mono);font-size:.88em;font-variant-numeric:tabular-nums;
+  color:var(--ink-1);background:var(--sunken);border:1px solid var(--line);
+  border-radius:var(--r-xs);padding:1px 5px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--signal);margin-bottom:12px;display:block}
+
+/* ---------- masthead ---------- */
+.mast{padding:88px 0 40px;border-bottom:1px solid var(--line)}
+.mast p.lede{font-size:19px;line-height:1.55;color:var(--ink-2);max-width:60ch;margin-top:20px}
+.mast .meta{display:flex;gap:26px;flex-wrap:wrap;margin-top:26px;font-family:var(--mono);
+  font-size:11.5px;color:var(--ink-3)}
+.mast .meta b{color:var(--ink-2);font-weight:500}
+
+section{padding:56px 0;border-bottom:1px solid var(--line)}
+.secnum{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.1em}
+
+/* ---------- the two rules, set large ---------- */
+.rule{border-left:2px solid var(--signal);padding:4px 0 4px 22px;margin:26px 0 10px}
+.rule .r-txt{font-size:21px;line-height:1.45;color:var(--ink-1);letter-spacing:-.015em;max-width:60ch}
+.rule .r-why{font-size:13.5px;color:var(--ink-2);margin-top:10px;max-width:62ch}
+
+/* ---------- swatches, cited ---------- */
+.swatches{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:var(--r);overflow:hidden;margin-top:22px;
+  grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.sw{background:var(--panel);padding:14px 15px 15px}
+.sw .chip{height:38px;border-radius:var(--r-sm);border:1px solid rgba(127,127,127,.22)}
+.sw .nm{font-size:12.5px;font-weight:600;margin-top:11px}
+.sw .hx{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:2px}
+.sw .note{font-size:11.5px;color:var(--ink-2);margin-top:7px;line-height:1.45}
+
+/* ---------- measurement table ---------- */
+table{width:100%;border-collapse:collapse;margin-top:20px;font-size:13px}
+th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);font-weight:600;
+  padding:0 12px 9px 0;border-bottom:1px solid var(--line)}
+td{padding:10px 12px 10px 0;border-bottom:1px solid var(--line);color:var(--ink-2);
+  vertical-align:top}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink-1)}
+tr:last-child td{border-bottom:0}
+.pass{color:var(--signal);font-family:var(--mono);font-size:11.5px}
+.relief{color:var(--sev-med);font-family:var(--mono);font-size:11.5px}
+
+/* ---------- THE SIGNATURE: the phase spine ---------- */
+.spine{display:flex;gap:2px;align-items:stretch;height:34px;margin:4px 0 0}
+.spine .seg{position:relative;border-radius:2px;background:var(--signal);min-width:10px;
+  display:flex;align-items:flex-end;overflow:hidden}
+.spine .seg:first-child{border-radius:var(--r-sm) 2px 2px var(--r-sm)}
+.spine .seg:last-child{border-radius:2px var(--r-sm) var(--r-sm) 2px}
+.spine .seg.skipped{background:transparent;border:1px dashed var(--line-hi)}
+.spine .seg.degraded{background:repeating-linear-gradient(135deg,
+   var(--signal) 0 5px, var(--sunken) 5px 10px)}
+.spine .seg.failed{background:var(--sev-crit)}
+.spine .seg.running{background:linear-gradient(90deg,var(--signal),var(--signal-hi),var(--signal));
+  background-size:220% 100%;animation:sweep 1.9s linear infinite}
+@keyframes sweep{to{background-position:-220% 0}}
+@media (prefers-reduced-motion:reduce){.spine .seg.running{animation:none}}
+.spine-keys{display:flex;gap:2px;margin-top:6px}
+.spine-keys span{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);text-align:center}
+.spine-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:20px;font-size:12px;color:var(--ink-2)}
+.spine-legend i{display:inline-block;width:22px;height:10px;border-radius:2px;
+  margin-right:7px;vertical-align:-1px}
+
+/* ---------- applied mockups ---------- */
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+  overflow:hidden;margin-top:22px}
+.mock-bar{display:flex;align-items:center;gap:10px;padding:11px 16px;
+  border-bottom:1px solid var(--line);background:var(--raised)}
+.mock-bar .dot{width:8px;height:8px;border-radius:50%;background:var(--signal)}
+.mock-bar .t{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);letter-spacing:.05em}
+.mock-body{padding:20px 22px 24px}
+
+/* KPI tiles — numbers are evidence, so mono + tabular */
+.tiles{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:var(--r);overflow:hidden;grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}
+.tile{background:var(--panel);padding:14px 16px 15px}
+.tile .tv{font-family:var(--mono);font-size:29px;font-weight:500;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;line-height:1;color:var(--ink-1)}
+.tile .tl{font-size:12px;color:var(--ink-2);margin-top:8px}
+.tile .ts{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:3px}
+.tile.attn .tv{color:var(--sev-high)}
+
+/* severity meter — 2px gaps, 4px rounded data ends */
+.meter{display:flex;gap:2px;height:11px;margin:20px 0 0}
+.meter i{display:block;border-radius:1px}
+.meter i:first-child{border-radius:4px 1px 1px 4px}
+.meter i:last-child{border-radius:1px 4px 4px 1px}
+.meterkey{display:flex;gap:16px;flex-wrap:wrap;margin-top:13px;font-size:12px;color:var(--ink-2)}
+.meterkey .g{font-family:var(--mono);font-weight:600;margin-right:5px}
+
+/* severity badge: glyph + word + colour, never colour alone */
+.sev{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;
+  padding:2px 8px 2px 6px;border-radius:99px;border:1px solid}
+.sev .g{font-family:var(--mono);font-size:10px}
+.sev.crit{color:var(--sev-crit);border-color:var(--sev-crit);background:var(--crit-weak)}
+.sev.high{color:var(--sev-high);border-color:var(--sev-high);background:var(--high-weak)}
+.sev.med{color:var(--sev-med);border-color:var(--sev-med);background:var(--med-weak)}
+.sev.low{color:var(--ink-2);border-color:var(--line-hi);background:var(--sunken)}
+
+/* findings table — Qualys density, Apple alignment */
+.find{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+.find th{padding:0 14px 9px 0}
+.find td{padding:11px 14px 11px 0;border-bottom:1px solid var(--line)}
+.find td.id{font-family:var(--mono);font-size:12px;color:var(--ink-3);width:78px}
+.find td.ti{color:var(--ink-1);font-weight:500}
+.find td.loc{font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+.find td.cwe{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);width:80px}
+.find tr.dup td{color:var(--ink-3)}
+.find tr.dup td.ti{color:var(--ink-3);font-weight:400}
+.dupflag{font-family:var(--mono);font-size:10px;color:var(--ink-3);
+  border:1px solid var(--line-hi);border-radius:var(--r-xs);padding:1px 5px;margin-left:8px}
+
+/* report card with spine fingerprint */
+.rcards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));margin-top:6px}
+.rcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:15px 16px 16px;transition:border-color .15s}
+.rcard:hover{border-color:var(--signal-line)}
+.rcard .rt{font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.rcard .rm{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:3px}
+.rcard .rspine{margin-top:14px}
+.rcard .rf{display:flex;gap:7px;align-items:baseline;margin-top:13px}
+.rcard .rf .n{font-family:var(--mono);font-size:19px;font-variant-numeric:tabular-nums;
+  color:var(--ink-1);letter-spacing:-.02em}
+.rcard .rf .l{font-size:12px;color:var(--ink-2)}
+
+/* form rail */
+.rail{max-width:330px}
+.rail label{display:block;font-size:11px;font-family:var(--mono);letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);margin:16px 0 6px;font-weight:600}
+.rail label:first-child{margin-top:0}
+.rail input,.rail select{width:100%;background:var(--sunken);border:1px solid var(--line);
+  border-radius:var(--r-sm);color:var(--ink-1);padding:8px 10px;font-size:13px;
+  font-family:var(--mono)}
+.rail input:focus,.rail select:focus{outline:2px solid var(--signal);outline-offset:1px;
+  border-color:var(--signal)}
+.rail .go{width:100%;margin-top:20px;background:var(--signal);color:#04191b;border:0;
+  border-radius:var(--r-sm);padding:10px;font-size:13.5px;font-weight:650;cursor:pointer;
+  font-family:var(--sans);letter-spacing:-.01em}
+.rail .go:hover{background:var(--signal-hi)}
+.rail .go:focus-visible{outline:2px solid var(--ink-1);outline-offset:2px}
+.rail .hint{font-size:11.5px;color:var(--ink-3);margin-top:7px;line-height:1.5}
+
+/* honesty banner — the product's whole point */
+.honest{border:1px solid var(--line-hi);border-left:2px solid var(--sev-med);
+  border-radius:var(--r-sm);padding:12px 15px;margin-top:20px;background:var(--raised)}
+.honest .h{font-size:12.5px;font-weight:600;color:var(--ink-1);display:flex;gap:8px;align-items:center}
+.honest .h .g{font-family:var(--mono);color:var(--sev-med)}
+.honest p{font-size:12.5px;margin:6px 0 0;color:var(--ink-2)}
+
+.two{display:grid;gap:26px;grid-template-columns:1fr 1fr;margin-top:22px}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.cap{font-size:12px;color:var(--ink-3);margin-top:10px;font-family:var(--mono)}
+.ba{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+.ba h3{margin-bottom:10px}
+.ba ul{margin:0;padding-left:17px;font-size:13px;color:var(--ink-2);line-height:1.75}
+.ba.now{border-style:dashed}
+
+.themebtn{position:fixed;top:16px;right:16px;z-index:9;background:var(--panel);
+  border:1px solid var(--line);color:var(--ink-2);border-radius:99px;padding:7px 14px;
+  font-size:11.5px;font-family:var(--mono);cursor:pointer}
+.themebtn:hover{color:var(--ink-1);border-color:var(--line-hi)}
+</style>
+</head>
+<body>
+<button class="themebtn" onclick="tt()">theme</button>
+<div class="wrap">
+
+<header class="mast">
+  <span class="eyebrow">Design language · first pass</span>
+  <h1>Instrument</h1>
+  <p class="lede">vhlocal is not a dashboard. It is a measuring instrument that reports what it
+    actually observed, refuses to overclaim, and shows its working. The interface should read
+    the same way: calm, dense, precise, and honest about the difference between what the engine
+    measured and what a model asserted.</p>
+  <div class="meta">
+    <span><b>Reference points</b> Apple restraint · Qualys density</span>
+    <span><b>Resolution</b> Apple's discipline applied to Qualys' density</span>
+    <span><b>Constraint</b> no webfonts — reports ship offline</span>
+  </div>
+</header>
+
+<section>
+  <span class="secnum">01</span>
+  <h2>Two rules carry the system</h2>
+  <p>Everything below derives from these. If a decision doesn't follow from one of them,
+     it's decoration and it gets cut.</p>
+
+  <div class="rule">
+    <div class="r-txt">Warm ink is reserved for what the scan <em>found</em>.
+      Everything the tool says about <em>itself</em> is cool.</div>
+    <div class="r-why">Severity is the only thing allowed to be warm — crimson, orange, amber.
+      Progress bars, active states, links, focus rings, charts of durations and token counts
+      all wear petrol. So a warm pixel anywhere on screen means a finding, always. Today the
+      same blue does duty for progress, links, severity-adjacent chrome, and every bar chart,
+      so colour carries no meaning at all.</div>
+  </div>
+
+  <div class="rule">
+    <div class="r-txt">Prose is set in sans. Every piece of <em>evidence</em> is set in mono.</div>
+    <div class="r-why">File paths, <code>file:line</code> citations, CWE ids, durations, token
+      counts, model names, hashes — all mono, all tabular figures. The product's entire claim is
+      that a finding without a citation is invalid. Making evidence typographically distinct from
+      commentary encodes that claim in the type system rather than asserting it in a README.
+      It also does the work a display face would normally do, which matters because reports must
+      render offline with no font loading.</div>
+  </div>
+</section>
+
+<section>
+  <span class="secnum">02</span>
+  <h2>Palette</h2>
+  <p>Cool graphite neutrals — green-shifted, not the current navy. One petrol accent for the
+     instrument. A warm ramp reserved entirely for severity.</p>
+
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:var(--ground)"></div>
+      <div class="nm">Ground</div><div class="hx">#131920 / #EEF1F3</div>
+      <div class="note">Cool graphite, lifted clear of black. Instrument housing, not midnight blue.</div></div>
+    <div class="sw"><div class="chip" style="background:var(--panel)"></div>
+      <div class="nm">Panel</div><div class="hx">#1B2229 / #FFFFFF</div>
+      <div class="note">The one raised surface. Panels don't nest inside panels.</div></div>
+    <div class="sw"><div class="chip" style="background:var(--signal)"></div>
+      <div class="nm">Signal — petrol</div><div class="hx">#4FC3CB / #0E7A82</div>
+      <div class="note">The instrument accent. 38–69 ΔE from every severity step, so it can
+        never be misread as a status.</div></div>
+    <div class="sw"><div class="chip" style="background:var(--ink-2)"></div>
+      <div class="nm">Ink — secondary</div><div class="hx">#A3B2BD / #54636E</div>
+      <div class="note">Also carries Low severity. Green would read “good”; a finding never is.</div></div>
+  </div>
+
+  <div class="swatches" style="margin-top:14px">
+    <div class="sw"><div class="chip" style="background:var(--sev-crit)"></div>
+      <div class="nm">Critical</div><div class="hx">#ec5162 / #79191b</div></div>
+    <div class="sw"><div class="chip" style="background:var(--sev-high)"></div>
+      <div class="nm">High</div><div class="hx">#fe9d4a / #a9531e</div></div>
+    <div class="sw"><div class="chip" style="background:var(--sev-med)"></div>
+      <div class="nm">Medium</div><div class="hx">#ffff9d / #c28e24</div></div>
+    <div class="sw"><div class="chip" style="background:var(--sev-low);opacity:.55"></div>
+      <div class="nm">Low / Informational</div><div class="hx">muted ink, no hue</div></div>
+  </div>
+
+  <h3 style="margin-top:38px">The severity ramp is measured, not chosen by eye</h3>
+  <p>Measured properly, the dark ramp's weak point was not normal vision at all — it was
+     <b>deuteranopia</b>, where High and Medium collapsed to <b>ΔE 12.2</b>, well under the 15
+     floor. Red, orange and amber fall on one axis for a deuteranope, so hue buys nothing there;
+     only lightness separates them. This ramp is stepped on lightness first, which is also what
+     makes it brighter.</p>
+
+  <table>
+    <thead><tr><th>Check</th><th>Current</th><th>Instrument</th><th>Gate</th></tr></thead>
+    <tbody>
+      <tr><td>Normal-vision floor, worst adjacent pair (dark)</td>
+          <td class="num">23.3</td><td class="num">30.4</td><td class="pass">≥ 15 · PASS</td></tr>
+      <tr><td>Normal-vision floor, worst adjacent pair (light)</td>
+          <td class="num">21.0</td><td class="num">21.0</td><td class="pass">≥ 15 · PASS</td></tr>
+      <tr><td>Colour-vision floor, worst of protan / deutan / tritan (dark)</td>
+          <td class="num">12.2</td><td class="num">15.1</td><td class="pass">≥ 15 · PASS</td></tr>
+      <tr><td>Contrast vs surface, dark (Critical → Medium)</td>
+          <td class="num">3.02–10.2 : 1</td><td class="num">4.53–15.3 : 1</td><td class="pass">≥ 3 · PASS</td></tr>
+      <tr><td>Contrast vs surface, light (Medium)</td>
+          <td class="num">1.79</td><td class="num">2.92 : 1</td><td class="relief">RELIEF · glyph + word</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:12.5px;margin-top:14px;color:var(--ink-3)">Two honest caveats. Light-mode
+     Medium still sits just under 3:1 — amber on white cannot clear it while staying amber and
+     15 apart, which is why the reference palette documents the same relief; the mitigation is the
+     glyph-plus-word badge, which already ships. And Medium is a pale <em>yellow</em> rather than a
+     saturated amber by necessity, not taste: for a deuteranope orange and yellow lie on one axis, so
+     moving Medium toward yellow moves it toward High. Saturated ambers fell to ΔE 10–12 there. This
+     ramp buys the yellow back by stepping Critical and High as well — the three were solved together,
+     not one at a time — which lands deuteranopia at 15.1, just over the floor.</p>
+
+  <div style="margin-top:26px">
+    <div class="meter">
+      <i style="flex:1;background:var(--sev-crit)"></i>
+      <i style="flex:4;background:var(--sev-high)"></i>
+      <i style="flex:2;background:var(--sev-med)"></i>
+      <i style="flex:3;background:var(--sev-low);opacity:.45"></i>
+    </div>
+    <div class="meterkey">
+      <span><span class="g" style="color:var(--sev-crit)">◆</span>Critical 1</span>
+      <span><span class="g" style="color:var(--sev-high)">▲</span>High 4</span>
+      <span><span class="g" style="color:var(--sev-med)">■</span>Medium 2</span>
+      <span><span class="g" style="color:var(--ink-2)">▪</span>Low 3</span>
+    </div>
+  </div>
+  <p style="margin-top:16px;font-size:13px">Badges never rely on colour:
+    <span class="sev crit"><span class="g">◆</span>Critical</span>
+    <span class="sev high"><span class="g">▲</span>High</span>
+    <span class="sev med"><span class="g">■</span>Medium</span>
+    <span class="sev low"><span class="g">▪</span>Low</span>
+  </p>
+</section>
+
+<section>
+  <span class="secnum">03</span>
+  <h2>The signature: the phase spine</h2>
+  <p>A scan is six phases with wildly uneven durations, any of which can degrade. The spine is
+     one horizontal measure — <b>segment width is real elapsed time</b>, fill is state. It is the
+     live progress indicator during a run, and the same mark becomes the run's fingerprint on its
+     report card afterwards. You learn to read a scan's shape at a glance.</p>
+
+  <div class="mock"><div class="mock-body">
+    <div style="font-size:12px;color:var(--ink-2);margin-bottom:12px">
+      Scan in progress — <span class="ev">gpt-oss:120b</span> · elapsed <span class="ev">28m 08s</span></div>
+    <div class="spine">
+      <div class="seg" style="flex:88" title="Phase 1 — 1m 28s"></div>
+      <div class="seg degraded" style="flex:1600" title="Phase 2 — 26m 40s, degraded"></div>
+      <div class="seg running" style="flex:300" title="Phase 2b — running"></div>
+      <div class="seg skipped" style="flex:180"></div>
+      <div class="seg skipped" style="flex:120"></div>
+      <div class="seg skipped" style="flex:150"></div>
+    </div>
+    <div class="spine-keys">
+      <span style="flex:88">1</span><span style="flex:1600">2</span><span style="flex:300">2b</span>
+      <span style="flex:180">3</span><span style="flex:120">3d</span><span style="flex:150">4</span>
+    </div>
+    <div class="spine-legend">
+      <span><i style="background:var(--signal)"></i>complete</span>
+      <span><i style="background:repeating-linear-gradient(135deg,var(--signal) 0 5px,var(--sunken) 5px 10px)"></i>degraded — an agent didn't finish</span>
+      <span><i style="background:linear-gradient(90deg,var(--signal),var(--signal-hi))"></i>running</span>
+      <span><i style="border:1px dashed var(--line-hi)"></i>not yet run</span>
+      <span><i style="background:var(--sev-crit)"></i>failed</span>
+    </div>
+    <div class="honest">
+      <div class="h"><span class="g">■</span>Coverage is degraded</div>
+      <p>1 of 2 hunt agents stopped early. Coverage-dependent numbers below are provisional.</p>
+    </div>
+  </div></div>
+  <div class="cap">Phase 2 dominates the spine because it genuinely took 26m of the 28m. Hiding
+    that behind six equal tabs would be a lie of layout.</div>
+</section>
+
+<section>
+  <span class="secnum">04</span>
+  <h2>Applied — run detail</h2>
+  <p>Qualys-grade density, but every number is aligned, mono, and tabular, and the panel does
+     not nest inside another panel. Counts are tiles because a handful of headline numbers is a
+     tile job, not a chart.</p>
+
+  <div class="mock">
+    <div class="mock-bar"><span class="dot"></span>
+      <span class="t">vulnapp · 2026-08-25 12:00 · complete</span></div>
+    <div class="mock-body">
+      <div class="tiles">
+        <div class="tile"><div class="tv">4</div><div class="tl">Findings</div>
+          <div class="ts">5 raw · 1 duplicate</div></div>
+        <div class="tile attn"><div class="tv">4</div><div class="tl">High</div>
+          <div class="ts">0 critical</div></div>
+        <div class="tile"><div class="tv">2</div><div class="tl">Partitions</div>
+          <div class="ts">of 8 max</div></div>
+        <div class="tile"><div class="tv">1h 53m</div><div class="tl">Duration</div>
+          <div class="ts">270 model calls</div></div>
+        <div class="tile"><div class="tv">3.58M</div><div class="tl">Prompt tokens</div>
+          <div class="ts">97.6K completion</div></div>
+      </div>
+
+      <h3 style="margin-top:30px;margin-bottom:2px">Findings</h3>
+      <table class="find">
+        <thead><tr><th>ID</th><th>Severity</th><th>Title</th><th>CWE</th><th>Location</th></tr></thead>
+        <tbody>
+          <tr><td class="id">VULN-001</td>
+              <td><span class="sev high"><span class="g">▲</span>High</span></td>
+              <td class="ti">Path traversal in invoice</td>
+              <td class="cwe">CWE-22</td><td class="loc">app/files.py:10</td></tr>
+          <tr><td class="id">VULN-004</td>
+              <td><span class="sev high"><span class="g">▲</span>High</span></td>
+              <td class="ti">SQL injection via <code>q</code></td>
+              <td class="cwe">CWE-89</td><td class="loc">app/db.py:21</td></tr>
+          <tr><td class="id">VULN-005</td>
+              <td><span class="sev high"><span class="g">▲</span>High</span></td>
+              <td class="ti">SQL injection via <code>status</code></td>
+              <td class="cwe">CWE-89</td><td class="loc">app/db.py:21</td></tr>
+          <tr><td class="id">VULN-002</td>
+              <td><span class="sev high"><span class="g">▲</span>High</span></td>
+              <td class="ti">IDOR on order retrieval</td>
+              <td class="cwe">CWE-284</td><td class="loc" style="color:var(--ink-3)">location not resolved</td></tr>
+          <tr class="dup"><td class="id">VULN-003</td>
+              <td><span class="sev low"><span class="g">▪</span>Duplicate</span></td>
+              <td class="ti">Path traversal via filename
+                <span class="dupflag">dup of VULN-001</span></td>
+              <td class="cwe">CWE-22</td><td class="loc">app/files.py:10</td></tr>
+        </tbody>
+      </table>
+      <div class="cap" style="margin-top:14px">Two SQLi rows share one sink and stay two rows —
+        two parameters, two fixes. Duplicates are listed and dimmed, never merged away.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="secnum">05</span>
+  <h2>Applied — the scan rail and report cards</h2>
+  <div class="two">
+    <div>
+      <div class="mock"><div class="mock-body">
+        <div class="rail">
+          <label for="d-repo">Repository</label>
+          <input id="d-repo" value="~/code/vulnapp" spellcheck="false">
+          <div class="hint">Scans read only. Reports are written outside this repo.</div>
+          <label for="d-prof">Profile</label>
+          <select id="d-prof"><option>thorough — 3× voting, split classes</option></select>
+          <div class="hint">Presets the options below. You can still change any of them.</div>
+          <label for="d-model">Hunt model</label>
+          <select id="d-model"><option>gpt-oss:120b</option></select>
+          <button class="go">Start scan</button>
+        </div>
+      </div></div>
+      <div class="cap">Labels are mono small-caps because they name machine inputs.
+        The button says what happens.</div>
+    </div>
+    <div>
+      <div class="rcards" style="grid-template-columns:1fr">
+        <div class="rcard">
+          <div class="rt">vulnapp</div>
+          <div class="rm">gpt-oss:120b · 2026-08-25</div>
+          <div class="rspine">
+            <div class="spine" style="height:16px">
+              <div class="seg" style="flex:88"></div>
+              <div class="seg degraded" style="flex:1600"></div>
+              <div class="seg" style="flex:300"></div>
+              <div class="seg" style="flex:180"></div>
+              <div class="seg" style="flex:120"></div>
+              <div class="seg" style="flex:150"></div>
+            </div>
+          </div>
+          <div class="rf"><span class="n">4</span><span class="l">findings · 4 high</span></div>
+        </div>
+        <div class="rcard">
+          <div class="rt">payments-api</div>
+          <div class="rm">qwen3.5:122b-a10b · 2026-08-22</div>
+          <div class="rspine">
+            <div class="spine" style="height:16px">
+              <div class="seg" style="flex:60"></div>
+              <div class="seg" style="flex:900"></div>
+              <div class="seg" style="flex:240"></div>
+              <div class="seg failed" style="flex:90"></div>
+              <div class="seg skipped" style="flex:120"></div>
+              <div class="seg skipped" style="flex:150"></div>
+            </div>
+          </div>
+          <div class="rf"><span class="n">11</span><span class="l">findings · 1 critical</span></div>
+        </div>
+      </div>
+      <div class="cap">The spine doubles as a fingerprint. You can see the second scan
+        died in Phase 3 without reading a word.</div>
+    </div>
+  </div>
+</section>
+
+<section style="border-bottom:0">
+  <span class="secnum">06</span>
+  <h2>What actually changes</h2>
+  <div class="two">
+    <div class="ba now">
+      <h3>Today</h3>
+      <ul>
+        <li>One blue (<code>#6d8bff</code>) for progress, links, focus, and every chart — colour carries no meaning</li>
+        <li>Severity High/Medium at ΔE 12.2 under deuteranopia, below the legibility floor</li>
+        <li>System sans for everything; mono demoted to a caption face</li>
+        <li>Panels nested in cards nested in panels; 8/12/16px radii read soft</li>
+        <li>Gradient-filled bars, decorative rather than encoding</li>
+        <li>Six phases shown as equal-weight chrome, hiding a 26-of-28-minute reality</li>
+      </ul>
+    </div>
+    <div class="ba">
+      <h3>Instrument</h3>
+      <ul>
+        <li>Warm = findings, cool = the tool. A warm pixel always means something</li>
+        <li>Severity re-stepped to ΔE 30.4 normal / 15.1 worst-CVD, measured not eyeballed</li>
+        <li>Mono promoted to a co-lead role: it marks evidence</li>
+        <li>Hairline rules over nesting; 3/5/7/10px radii read precise</li>
+        <li>Flat fills; width and length do the encoding</li>
+        <li>The phase spine — proportional, stateful, and the same mark everywhere</li>
+      </ul>
+    </div>
+  </div>
+  <p style="margin-top:26px">Nothing here is committed to the app yet. This page is the whole
+     proposal — it lives on the <code>ux-redesign</code> branch, so backing it out is one
+     <code>git checkout main</code>.</p>
+</section>
+
+</div>
+<script>
+function tt(){
+  var r=document.documentElement;
+  var cur=r.getAttribute('data-theme');
+  if(!cur){cur=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}
+  r.setAttribute('data-theme',cur==='dark'?'light':'dark');
+}
+</script>
+</body>
+</html>
