@@ -217,6 +217,74 @@ def _coverage(led: Dict[str, Any], cur: Dict[str, Any], run_id: str) -> Dict[str
     }
 
 
+def _ledger_summary(led: Dict[str, Any]) -> Dict[str, Any]:
+    """Roll a ledger up to per-application headline numbers for the UI."""
+    findings = led.get("findings") or []
+    by_sev: Dict[str, int] = {}
+    status: Dict[str, int] = {"open": 0, "fixed": 0, "regressed": 0}
+    reliable = 0
+    for e in findings:
+        sev = e.get("severity") or "Unrated"
+        by_sev[sev] = by_sev.get(sev, 0) + 1
+        st = e.get("status") or "open"
+        status[st] = status.get(st, 0) + 1
+        if e.get("confidence") == "reliable":
+            reliable += 1
+    target = led.get("target") or ""
+    return {
+        "target": target,
+        "target_name": (Path(target).name if target else "") or "(unknown target)",
+        "runs_recorded": len(led.get("runs_recorded") or []),
+        "total": len(findings),
+        "open": status.get("open", 0),
+        "fixed": status.get("fixed", 0),
+        "regressed": status.get("regressed", 0),
+        "reliable": reliable,
+        "by_severity": by_sev,
+        "updated": led.get("updated") or 0,
+    }
+
+
+def list_ledgers() -> List[Dict[str, Any]]:
+    """A summary of every persisted target ledger, newest-updated first. The
+    ``slug`` is the filename stem — a stable handle the UI/server route on even
+    if the target path later moves (which would change the recomputed hash)."""
+    d = ledger_dir()
+    out: List[Dict[str, Any]] = []
+    if not d.is_dir():
+        return out
+    for p in sorted(d.glob("*.json")):
+        try:
+            led = json.loads(p.read_text("utf-8"))
+        except (OSError, ValueError):
+            continue
+        s = _ledger_summary(led)
+        s["slug"] = p.stem
+        out.append(s)
+    out.sort(key=lambda s: -(s.get("updated") or 0))
+    return out
+
+
+def load_ledger(slug: str) -> Optional[Dict[str, Any]]:
+    """The full ledger for a slug (filename stem), with a ``summary`` block, or
+    None. Path-traversal safe: the slug is matched against the enumerated
+    directory listing, never joined into a filesystem path."""
+    d = ledger_dir()
+    if not d.is_dir():
+        return None
+    for p in sorted(d.glob("*.json")):
+        if p.stem != slug:
+            continue
+        try:
+            led = json.loads(p.read_text("utf-8"))
+        except (OSError, ValueError):
+            return None
+        led["summary"] = _ledger_summary(led)
+        led["slug"] = slug
+        return led
+    return None
+
+
 def rebuild_from_reports(reports_dir, extra_dirs: Optional[List[Path]] = None) -> Dict[str, int]:
     """Bootstrap ledgers from every report already on disk. Idempotent — re-runs
     don't double-count. Returns a per-target run tally."""
