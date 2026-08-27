@@ -146,6 +146,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--ledger", action="store_true", default=S,
                     help="Merge this run's confirmed findings into the per-target "
                          "vulnerability ledger and score its recall.")
+    ap.add_argument("--threat-model", dest="threat_model", action="store_true",
+                    help="Run Phase 1t: a post-recon PASTA threat model + data-flow "
+                         "diagram whose hunt targets ADD partitions for surfaces "
+                         "recon's entry-point enumeration missed. Also builds the SBOM.")
 
     # --- run mode (not profile-overridable) ---
     ap.add_argument("--resume", action="store_true", help="Skip completed phases.")
@@ -234,6 +238,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         remediate=resolved["remediate"],
         redact=resolved["redact"],
         ledger=resolved["ledger"],
+        threat_model=args.threat_model,
     )
 
     results_dir = resolve_results_dir(spec)

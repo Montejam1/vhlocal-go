@@ -24,7 +24,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger(__name__)
 
@@ -81,6 +81,18 @@ PHASES: List[PhaseSpec] = [
         prompt_file="phase1_recon.md",
         output_file="phase1_output.md",
         max_turns=90,
+    ),
+    PhaseSpec(
+        # Opt-in modeling phase (gated on ScanSpec.threat_model). Post-recon,
+        # pre-hunt: a PASTA threat model + data-flow diagram whose "Hunt targets"
+        # block adds partitions for archetype-specific surfaces recon's web/RPC
+        # entry-point enumeration misses (syscall boundaries, parsers, etc.).
+        key="1t",
+        title="Threat model — PASTA",
+        prompt_file="phase1t_threat_model.md",
+        output_file="threat_model.md",
+        max_turns=60,
+        reads=["phase1_output.md"],
     ),
     PhaseSpec(
         key="2",
@@ -533,3 +545,119 @@ def augment_partitions_for_coverage(
         added_files.extend(files)
 
     return CoverageAugmentation(parts, added, added_files, uncovered_remaining)
+
+
+# ---------------------------------------------------------------------------
+# Threat-model-driven partitions (Phase 1t)
+# ---------------------------------------------------------------------------
+
+def parse_hunt_targets(threat_model_md: Path) -> List[Dict[str, Any]]:
+    """Extract the ``Hunt targets`` JSON array from ``threat_model.md``.
+
+    The phase writes a fenced ```json block of
+    ``{"id","subsystem","paths":[...],"threat","cwe_class","priority"}``. We take
+    the first bracketed array that parses to a list of such objects. Tolerant of
+    prose/fences around it; returns [] on any failure so the hunt just proceeds
+    on recon's partitions."""
+    if not threat_model_md.exists():
+        return []
+    try:
+        text = threat_model_md.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+
+    def _as_targets(raw):
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError):
+            return None
+        if isinstance(data, list) and any(
+                isinstance(x, dict) and ("paths" in x or "subsystem" in x)
+                for x in data):
+            return [x for x in data if isinstance(x, dict)]
+        return None
+
+    # Prefer fenced ```json blocks (the output contract); within each, take the
+    # array (greedy is safe inside a fence). Fall back to a greedy array over the
+    # whole doc. Greedy — nested "paths":[...] arrays break a non-greedy scan.
+    candidates = [m.group(1) for m in
+                  re.finditer(r"```(?:json)?\s*(.+?)```", text, re.DOTALL)]
+    candidates.append(text)
+    for cand in candidates:
+        got = _as_targets(cand.strip())
+        if got is not None:
+            return got
+        mm = re.search(r"\[.*\]", cand, re.DOTALL)
+        if mm:
+            got = _as_targets(mm.group(0))
+            if got is not None:
+                return got
+    return []
+
+
+def augment_partitions_from_threat_model(
+    model_partitions: List[Partition],
+    repo: Path,
+    threat_model_md: Path,
+    max_extra: int = 8,
+) -> CoverageAugmentation:
+    """Add a partition for each threat-model hunt target whose code recon's
+    partition plan does not already cover.
+
+    Purely additive (the "augment" integration): recon's partitions are kept as
+    is, and one partition is appended per uncovered target subsystem, naming the
+    concrete paths + threat + CWE class so a Phase-2 agent can trace it. This is
+    what lets an unusual target (a sandbox, a parser) get the syscall/parser
+    partitions recon's web/RPC enumeration never produced. Bounded by
+    ``max_extra`` so a noisy model can't explode the fan-out."""
+    targets = parse_hunt_targets(threat_model_md)
+    if not targets:
+        return CoverageAugmentation(list(model_partitions), [], [], [])
+
+    blob = " ".join(p.description for p in model_partitions).lower()
+
+    def path_covered(pth: str) -> bool:
+        pl = pth.lower().strip().strip("/")
+        return bool(pl) and (pl in blob or Path(pl).name.lower() in blob)
+
+    parts = list(model_partitions)
+    added: List[str] = []
+    added_files: List[str] = []
+    dropped: List[str] = []
+    idx = _max_sg_number(parts)
+
+    # Priority order so the most important targets survive the cap.
+    prio = {"high": 0, "medium": 1, "low": 2}
+    targets = sorted(targets, key=lambda t: prio.get(
+        str(t.get("priority", "medium")).lower(), 1))
+
+    for t in targets:
+        raw_paths = t.get("paths") or []
+        paths = [str(p).strip() for p in raw_paths if isinstance(p, (str,)) and str(p).strip()]
+        # Keep only paths that actually exist in the repo.
+        real = [p for p in paths if (repo / p.strip("/")).exists()]
+        if not real:
+            continue
+        if all(path_covered(p) for p in real):
+            continue                      # recon already covers this surface
+        if len(added) >= max_extra:
+            dropped.extend(real)
+            continue
+        idx += 1
+        subsystem = str(t.get("subsystem") or "target").strip()
+        threat = str(t.get("threat") or "").strip()
+        cwe = str(t.get("cwe_class") or "").strip()
+        desc = (
+            "[THREAT-MODEL TARGET] {0} — surface identified by the PASTA threat "
+            "model that recon's entry-point plan did not cover. Trace the code "
+            "under: {1}.{2}{3}"
+        ).format(
+            subsystem, ", ".join(real),
+            " Threat: {0}.".format(threat) if threat else "",
+            " Likely class: {0}.".format(cwe) if cwe else "",
+        )
+        parts.append(Partition("SG-{0}".format(idx), desc))
+        added.append("SG-{0}".format(idx))
+        added_files.extend(real)
+
+    return CoverageAugmentation(parts, added, added_files, dropped)

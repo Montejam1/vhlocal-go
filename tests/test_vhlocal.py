@@ -201,7 +201,9 @@ class TestPruning(unittest.TestCase):
 class TestPhaseWiring(unittest.TestCase):
     def test_phase_keys_unique_and_expected(self):
         keys = [p.key for p in PHASES]
-        self.assertEqual(keys, ["1", "2", "2b", "3", "3d", "4"])
+        # 1t (PASTA threat model) is opt-in — present in the registry, ordered
+        # between recon and hunt, skipped at runtime unless ScanSpec.threat_model.
+        self.assertEqual(keys, ["1", "1t", "2", "2b", "3", "3d", "4"])
         self.assertEqual(len(set(keys)), len(keys))
 
     def test_exactly_one_fan_out_phase(self):

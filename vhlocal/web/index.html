@@ -1079,6 +1079,10 @@
         <input type="checkbox" id="remediate">
         <span class="ledger-txt"><b>Write remediation DTOs</b><small>per-finding proposed-fix records under remediation/ — report-only, source untouched</small></span>
       </label>
+      <label class="ledger-row" style="margin-top:10px" title="Run a post-recon, pre-hunt PASTA threat model + data-flow diagram. It characterizes the app, threat-models its archetype, and its hunt targets ADD partitions for surfaces recon's entry-point enumeration missed (a sandbox's syscall boundary, a parser's untrusted input). Also builds the SBOM. Adds one modeling phase.">
+        <input type="checkbox" id="threatModel">
+        <span class="ledger-txt"><b>Build threat model (PASTA)</b><small>characterize the app &amp; add hunt partitions for surfaces recon misses — fixes coverage on non-web targets</small></span>
+      </label>
       <button class="btn" id="start" style="margin-top:14px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
              stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg>
@@ -3541,6 +3545,7 @@ $('start').onclick = async function() {
     // Budget cap is opt-in: only enforced when the box is ticked; 0 = no cap.
     max_budget_usd: $('budgetOn').checked ? parseFloat($('maxBudget').value || '0') : 0,
     iac_lens: $('iacLens').checked,
+    threat_model: $('threatModel').checked,
   };
   // Per-phase overrides only when "Multiple models" is on (each blank field
   // falls back to the hunt model). Otherwise one model runs every phase.

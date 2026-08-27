@@ -42,6 +42,7 @@ from .phases import (
     PHASES_BY_KEY,
     Partition,
     augment_partitions_for_coverage,
+    augment_partitions_from_threat_model,
     build_system,
     build_task,
     load_preamble,
@@ -158,6 +159,12 @@ class ScanSpec:
     # sink pattern directly — fast, complete, default) or "model" (the old
     # model-driven iterative grep).
     sweep_mode: str = "deterministic"
+    # Opt-in Phase 1t: a post-recon, pre-hunt PASTA threat model + data-flow
+    # diagram. Its "Hunt targets" ADD partitions for archetype-specific surfaces
+    # recon's web/RPC entry-point enumeration misses (a sandbox's syscall
+    # boundary, a parser's untrusted input, etc.) — purely additive coverage.
+    # Also generates the SBOM and feeds the report's Application Intelligence.
+    threat_model: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         d = {}
@@ -210,6 +217,8 @@ class ScanSpec:
             kwargs["iac_lens"] = bool(d["iac_lens"])
         if d.get("remediate") is not None:
             kwargs["remediate"] = bool(d["remediate"])
+        if d.get("threat_model") is not None:
+            kwargs["threat_model"] = bool(d["threat_model"])
         return cls(**kwargs)
 
 
@@ -274,6 +283,9 @@ class RunRecord:
     coverage_partitions_added: List[str] = field(default_factory=list)
     coverage_files_added: List[str] = field(default_factory=list)
     coverage_uncovered_remaining: List[str] = field(default_factory=list)
+    # Partitions added by the Phase-1t PASTA threat model (opt-in) for surfaces
+    # recon's entry-point enumeration missed.
+    threat_model_partitions: List[str] = field(default_factory=list)
     vuln_classes: List[str] = field(default_factory=list)
     agents: List[Dict[str, Any]] = field(default_factory=list)
     usage: Dict[str, Any] = field(default_factory=dict)
@@ -611,6 +623,11 @@ def execute_scan(
                 emit({"type": "phase_skip", "key": spec_phase.key, "reason": "resume"})
                 continue
 
+            # Phase 1t (PASTA threat model) is opt-in — skip unless enabled.
+            if spec_phase.key == "1t" and not spec.threat_model:
+                emit({"type": "phase_skip", "key": "1t", "reason": "disabled"})
+                continue
+
             prompt_path = phases_dir / spec_phase.prompt_file
             if not prompt_path.exists():
                 emit({
@@ -684,6 +701,27 @@ def execute_scan(
                         record.seeded_from_prior = prior_name
                         log.info("Mode B: seeded Phase 1 from prior report %s",
                                  prior_name)
+                # Phase 1t: generate the deterministic SBOM now (PASTA Stage II
+                # technical scope) and hand its summary to the threat-model agent.
+                # The written sbom.cdx.json also feeds the report.
+                if spec_phase.key == "1t":
+                    try:
+                        from .sbom import write_sbom, summary as _sbom_sum
+                        s = write_sbom(results_dir, repo)
+                        if s and s.get("total"):
+                            eco = ", ".join("{0} {1}".format(v, k)
+                                            for k, v in sorted(s["by_ecosystem"].items()))
+                            comps = ", ".join(
+                                "{0}{1}".format(c["name"],
+                                                "@" + c["version"] if c.get("version") else "")
+                                for c in s["components"][:40])
+                            sbom_md = (
+                                "## Dependency inventory (SBOM)\n\n"
+                                "{0} direct dependencies ({1}): {2}\n".format(
+                                    s["total"], eco, comps))
+                            extra = (extra + "\n\n" + sbom_md) if extra else sbom_md
+                    except Exception as exc:  # pragma: no cover - defensive
+                        log.warning("SBOM for Phase 1t failed: %s", exc)
                 task = build_task(spec_phase, prompt_text, repo, results_dir, extra=extra)
                 active = client_for(spec_phase.key)
                 _capture_prompt(results_dir, spec_phase.key,
@@ -1036,6 +1074,21 @@ def _run_fan_out(
             log.warning("coverage cap reached; %d file(s) still unpartitioned: %s",
                         len(aug.uncovered_remaining),
                         ", ".join(aug.uncovered_remaining))
+
+    # Threat-model augmentation (Phase 1t): purely additive partitions for the
+    # archetype-specific surfaces the PASTA threat model flagged that recon's
+    # entry-point plan did not cover (a sandbox's syscall boundary, a parser's
+    # untrusted input). Runs whenever a threat_model.md is present.
+    tm_path = results_dir / "threat_model.md"
+    if tm_path.exists():
+        tm_aug = augment_partitions_from_threat_model(partitions, repo, tm_path,
+                                                      max_extra=max_partitions)
+        if tm_aug.added:
+            partitions = tm_aug.partitions
+            log.info("threat model: added %d hunt partition(s) for surfaces recon "
+                     "missed (%s)", len(tm_aug.added), ", ".join(tm_aug.added))
+            if record is not None:
+                record.threat_model_partitions = tm_aug.added
 
     shared = (phases_dir / "phase2_shared.md").read_text(encoding="utf-8")
     results_sub = results_dir / "results"

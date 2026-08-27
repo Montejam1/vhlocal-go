@@ -186,7 +186,8 @@ class TestScanSpec(unittest.TestCase):
 
 class TestPhaseSelection(unittest.TestCase):
     def test_all(self):
-        self.assertEqual(len(select_phases("all")), 6)
+        # 7 phases incl. the opt-in 1t threat model (skipped at runtime unless enabled).
+        self.assertEqual(len(select_phases("all")), 7)
 
     def test_subset_order_preserved(self):
         got = [p.key for p in select_phases("2b,1")]

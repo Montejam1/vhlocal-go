@@ -2,6 +2,28 @@
 
 Notable feature updates to vulnhunt-local. Newest first.
 
+## 2026-08-27 — Phase 1t: PASTA threat model (opt-in) — coverage fix for non-web targets
+
+- **Root problem it fixes:** recon's attack-surface enumeration is web/RPC-shaped
+  (routes → inputs → sinks), so on an unusual target it under-covers. A gvisor scan
+  collapsed to one partition (the docs website) and missed the entire sandbox —
+  its real attack surface (syscall handlers, packet/9P parsers) was never
+  partitioned or hunted, and the run still reported "complete."
+- **New Phase 1t (post-recon, pre-hunt), gated on `ScanSpec.threat_model`.** Follows
+  **PASTA**: characterize the app + its **archetype**, threat-model *that class* of
+  software (a sandbox → guest→host escape; a parser → memory corruption; a crypto
+  lib → side channels), produce a **data-flow diagram** (Mermaid) with trust
+  boundaries, and emit a `Hunt targets` block mapping threats → concrete code paths.
+- **Purely additive to the hunt.** `augment_partitions_from_threat_model` appends a
+  partition for each threat target whose code recon didn't already cover
+  (existence-checked, priority-ordered, bounded). Web apps are unaffected; unusual
+  targets *gain* the syscall/parser partitions they were missing. Also generates the
+  SBOM (PASTA Stage II) and feeds the report's Application Intelligence.
+- UI: **Build threat model (PASTA)** toggle. CLI: `--threat-model`. Prompt in
+  `skill/phases/phase1t_threat_model.md`. 13 new tests.
+- Report rendering of the threat model + DFD is the next step (the model + partition
+  drive land first).
+
 ## 2026-08-26 — Application Intelligence, findings quality, ledger view
 
 Development thread paired with the web-UX effort. All changes are static-only,
