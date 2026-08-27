@@ -607,6 +607,97 @@
   .hstat{font-size:12.5px;color:var(--text-2)}
   .hreasons{margin:10px 0 0;padding-left:18px}
   .hreasons li{font-size:12.5px;color:var(--text-2);line-height:1.55;margin-bottom:3px}
+  /* Ledger recall — the run measured against everything the target has ever
+     confirmed. Ruled off from the run's own numbers above it. */
+  .hledger{margin-top:13px;padding-top:12px;border-top:1px solid var(--line)}
+  .hmissed{margin-top:11px}
+  .hmissed>summary{cursor:pointer;font-size:12.5px;font-weight:650;color:var(--warn);
+    list-style:none;display:flex;align-items:center;gap:7px}
+  .hmissed>summary::-webkit-details-marker{display:none}
+  .hmissed>summary::before{content:'▸';font-size:10px;line-height:1;
+    transition:transform .15s ease}
+  .hmissed[open]>summary::before{transform:rotate(90deg)}
+  .hmissed>summary:hover{color:var(--text-1)}
+  .hmissed .tablewrap{margin-top:10px}
+  .dash{color:var(--text-3)}
+
+  /* ---- report sections: findings, chains, application intelligence ---- */
+  .rsec{margin:26px 0 0}
+  .rsec h3{margin:0 0 12px;font-size:11.5px;text-transform:uppercase;
+    letter-spacing:.07em;color:var(--text-3);font-weight:700}
+  .rsec h3 small{text-transform:none;letter-spacing:0;font-weight:400;color:var(--text-3)}
+  .rsec .rsub{margin:-6px 0 11px;max-width:78ch}
+  .xlink{display:inline-block;margin:2px 0 4px;font-size:12.5px;color:var(--accent);
+    cursor:pointer;font-weight:600}
+  .xlink:hover{color:var(--accent-strong);text-decoration:underline}
+  .runlink{color:var(--accent);cursor:pointer;font-family:var(--mono);font-size:11px;
+    white-space:nowrap}
+  .runlink:hover{text-decoration:underline}
+
+  /* Finding rows expand in place — the table stays the index, the detail is
+     the record underneath it. */
+  /* `hidden` on a <tr> relies on the UA rule; state it so no later
+     display declaration can resurrect a collapsed detail row. */
+  table.findtbl tr[hidden]{display:none}
+  table.findtbl tbody tr.frow{cursor:pointer}
+  table.findtbl tbody tr.frow.open td{background:var(--surface-2)}
+  table.findtbl tbody tr.fdet td{background:var(--surface-2);padding:14px 16px 16px}
+  table.findtbl tbody tr.fdet:hover td{background:var(--surface-2)}
+  .fid{font-family:var(--mono);font-size:11px;color:var(--text-3);margin-right:5px}
+  .fkv{display:flex;gap:10px;font-size:12.5px;line-height:1.6;margin-bottom:3px}
+  .fk{flex:0 0 148px;color:var(--text-3);font-size:11px;text-transform:uppercase;
+    letter-spacing:.05em;font-weight:650;padding-top:2px}
+  .fv{color:var(--text-1)}
+  .fv.mono{font-family:var(--mono);font-size:11.5px;color:var(--text-2)}
+  .fblock{margin-top:11px}
+  .fblock .fk{display:block;flex:none;margin-bottom:5px}
+  .fblock pre{margin:0;background:var(--bg);border:1px solid var(--line);
+    border-radius:var(--r-sm);padding:10px 12px;font-size:11.5px;line-height:1.6;
+    max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+
+  .chain{border:1px solid var(--line);border-left:2px solid var(--sev-high);
+    border-radius:var(--r);background:var(--surface-1);padding:13px 16px;margin-bottom:10px}
+  .chain-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:13.5px}
+  .chain-ids{margin:9px 0 7px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .chain-ids .fid{margin:0;color:var(--text-2);background:var(--surface-2);
+    border:1px solid var(--line);border-radius:var(--r-xs);padding:2px 7px}
+  .chain-ids .arrow{color:var(--text-3);font-size:11px}
+  .chain p{margin:0;font-size:12.5px;line-height:1.65;color:var(--text-2);max-width:82ch}
+
+  .sbomfilter{width:100%;max-width:340px;padding:7px 11px;border-radius:var(--r-sm);
+    border:1px solid var(--line);background:var(--surface-1);color:var(--text-1);
+    font:inherit;font-size:12.5px;margin-bottom:8px}
+  .sbomfilter:focus{outline:none;border-color:var(--accent)}
+
+  /* ---- Reports: tile / table layout switch ---- */
+  .viewtoggle{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:99px;padding:2px;gap:2px}
+  .viewtoggle button{font:inherit;font-size:11.5px;font-weight:600;padding:5px 13px;
+    border:none;border-radius:99px;background:transparent;color:var(--text-3);cursor:pointer;
+    transition:color var(--duration-exit) ease, background var(--duration-exit) ease}
+  .viewtoggle button:hover{color:var(--text-1)}
+  .viewtoggle button.on{background:var(--surface-1);color:var(--text-1);
+    box-shadow:var(--sh-1)}
+  .viewtoggle button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  table.reptbl tbody tr{cursor:pointer}
+  table.reptbl th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+  table.reptbl th.sortable:hover{color:var(--text-1)}
+  table.reptbl th.sorted{color:var(--accent)}
+  table.reptbl th .caret{font-size:9px}
+  table.reptbl td.num, table.reptbl th.num{text-align:right}
+  table.reptbl td{vertical-align:middle}
+  table.reptbl td.lt{min-width:220px;max-width:420px}
+  /* The run id under the repo name: the value that identifies the directory on
+     disk, kept small so it never competes with the name. */
+  .rsub2{font-size:10.5px;color:var(--text-3);margin-top:2px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  table.reptbl .sevstrip{margin:0;gap:4px}
+  .delbtn-t{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:12px;
+    padding:2px 4px;border-radius:var(--r-xs);opacity:0;transition:opacity var(--duration-exit) ease}
+  table.reptbl tr:hover .delbtn-t{opacity:1}
+  .delbtn-t:hover{color:var(--err);background:var(--err-weak)}
+  .delbtn-t:focus-visible{opacity:1;outline:2px solid var(--accent);outline-offset:1px}
 
   /* ---------------- markdown ---------------- */
   .md{font-size:14px;line-height:1.7;color:var(--text-1)}
@@ -1109,6 +1200,10 @@ const fmtDur = (s) => {
 };
 const esc = (t) => String(t==null?'':t).replace(/[&<>]/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+// For values interpolated into a quoted ATTRIBUTE. esc() leaves quotes alone,
+// which is fine in a text node and not fine in `title="..."` — finding titles
+// and locations are authored by the model from the scanned repo's contents.
+const escA = (t) => esc(t).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
@@ -1119,10 +1214,16 @@ async function api(path, opts) {
 }
 
 async function boot() {
-  // Paint the mark before the first await — boot talks to model backends that
-  // can be slow, and the tab should not sit on a blank icon meanwhile.
+  // Paint the mark AND the first view before any await. boot() talks to model
+  // backends that can take seconds to answer, and none of that is needed to draw
+  // the dashboard — deferring navigate() until after them left a cold load
+  // showing the scan rail against an empty canvas.
   paintFavicon();
+  navigate('home');
   CFG = await api('/api/config');
+  // The dashboard's phase overview is driven by CFG.phases, which arrived after
+  // that first paint. Redraw it now, but only if the operator is still there.
+  if (view === 'home') navigate('home');
   $('rootHint').textContent = CFG.allow_roots.length === 1
     ? 'Allowed root: ' + CFG.allow_roots[0]
     : CFG.allow_roots.length + ' allowed roots (see Settings)';
@@ -1136,7 +1237,6 @@ async function boot() {
   loadProfiles();                    // scan-config presets
   await refresh();
   refreshMarkSeverity();             // gives the mark its severity readout
-  navigate('home');
   setInterval(refresh, 4000);
 }
 
@@ -2108,6 +2208,7 @@ function renderDetail(el, j) {
     ${j.error ? `<div class="err-box" style="margin-top:12px">${esc(j.error)}</div>` : ''}
     ${statTiles(j)}
     ${phaseSpine(j)}
+    <div id="scanHealth"></div>
     <div class="metacard"><table>
       <tr><th>Model</th><td>${esc(j.spec.model)}${j.spec.verify_model?` · verify: ${esc(j.spec.verify_model)}`:''}</td></tr>
       <tr><th>Phase</th><td>${esc(j.phase || '—')}</td></tr>
@@ -2123,6 +2224,7 @@ function renderDetail(el, j) {
       <button class="${tab==='log'?'on':''}" onclick="setTab('log')">Log</button>
     </div>
     <div id="tabbody">${tab==='live' ? '<div id="feed"></div>' : '<div class="empty">Loading…</div>'}</div>`;
+  loadScanHealth(j.id, running);
   if (tab === 'live') {
     const f = $('feed');
     if (f && window._feedCache) f.innerHTML = window._feedCache;
@@ -2232,6 +2334,28 @@ function appendEvent(ev) {
     f.insertAdjacentHTML('beforeend', html);
     if (atBottom) f.scrollTop = f.scrollHeight;
   }
+}
+
+// Scan Health for a finished job — the same panel the Reports tab shows, so a
+// run you just watched reports its coverage, chains, SBOM and ledger recall
+// without a trip to Reports. findings.json only exists once Phase 4 has
+// consolidated, so a running job gets nothing rather than a wrong panel.
+// renderDetail repaints every poll; the result is cached per job so those
+// repaints cost no requests.
+const _scanHealth = {};
+function loadScanHealth(id, running) {
+  const host = $('scanHealth');
+  if (!host) return;
+  if (_scanHealth[id] !== undefined) { host.innerHTML = _scanHealth[id]; return; }
+  if (running) return;
+  fetch(`/api/scans/${id}/file?path=findings.json`)
+    .then(r => r.ok ? r.json() : null)
+    .then(fj => {
+      _scanHealth[id] = fj ? healthPanelHTML(fj) : '';
+      const h = $('scanHealth');
+      if (h) h.innerHTML = _scanHealth[id];
+    })
+    .catch(() => { _scanHealth[id] = ''; });
 }
 
 async function loadFiles(id) {
@@ -2364,13 +2488,24 @@ async function loadDashboard(){
   let reports = [];
   try {
     const s = await api('/api/stats');
+    // Token and time tiles read from scan_meta.json usage, which a run that died
+    // early never wrote. Those tiles go blank rather than to zero: "0 tokens" is
+    // a claim that the scan used none, which is not what the absence of a
+    // measurement means. `with_usage` is the count of runs that recorded any.
+    const measured = (s.with_usage || 0) > 0;
+    const partial = measured && s.with_usage < s.scans
+      ? s.with_usage + ' of ' + s.scans + ' runs recorded usage' : '';
+    const unmeasured = 'not recorded';
     if ($('dashMetrics')) $('dashMetrics').innerHTML =
         metricCard(DASH_ICONS.scans, s.scans, 'Scans run')
       + metricCard(DASH_ICONS.vuln, s.findings, 'Vulnerabilities found', s.avg_findings_per_scan + ' avg / scan')
-      + metricCard(DASH_ICONS.tok, fmtTokens(s.total_tokens), 'Tokens used',
-             s.prompt_tokens ? fmtTokens(s.prompt_tokens) + ' in · ' + fmtTokens(s.completion_tokens) + ' out' : '')
-      + metricCard(DASH_ICONS.avg, fmtTokens(s.avg_tokens_per_scan), 'Avg tokens / scan')
-      + metricCard(DASH_ICONS.time, fmtDur(s.total_seconds), 'Total scan time', fmtDur(s.avg_seconds_per_scan) + ' avg / scan');
+      + metricCard(DASH_ICONS.tok, measured ? fmtTokens(s.total_tokens) : '—', 'Tokens used',
+             !measured ? unmeasured
+               : (s.prompt_tokens ? fmtTokens(s.prompt_tokens) + ' in · ' + fmtTokens(s.completion_tokens) + ' out' : partial))
+      + metricCard(DASH_ICONS.avg, measured ? fmtTokens(s.avg_tokens_per_scan) : '—', 'Avg tokens / scan',
+             measured ? partial : unmeasured)
+      + metricCard(DASH_ICONS.time, measured ? fmtDur(s.total_seconds) : '—', 'Total scan time',
+             measured ? fmtDur(s.avg_seconds_per_scan) + ' avg / scan' : unmeasured);
     renderByModel(s.by_model);
   } catch (e) { if ($('dashMetrics')) $('dashMetrics').innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 
@@ -2419,7 +2554,7 @@ async function renderPhaseOverview(t){
   } catch (e) { /* no meta */ }
   if (!meta) { el.innerHTML = head + '<div class="empty">No phase metadata for this scan.</div>'; return; }
 
-  const all = (CFG.phases || []);
+  const all = (CFG && Array.isArray(CFG.phases)) ? CFG.phases : [];
   const timings = meta.phase_timings || {};
   const completed = meta.phases_completed || [];
   const agents = meta.agents || [];
@@ -2529,6 +2664,12 @@ const VIEWS = {
           <h2>Reports</h2>
           <span id="reportsDir" style="color:var(--text-3);font-size:12px;font-family:var(--mono)"></span>
           <span style="flex:1"></span>
+          <div class="viewtoggle" role="group" aria-label="Reports layout">
+            <button id="rvCards" onclick="setReportsView('cards')"
+              title="Tiles — for browsing runs you recognise by sight">Tiles</button>
+            <button id="rvTable" onclick="setReportsView('table')"
+              title="Table — for comparing runs as records, sortable by any column">Table</button>
+          </div>
           <button class="secondary" onclick="loadReports()">Refresh</button>
         </div>
         <div id="reportsBody" style="margin-top:8px"><div class="empty">Loading…</div></div>`;
@@ -2538,7 +2679,7 @@ const VIEWS = {
   },
   ledger: {
     nav: 'navLedger',
-    mount(el) {
+    mount(el, opts) {
       el.innerHTML = `
         <div class="pane-head">
           <h2>Vulnerability ledger</h2>
@@ -2550,7 +2691,9 @@ const VIEWS = {
           deduped by root cause, tracked as open / fixed / regressed, and scored
           by how many independent runs confirmed each one.</p>
         <div id="ledgerBody"><div class="empty">Loading…</div></div>`;
-      loadLedgers();
+      // A slug arrives when the operator came from a report — open that
+      // application's history directly rather than making them find it again.
+      loadLedgers(opts && opts.slug);
     },
     unmount() {},
   },
@@ -2572,7 +2715,13 @@ window.navigate = function(name, opts) {
   // Lateral navigation gets a cross-fade where the browser supports view
   // transitions, and nothing at all where it doesn't. The swap itself is
   // identical either way — the transition only wraps it.
-  const run = () => navigateNow(name, opts);
+  const next = VIEWS[name] ? name : 'scans';
+  // Chrome moves first, synchronously, OUTSIDE the transition. startViewTransition
+  // defers its callback by a frame, so anything classed inside it stays wrong for
+  // the whole cross-fade — the header lit the old tab over the new page. Only the
+  // content swap belongs in the transition.
+  markChrome(next);
+  const run = () => navigateNow(next, opts);
   if (document.startViewTransition &&
       !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.startViewTransition(run);
@@ -2580,6 +2729,18 @@ window.navigate = function(name, opts) {
     run();
   }
 };
+
+// Header pills + body classes: which view the app *says* it is on. Split out of
+// navigateNow so it can run ahead of the view transition rather than inside it.
+function markChrome(next) {
+  // Home and Docs are full-width canvases — hide the New-scan rail there.
+  document.body.classList.toggle('home', next === 'home');
+  document.body.classList.toggle('docs', next === 'docs');
+  Object.keys(VIEWS).forEach(k => {
+    const b = $(VIEWS[k].nav);
+    if (b) b.className = (k === next ? 'on' : '');
+  });
+}
 
 function navigateNow(name, opts) {
   const next = VIEWS[name] ? name : 'scans';
@@ -2589,13 +2750,7 @@ function navigateNow(name, opts) {
   const cur = VIEWS[view];
   if (cur && cur.unmount) cur.unmount();
   view = next;
-  // Home and Docs are full-width canvases — hide the New-scan rail there.
-  document.body.classList.toggle('home', next === 'home');
-  document.body.classList.toggle('docs', next === 'docs');
-  Object.keys(VIEWS).forEach(k => {
-    const b = $(VIEWS[k].nav);
-    if (b) b.className = (k === next ? 'on' : '');
-  });
+  markChrome(next);   // idempotent — keeps any direct caller correct
   el.innerHTML = '';
   VIEWS[next].mount(el, opts || {});
 }
@@ -2627,39 +2782,222 @@ function severityStrip(sevs){
   return `<div class="meta sevstrip">${chips.join('')}</div>`;
 }
 
+// A report index serves two different jobs. Tiles are for browsing runs you
+// recognise by sight; a table is for comparing them as records — which run was
+// sound, which regressed, which is worth opening. Neither is right for everyone,
+// so the choice is the operator's and it persists across sessions.
+let REPORTS = [];                              // last fetch — toggling never refetches
+let REPORTS_SORT = { key: 'created', dir: -1 };  // newest first, i.e. server order
+
+// The choice lives in memory and is MIRRORED to storage, not read back out of
+// it. A browser that refuses site data (private window, blocked storage) would
+// otherwise make the toggle inert — every click writing nothing and then reading
+// back the default. Persistence is a convenience; the control has to work
+// regardless of whether it succeeds.
+let REPORTS_VIEW = null;
+
+function reportsView() {
+  if (REPORTS_VIEW) return REPORTS_VIEW;
+  try {
+    REPORTS_VIEW = localStorage.getItem('vhlocal.reports.view') === 'table' ? 'table' : 'cards';
+  } catch (e) { REPORTS_VIEW = 'cards'; }
+  return REPORTS_VIEW;
+}
+
+window.setReportsView = function(v) {
+  REPORTS_VIEW = v === 'table' ? 'table' : 'cards';
+  try { localStorage.setItem('vhlocal.reports.view', REPORTS_VIEW); } catch (e) {}
+  renderReports();
+};
+
+window.sortReports = function(key) {
+  // The same column again reverses. A new column starts descending, which is the
+  // useful end of every column here — most findings, worst recall, newest first.
+  if (REPORTS_SORT.key === key) REPORTS_SORT.dir = -REPORTS_SORT.dir;
+  else REPORTS_SORT = { key: key, dir: -1 };
+  renderReports();
+};
+
+// Worst severity present, then how many at that level — so "2 Critical" ranks
+// above "9 Medium" rather than losing to it on raw count.
+const _SEV_W = { critical: 5, 'high+': 5, high: 4, medium: 3, moderate: 3,
+                 low: 2, informational: 1, info: 1 };
+function _sevScore(sevs) {
+  let best = 0, n = 0;
+  Object.keys(sevs || {}).forEach(k => {
+    const w = _SEV_W[String(k).toLowerCase()] || 0;
+    if (w > best) { best = w; n = sevs[k] || 0; }
+    else if (w === best && w) { n += sevs[k] || 0; }
+  });
+  return best * 1000 + Math.min(n, 999);
+}
+
+const _RSORT = {
+  repo: r => String(r.repo || r.name || '').toLowerCase(),
+  findings: r => r.findings || 0,
+  severity: r => _sevScore(r.severities),
+  // Unknown sorts between degraded and clean: it is not a bad run, it is an
+  // unmeasured one, and it should not be ranked as either.
+  coverage: r => (r.coverage_status ? (r.coverage_degraded ? 0 : 2) : 1),
+  recall: r => (r.recall_pct == null ? -1 : r.recall_pct),
+  chains: r => r.chains || 0,
+  deps: r => r.sbom_total || 0,
+  model: r => String(r.model || '').toLowerCase(),
+  created: r => r.created || 0,
+  size: r => r.size || 0,
+};
+
+function sortedReports() {
+  const get = _RSORT[REPORTS_SORT.key] || _RSORT.created;
+  const dir = REPORTS_SORT.dir;
+  return REPORTS.slice().sort((a, b) => {
+    const va = get(a), vb = get(b);
+    if (va < vb) return -dir;
+    if (va > vb) return dir;
+    return (b.created || 0) - (a.created || 0);   // stable tiebreak: newest first
+  });
+}
+
+// ISO-shaped and mono. An operator scans a column of these, and lexically sorted
+// is chronologically sorted; toLocaleString() ("8/26/2026, 1:09:06 AM") is
+// neither scannable nor sortable by eye.
+function fmtWhen(r) {
+  if (!r.created) return r.stamp || '';
+  const t = new Date(r.created * 1000), p = (n) => String(n).padStart(2, '0');
+  return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate())
+    + ' ' + p(t.getHours()) + ':' + p(t.getMinutes());
+}
+
+// Run-quality chips, shared by both layouts so the two never disagree about a
+// run. Absent fields stay absent — an old report simply shows fewer.
+function reportQuality(r) {
+  return [
+    r.coverage_status
+      ? (r.coverage_degraded
+          ? '<span class="pill p" title="this run did not review every entry point">coverage degraded</span>'
+          : '<span class="pill z" title="every entry point was reviewed">clean run</span>')
+      : '',
+    r.recall_pct != null
+      ? `<span class="pill ${r.recall_pct >= 80 ? 'z' : 'p'}" title="re-found this share of the findings already known for this application">${r.recall_pct}% recall</span>`
+      : '',
+    r.chains ? `<span class="pill" title="deterministically composed attack paths">${r.chains} chain${r.chains === 1 ? '' : 's'}</span>` : '',
+    r.sbom_total ? `<span class="pill" title="components in this run's CycloneDX SBOM">${r.sbom_total} deps</span>` : '',
+  ].filter(Boolean).join('');
+}
+
+function _delBtn(r, cls) {
+  const label = (r.repo || r.name || '').replace(/'/g, "\\'");
+  return `<button class="${cls}" title="Delete this report"
+    onclick="event.stopPropagation();deleteReport('${esc(r.id)}','${esc(label)}')">🗑</button>`;
+}
+
+function reportsCardsHTML(rows) {
+  return '<div class="cards">' + rows.map(r => {
+    const fp = r.has_report
+      ? `<span class="pill ${r.findings ? 'f' : 'z'}">${r.findings} finding${r.findings===1?'':'s'}</span>`
+      : `<span class="pill p">incomplete</span>`;
+    const quality = reportQuality(r);
+    return `<div class="card" onclick="openReport('${esc(r.id)}')">
+      ${_delBtn(r, 'delbtn')}
+      <h3>${esc(r.repo || r.name)}</h3>
+      <div class="meta">
+        ${fp}
+        <span>${esc(r.model||'')}</span>
+        <span class="v">${esc(fmtWhen(r))}</span>
+      </div>
+      ${severityStrip(r.severities)}
+      ${quality ? `<div class="meta">${quality}</div>` : ''}
+      <div class="meta">
+        ${r.has_consolidated ? '<span class="pill">report</span>' : ''}
+        <span>phases ${esc((r.phases_present||[]).join(', ') || '—')}</span>
+        <span>${(r.size/1024).toFixed(0)} KB</span>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+const _RCOLS = [
+  ['repo',     'Repository', ''],
+  ['findings', 'Findings',   'right'],
+  ['severity', 'Severity',   ''],
+  ['coverage', 'Run',        ''],
+  ['recall',   'Recall',     'right'],
+  ['chains',   'Chains',     'right'],
+  ['deps',     'Deps',       'right'],
+  ['model',    'Model',      ''],
+  ['created',  'Finished',   ''],
+  ['size',     'Size',       'right'],
+];
+
+function reportsTableHTML(rows) {
+  const head = _RCOLS.map(([k, label, align]) => {
+    const on = REPORTS_SORT.key === k;
+    const caret = on ? (REPORTS_SORT.dir < 0 ? ' ▾' : ' ▴') : '';
+    return `<th class="sortable${on ? ' sorted' : ''}${align ? ' num' : ''}"
+      aria-sort="${on ? (REPORTS_SORT.dir < 0 ? 'descending' : 'ascending') : 'none'}"
+      onclick="sortReports('${k}')">${esc(label)}<span class="caret">${caret}</span></th>`;
+  }).join('');
+  const body = rows.map(r => {
+    const cov = r.coverage_status
+      ? (r.coverage_degraded
+          ? '<span class="pill p" title="this run did not review every entry point">degraded</span>'
+          : '<span class="pill z" title="every entry point was reviewed">clean</span>')
+      : _DASH;
+    const rec = r.recall_pct != null
+      ? `<span class="pill ${r.recall_pct >= 80 ? 'z' : 'p'}" title="re-found this share of the findings already known for this application">${r.recall_pct}%</span>`
+      : _DASH;
+    const found = r.has_report
+      ? `<span class="pill ${r.findings ? 'f' : 'z'}">${r.findings}</span>`
+      : '<span class="pill p" title="this run did not finish">incomplete</span>';
+    return `<tr onclick="openReport('${esc(r.id)}')">
+      <td class="lt"><b>${esc(r.repo || r.name)}</b>
+        <div class="rsub2 mono" title="${escA(r.id)}">${esc(r.id)}</div></td>
+      <td class="num">${found}</td>
+      <td>${severityStrip(r.severities) || _DASH}</td>
+      <td>${cov}</td>
+      <td class="num">${rec}</td>
+      <td class="num mono">${r.chains || _DASH}</td>
+      <td class="num mono">${r.sbom_total || _DASH}</td>
+      <td class="mono">${esc(r.model || '—')}</td>
+      <td class="mono">${esc(fmtWhen(r)) || _DASH}</td>
+      <td class="num mono">${(r.size/1024).toFixed(0)} KB</td>
+      <td class="num">${_delBtn(r, 'delbtn-t')}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="tablewrap"><table class="ledgertbl reptbl">
+    <thead><tr>${head}<th></th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function renderReports() {
+  const body = $('reportsBody');
+  if (!body) return;
+  const mode = reportsView();
+  [['rvCards', 'cards'], ['rvTable', 'table']].forEach(([id, m]) => {
+    const b = $(id);
+    if (!b) return;
+    b.className = mode === m ? 'on' : '';
+    b.setAttribute('aria-pressed', String(mode === m));
+  });
+  if (!REPORTS.length) {
+    body.innerHTML = '<div class="empty">No reports yet. Run a scan and they appear here.</div>';
+    return;
+  }
+  // Switching layout must not close a report the operator already opened, and
+  // must not re-fetch it either — carry the rendered pane across.
+  const openPane = $('reportView');
+  const carried = openPane ? openPane.innerHTML : '';
+  body.innerHTML = (mode === 'table' ? reportsTableHTML(sortedReports())
+                                     : reportsCardsHTML(sortedReports()))
+    + `<div id="reportView" style="margin-top:20px">${carried}</div>`;
+}
+
 window.loadReports = async function() {
   const body = $('reportsBody');
   try {
     const d = await api('/api/reports');
     $('reportsDir').textContent = d.reports_dir;
-    if (!d.reports.length) {
-      body.innerHTML = '<div class="empty">No reports yet. Run a scan and they appear here.</div>';
-      return;
-    }
-    body.innerHTML = '<div class="cards">' + d.reports.map(r => {
-      const when = r.created ? new Date(r.created*1000).toLocaleString() : (r.stamp||'');
-      const fp = r.has_report
-        ? `<span class="pill ${r.findings ? 'f' : 'z'}">${r.findings} finding${r.findings===1?'':'s'}</span>`
-        : `<span class="pill p">incomplete</span>`;
-      const label = (r.repo || r.name || '').replace(/'/g, "\\'");
-      const sev = severityStrip(r.severities);
-      return `<div class="card" onclick="openReport('${esc(r.id)}')">
-        <button class="delbtn" title="Delete this report"
-          onclick="event.stopPropagation();deleteReport('${esc(r.id)}','${esc(label)}')">🗑</button>
-        <h3>${esc(r.repo || r.name)}</h3>
-        <div class="meta">
-          ${fp}
-          <span>${esc(r.model||'')}</span>
-          <span>${esc(when)}</span>
-        </div>
-        ${sev}
-        <div class="meta">
-          ${r.has_consolidated ? '<span class="pill">report</span>' : ''}
-          <span>phases ${esc((r.phases_present||[]).join(', ') || '—')}</span>
-          <span>${(r.size/1024).toFixed(0)} KB</span>
-        </div>
-      </div>`;
-    }).join('') + '</div><div id="reportView" style="margin-top:20px"></div>';
+    REPORTS = d.reports || [];
+    renderReports();
   } catch (e) {
     body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
   }
@@ -2693,7 +3031,7 @@ function _sevChips(bySev) {
   return keys.map(k=>`<span class="sevchip ${_sevClass(k)}">${bySev[k]} ${esc(k)}</span>`).join('');
 }
 
-window.loadLedgers = async function() {
+window.loadLedgers = async function(openSlug) {
   const body = $('ledgerBody');
   if (!body) return;
   try {
@@ -2725,9 +3063,17 @@ window.loadLedgers = async function() {
         <div class="sevrow">${_sevChips(s.by_severity)}</div>
       </div>`;
     }).join('') + '</div><div id="ledgerDetail" style="margin-top:22px"></div>';
+    if (openSlug && ls.some(x => x.slug === openSlug)) openLedger(openSlug);
   } catch (e) {
     body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
   }
+};
+
+// Jump from a ledger entry to the run that recorded it.
+window.openReportFromLedger = function(runId) {
+  navigate('reports');
+  // loadReports() is async and owns #reportView; open once it has rendered.
+  setTimeout(() => openReport(runId), 0);
 };
 
 window.openLedger = async function(slug) {
@@ -2749,6 +3095,14 @@ window.openLedger = async function(slug) {
       const cls = k==='reliable'?'z' : k==='provisional'?'p' : '';
       return c ? `<span class="pill ${cls}">${esc(c)}</span>` : '';
     };
+    // first_seen / last_seen carry {run, model, date}. The run id IS the report
+    // directory name, so it doubles as a link straight back to that report.
+    const seenCell = (st) => {
+      if (!st || !st.run) return '<span class="dash">—</span>';
+      const when = st.date ? new Date(st.date * 1000).toISOString().slice(0, 10) : '';
+      return `<a class="runlink" title="${escA(st.run + (st.model ? ' · ' + st.model : ''))}"
+        onclick="event.stopPropagation();openReportFromLedger('${escA(st.run)}')">${esc(when || st.run)}</a>`;
+    };
     const stChip = (st) => {
       const map = {open:'f', regressed:'p', fixed:'z'};
       return `<span class="pill ${map[st]||''}">${esc(st||'open')}</span>`;
@@ -2762,6 +3116,8 @@ window.openLedger = async function(slug) {
         <td>${stChip(e.status)}</td>
         <td title="confirmed in ${e.confirmed_count||0} run(s)">${e.confirmed_count||0}×${e.cross_family?' <span title="confirmed across model families">⨯fam</span>':''}</td>
         <td>${conf(e.confidence)}</td>
+        <td>${seenCell(e.first_seen)}</td>
+        <td>${seenCell(e.last_seen)}</td>
       </tr>`).join('');
     host.innerHTML = `
       <div class="ledger-head">
@@ -2784,14 +3140,268 @@ window.openLedger = async function(slug) {
           <thead><tr>
             <th>Severity</th><th>Finding</th><th>CWE</th><th>Location</th>
             <th>Status</th><th title="how many independent runs confirmed this">Seen</th><th>Confidence</th>
+            <th title="the run that first recorded this finding">First seen</th>
+            <th title="the most recent run that confirmed it">Last seen</th>
           </tr></thead>
-          <tbody>${rows || '<tr><td colspan="7" class="empty">No findings recorded.</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="9" class="empty">No findings recorded.</td></tr>'}</tbody>
         </table>
       </div>`;
   } catch (e) {
     if (host) host.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
   }
 };
+
+// The ledger's recall block — written into findings.json on every run that opted
+// into the memory bank, and until now never shown. `missed` is the operationally
+// interesting half: findings this target is known to have that this run walked
+// straight past, worst (most-confirmed) first.
+function ledgerRecallHTML(vl) {
+  if (!vl) return '';
+  const known = vl.open_known || 0;
+  const missed = vl.missed || [];
+  // A target's first ledger run has nothing to recall against. 0% would be a
+  // measurement; "no prior findings" is the truth.
+  const chip = known
+    ? `<span class="hbadge ${vl.recall_pct >= 80 ? 'ok' : 'warn'}">↺ ${vl.recall_pct || 0}% recall</span>`
+    : `<span class="hbadge alt">↺ first ledger run for this target</span>`;
+  const bits = [];
+  if (known) bits.push(`<div class="hstat"><span class="v">${vl.found || 0}</span>`
+    + ` / <span class="v">${known}</span> known-open findings re-found</div>`);
+  if (vl.new) bits.push(`<div class="hstat"><span class="v">${vl.new}</span> new this run</div>`);
+  if (vl.total_known) bits.push(`<div class="hstat"><span class="v">${vl.total_known}</span> tracked`
+    + ` over <span class="v">${vl.runs_recorded || 0}</span> run${vl.runs_recorded === 1 ? '' : 's'}`
+    + `${vl.reliable ? ` · <span class="v">${vl.reliable}</span> reliable` : ''}</div>`);
+  const tbl = missed.length ? `<details class="hmissed">
+    <summary>${missed.length} known finding${missed.length === 1 ? '' : 's'} not re-found by this run</summary>
+    <div class="tablewrap"><table class="ledgertbl"><thead><tr>
+      <th>Finding</th><th>CWE</th><th>Location</th>
+      <th title="how many independent runs confirmed this">Seen</th><th>Confidence</th>
+    </tr></thead><tbody>${missed.map(m => `<tr>
+      <td class="lt">${esc(m.title || '—')}</td>
+      <td class="mono">${esc(m.cwe || '—')}</td>
+      <td class="mono loc" title="${escA(m.location || '')}">${esc(m.location || '—')}</td>
+      <td class="mono">${m.confirmed_count || 0}×</td>
+      <td>${m.confidence
+        ? `<span class="pill ${String(m.confidence).toLowerCase() === 'reliable' ? 'z' : 'p'}">${esc(m.confidence)}</span>`
+        : '—'}</td>
+    </tr>`).join('')}</tbody></table></div></details>` : '';
+  return `<div class="hledger"><div class="hrow">${chip}${bits.join('')}</div>${tbl}</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Findings, exploit chains and application intelligence — all rendered from
+// findings.json, the engine's deterministic machine record. The report view
+// could previously only show the markdown a model wrote; everything the engine
+// measured per finding (multi-sample votes, cross-run lifecycle, harness
+// validation state, normalized CWE) sat in the JSON and appeared nowhere.
+// ---------------------------------------------------------------------------
+
+// Normalized labels are the cross-run-comparable layer. The model's own claim is
+// preserved underneath and surfaced in the expanded row when the two disagree.
+function _fsev(f) { return f.normalized_severity || f.severity || 'Unrated'; }
+function _fcwe(f) { return f.normalized_cwe || f.cwe || ''; }
+const _DASH = '<span class="dash">—</span>';
+
+// How many independent hunt samples reported this site, out of how many ran.
+// A single-pass run has nothing to agree with itself about, so it shows nothing
+// rather than a falsely reassuring 1/1.
+function voteCell(f) {
+  if (!f.vote_samples) return _DASH;
+  const share = f.votes / f.vote_samples;
+  const cls = share >= 0.999 ? 'z' : share >= 0.5 ? '' : 'p';
+  return `<span class="pill ${cls}" title="${f.votes} of ${f.vote_samples} independent`
+    + ` hunt samples reported this site">${f.votes}/${f.vote_samples}</span>`;
+}
+
+const _LIFE_CLS = { new: 'f', persisting: '', regressed: 'p', fixed: 'z' };
+function lifeCell(f) {
+  const l = String(f.finding_lifecycle || '').toLowerCase();
+  return l ? `<span class="pill ${_LIFE_CLS[l] || ''}">${esc(l)}</span>` : _DASH;
+}
+
+// Harness-derived validation state — deliberately distinct from the model's own
+// "Confirmed"/"PASS" claims, which are kept as raw text in the expanded row.
+const _STATE_LABEL = {
+  dynamically_confirmed: ['z', 'runtime-verified'],
+  statically_supported: ['', 'static'],
+};
+function stateCell(f) {
+  const st = String(f.finding_state || '').toLowerCase();
+  if (!st) return _DASH;
+  const pair = _STATE_LABEL[st] || ['', st.replace(/_/g, ' ')];
+  const test = f.test_status && f.test_status !== 'not_run' ? ' · test ' + f.test_status : '';
+  return `<span class="pill ${pair[0]}" title="${escA((f.validation_method || st) + test)}">${esc(pair[1])}</span>`;
+}
+
+function _fkv(label, val, mono) {
+  return val ? `<div class="fkv"><span class="fk">${esc(label)}</span>`
+    + `<span class="fv${mono ? ' mono' : ''}">${esc(val)}</span></div>` : '';
+}
+function _fblock(label, val) {
+  return val ? `<div class="fblock"><span class="fk">${esc(label)}</span>`
+    + `<pre>${esc(val)}</pre></div>` : '';
+}
+
+window.toggleFinding = function(i) {
+  const det = document.getElementById('fd-' + i);
+  if (!det) return;
+  det.hidden = !det.hidden;
+  const row = document.getElementById('fr-' + i);
+  if (row) row.classList.toggle('open', !det.hidden);
+};
+
+function findingsSectionHTML(fj) {
+  const all = (fj && fj.findings) || [];
+  if (!all.length) return '';
+  const unique = all.filter(f => !f.duplicate_of);
+  // Clustered duplicates fold into their canonical finding rather than vanishing
+  // — independent re-discovery of the same root cause is evidence, not noise.
+  const dupes = {};
+  all.filter(f => f.duplicate_of).forEach(f => {
+    dupes[f.duplicate_of] = (dupes[f.duplicate_of] || 0) + 1;
+  });
+  // Columns that would be uniformly empty are omitted, not drawn full of dashes:
+  // a single-pass run has no votes, a first run of a target has no lifecycle.
+  const sampled = unique.some(f => f.vote_samples);
+  const lifecycled = unique.some(f => f.finding_lifecycle);
+  const cols = 5 + (sampled ? 1 : 0) + (lifecycled ? 1 : 0);
+  const ranked = unique.slice().sort((a, b) => {
+    const ia = _SEV_ORDER.indexOf(_fsev(a)), ib = _SEV_ORDER.indexOf(_fsev(b));
+    if (ia !== ib) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    return (b.votes || 0) - (a.votes || 0);
+  });
+  const rows = ranked.map((f, i) => {
+    const dup = dupes[f.id] || 0;
+    const detail = [
+      _fkv('Reported severity', f.reported_severity && f.reported_severity !== _fsev(f) ? f.reported_severity : ''),
+      _fkv('Reported CWE', f.cwe && f.cwe !== _fcwe(f) ? f.cwe : '', true),
+      _fkv('CWE family', f.cwe_family),
+      _fkv('Canonical name', f.canonical_name),
+      _fkv('Entry point', f.entry_point, true),
+      _fkv('Validation', (f.validation_method || '').replace(/_/g, ' ')),
+      _fkv('Model claim', f.status),
+      _fkv('Exploit test (model)', f.exploit_test),
+      _fkv('Exploitability', f.exploitability),
+      _fkv('CVE', f.cve, true),
+      _fkv('Reference', f.reference),
+      _fkv('Source artifact', f.source, true),
+      _fblock('Description', f.description),
+      _fblock('Data flow', f.data_flow),
+      _fblock('Proof of concept', f.poc),
+      _fblock('Proposed fix', f.fix),
+    ].filter(Boolean).join('');
+    return `<tr class="frow" id="fr-${i}" onclick="toggleFinding(${i})">
+      <td><span class="sevchip ${_sevClass(_fsev(f))}">${esc(_fsev(f))}</span></td>
+      <td class="lt"><span class="fid">${esc(f.id || '')}</span> ${esc(f.title || '—')}${
+        dup ? ` <span class="pill" title="${dup} duplicate report(s) merged into this root cause">+${dup}</span>` : ''}</td>
+      <td class="mono">${esc(_fcwe(f) || '—')}</td>
+      <td class="mono loc" title="${escA(f.location || '')}">${esc(f.location || '—')}</td>
+      ${sampled ? `<td>${voteCell(f)}</td>` : ''}
+      ${lifecycled ? `<td>${lifeCell(f)}</td>` : ''}
+      <td>${stateCell(f)}</td>
+    </tr>
+    <tr class="fdet" id="fd-${i}" hidden><td colspan="${cols}">${
+      detail || '<div class="empty">No further detail recorded for this finding.</div>'}</td></tr>`;
+  }).join('');
+  const merged = all.length - unique.length;
+  return `<div class="rsec">
+    <h3>Findings <small>· ${unique.length} unique root cause${unique.length === 1 ? '' : 's'}${
+      merged ? ` · ${merged} duplicate${merged === 1 ? '' : 's'} merged` : ''}</small></h3>
+    <div class="hint rsub">Click a row for the full record.${
+      sampled ? ' <b>Votes</b> counts the independent hunt samples that reported that site.' : ''}${
+      lifecycled ? ' <b>Lifecycle</b> is relative to the most recent prior report of this target.' : ''}</div>
+    <div class="tablewrap"><table class="ledgertbl findtbl"><thead><tr>
+      <th>Severity</th><th>Finding</th><th>CWE</th><th>Location</th>
+      ${sampled ? '<th title="independent hunt samples that reported this site">Votes</th>' : ''}
+      ${lifecycled ? '<th title="relative to the most recent prior report of this target">Lifecycle</th>' : ''}
+      <th title="harness-derived, not the model&#39;s own claim">State</th>
+    </tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+function chainsSectionHTML(fj) {
+  const chains = (fj && fj.chains) || [];
+  if (!chains.length) return '';
+  return `<div class="rsec">
+    <h3>Exploit chains <small>· ${chains.length}</small></h3>
+    <div class="hint rsub">How separate defects combine into an attack path with higher
+      impact than any one alone. Composed by rule from the confirmed findings — no model wrote these.</div>
+    ${chains.map(c => `<div class="chain">
+      <div class="chain-head">
+        <span class="sevchip ${_sevClass(c.severity)}">${esc(c.severity || '—')}</span>
+        <span class="fid">${esc(c.id || '')}</span>
+        <b>${esc(c.title || '')}</b>
+        ${c.kind ? `<span class="pill">${esc(c.kind)}</span>` : ''}
+      </div>
+      <div class="chain-ids">${(c.finding_ids || []).map(id => `<span class="fid">${esc(id)}</span>`)
+        .join('<span class="arrow">+</span>')}</div>
+      <p>${esc(c.rationale || '')}</p>
+    </div>`).join('')}</div>`;
+}
+
+window.filterSbom = function(q) {
+  const t = String(q || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('#sbomBody tr');
+  let n = 0;
+  rows.forEach(tr => {
+    const hit = !t || (tr.dataset.name || '').indexOf(t) >= 0
+                   || (tr.dataset.eco || '').indexOf(t) >= 0
+                   || (tr.dataset.lic || '').indexOf(t) >= 0;
+    tr.hidden = !hit;
+    if (hit) n++;
+  });
+  const c = document.getElementById('sbomCount');
+  if (c) c.textContent = n;
+};
+
+function appIntelSectionHTML(fj) {
+  const sbom = ((fj && fj.application_intelligence) || {}).sbom;
+  if (!sbom || !sbom.total) return '';
+  const comps = sbom.components || [];
+  const ecos = Object.keys(sbom.by_ecosystem || {})
+    .sort((a, b) => sbom.by_ecosystem[b] - sbom.by_ecosystem[a]);
+  const undeclared = comps.filter(c => !c.license).length;
+  const rows = comps.map(c => {
+    const full = (c.group ? c.group + '/' : '') + (c.name || '');
+    return `<tr data-name="${escA((full + ' ' + (c.version || '')).toLowerCase())}"
+        data-eco="${escA(String(c.ecosystem || '').toLowerCase())}"
+        data-lic="${escA(String(c.license || '').toLowerCase())}">
+      <td class="lt mono">${esc(full)}</td>
+      <td class="mono">${esc(c.version || '—')}</td>
+      <td><span class="pill">${esc(c.ecosystem || '?')}</span></td>
+      <td>${c.license ? esc(c.license) : '<span class="dash">not declared</span>'}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="rsec">
+    <h3>Application intelligence <small>· software bill of materials</small></h3>
+    <div class="hint rsub">Read straight from the target's dependency manifests — deterministic,
+      no model and no network. The full CycloneDX 1.5 document is the <b>SBOM</b> download above.</div>
+    <div class="hrow" style="margin-bottom:12px">
+      <span class="hbadge alt">${sbom.total} component${sbom.total === 1 ? '' : 's'}</span>
+      ${ecos.map(e => `<span class="hstat"><span class="v">${sbom.by_ecosystem[e]}</span> ${esc(e)}</span>`).join('')}
+      ${undeclared ? `<span class="hstat"><span class="v">${undeclared}</span> without a declared license</span>` : ''}
+    </div>
+    ${comps.length ? `<input class="sbomfilter" type="search" oninput="filterSbom(this.value)"
+        placeholder="Filter by name, ecosystem or license…" aria-label="Filter components">
+      <div class="hint rsub"><span id="sbomCount">${comps.length}</span> of ${comps.length} shown</div>
+      <div class="tablewrap"><table class="ledgertbl"><thead><tr>
+        <th>Component</th><th>Version</th><th>Ecosystem</th><th>License</th>
+      </tr></thead><tbody id="sbomBody">${rows}</tbody></table></div>`
+      : '<div class="empty">The SBOM records a total but lists no components.</div>'}
+  </div>`;
+}
+
+// This run's target has a ledger; the slug is the ledger file's stem, so the
+// link needs no extra request to resolve.
+function ledgerLinkHTML(fj) {
+  const vl = fj && fj.vulnerability_ledger;
+  const file = (vl && vl.ledger_file) || '';
+  if (!file) return '';
+  const slug = file.split('/').pop().replace(/\.json$/, '');
+  if (!slug) return '';
+  const name = ((fj.meta || {}).repo || '').split('/').filter(Boolean).pop() || 'this application';
+  return `<a class="xlink" onclick="navigate('ledger', {slug: '${escA(slug)}'})">`
+    + `Vulnerability ledger for ${esc(name)} &rarr;</a>`;
+}
 
 function healthPanelHTML(fj) {
   // Scan Health from findings.json run_status (+ ledger/redaction if present).
@@ -2826,7 +3436,8 @@ function healthPanelHTML(fj) {
   const reasonList = reasons.length
     ? `<ul class="hreasons">${reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>` : '';
   return `<div class="healthcard">
-    <div class="hrow">${chip}${covLine}${findLine}${extra.join('')}</div>${reasonList}</div>`;
+    <div class="hrow">${chip}${covLine}${findLine}${extra.join('')}</div>${reasonList}
+    ${ledgerRecallHTML(fj && fj.vulnerability_ledger)}</div>`;
 }
 
 window.openReport = async function(id) {
@@ -2839,11 +3450,13 @@ window.openReport = async function(id) {
     d.files.sort((a,b) => order(a.path)-order(b.path) || a.path.localeCompare(b.path));
     const has = (n) => d.files.some(f => f.path === n);
     const fileUrl = (n) => `/api/reports/${encodeURIComponent(id)}/file?path=${encodeURIComponent(n)}`;
-    // Scan Health from findings.json (best-effort).
-    let health = '';
+    // findings.json is the engine's machine record. One read feeds the health
+    // panel, the findings table, the chains and the SBOM — an unreadable record
+    // degrades the view to the markdown rather than taking it down.
+    let fj = null;
     if (has('findings.json')) {
-      try { health = healthPanelHTML(await (await fetch(fileUrl('findings.json'))).json()); }
-      catch (e) { /* ignore */ }
+      try { fj = await (await fetch(fileUrl('findings.json'))).json(); }
+      catch (e) { /* fall through to the artifacts alone */ }
     }
     const dl = [
       has('SCAN_REPORT.html') ? `<a class="fbtn" href="${fileUrl('SCAN_REPORT.html')}" target="_blank" rel="noopener">Open full report ↗</a>` : '',
@@ -2854,12 +3467,17 @@ window.openReport = async function(id) {
     ].filter(Boolean).join('');
     v.innerHTML = `<div class="view-head">${esc(id)}</div>
       <div style="font-family:var(--mono);font-size:11.5px;color:var(--text-3);margin-bottom:12px">${esc(d.root)}</div>
-      ${health}
+      ${fj ? healthPanelHTML(fj) : ''}
       <div class="dlrow">${dl}</div>
+      ${ledgerLinkHTML(fj)}
+      ${findingsSectionHTML(fj)}
+      ${chainsSectionHTML(fj)}
+      ${appIntelSectionHTML(fj)}
+      <div class="rsec"><h3>Artifacts <small>· every file this run wrote</small></h3>
       <div class="metacard"><table><tr><th>File</th><th style="width:90px">Size</th></tr>` +
       d.files.map(f => `<tr><td><a onclick="viewReportFile('${esc(id)}','${esc(f.path)}')">${esc(f.path)}</a></td>
         <td style="color:var(--text-3)">${(f.size/1024).toFixed(1)} KB</td></tr>`).join('') +
-      `</table></div><div id="reportFile" style="margin-top:16px"></div>`;
+      `</table></div></div><div id="reportFile" style="margin-top:16px"></div>`;
     const first = ['SCAN_REPORT.md','README.md'].find(n => has(n));
     if (first) viewReportFile(id, first);
     v.scrollIntoView({behavior:'smooth', block:'start'});

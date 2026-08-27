@@ -65,6 +65,18 @@ class Report:
     size: int = 0
     has_report: bool = False
     has_consolidated: bool = False
+    # Run quality, lifted from the same findings.json read that supplies the
+    # counts. The index used to show only how MANY findings a run produced,
+    # never whether the run that produced them was sound — so a degraded scan
+    # and a clean one were indistinguishable until you opened each in turn.
+    coverage_status: str = ""
+    coverage_degraded: bool = False
+    # Ledger recall for this run; None when the run did not opt into the ledger
+    # (an absent ledger is not 0% recall).
+    recall_pct: Optional[int] = None
+    ledger_slug: str = ""
+    chains: int = 0
+    sbom_total: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
@@ -135,6 +147,7 @@ def _findings_from_json(path: Path, rep: Report) -> bool:
         data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
     except (OSError, ValueError):
         return False
+    _run_quality_from_json(data, rep)
     findings = data.get("findings")
     if not isinstance(findings, list):
         return False
@@ -148,6 +161,41 @@ def _findings_from_json(path: Path, rep: Report) -> bool:
             if isinstance(n, int) and n:
                 rep.severities[str(label).lower()] = n
     return True
+
+
+def _run_quality_from_json(data: Dict[str, Any], rep: Report) -> None:
+    """Coverage verdict, ledger recall, chain and SBOM counts — everything the
+    index needs to rank runs by soundness, taken from the findings.json already
+    parsed for the counts. Every field is optional; an old report simply leaves
+    them at their defaults."""
+    rs = data.get("run_status")
+    if isinstance(rs, dict):
+        rep.coverage_status = str(rs.get("coverage_status") or "")
+        reasons = rs.get("coverage_degraded_reasons") or []
+        rep.coverage_degraded = bool(
+            (rep.coverage_status and rep.coverage_status != "complete") or reasons)
+    chains = data.get("chains")
+    if isinstance(chains, list):
+        rep.chains = len(chains)
+    ai = data.get("application_intelligence")
+    if isinstance(ai, dict) and isinstance(ai.get("sbom"), dict):
+        try:
+            rep.sbom_total = int(ai["sbom"].get("total") or 0)
+        except (TypeError, ValueError):
+            rep.sbom_total = 0
+    vl = data.get("vulnerability_ledger")
+    if isinstance(vl, dict):
+        # recall_pct is only a measurement when there was something to recall
+        # against; a target's first ledger run reports 0/0 and must not be shown
+        # as 0%.
+        if vl.get("open_known"):
+            try:
+                rep.recall_pct = int(vl.get("recall_pct") or 0)
+            except (TypeError, ValueError):
+                rep.recall_pct = None
+        lf = vl.get("ledger_file") or ""
+        if lf:
+            rep.ledger_slug = Path(str(lf)).stem
 
 
 def _findings_from_readme(readme: Path, rep: Report) -> None:

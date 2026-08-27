@@ -149,6 +149,10 @@ def aggregate_stats(entries: List[Tuple[int, Dict[str, Any], str]]) -> Dict[str,
     total = prompt + completion
     return {
         "scans": scans,
+        # How many of those scans actually recorded usage. Without it the UI
+        # cannot tell "0 tokens" from "nothing was ever measured", and prints a
+        # zero that asserts a measurement nobody took.
+        "with_usage": with_usage,
         "prompt_tokens": prompt,
         "completion_tokens": completion,
         "total_tokens": total,
