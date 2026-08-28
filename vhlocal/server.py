@@ -511,6 +511,7 @@ class Handler(BaseHTTPRequestHandler):
             backend=backend,
             max_output_tokens=int(body.get("max_output_tokens") or 32768),
             sweep_mode=(body.get("sweep_mode") or "deterministic"),
+            threat_model=bool(body.get("threat_model")),
         )
         job = CFG.store.submit(spec)
         self._json(job.public(), 201)
