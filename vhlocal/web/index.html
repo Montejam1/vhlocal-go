@@ -574,6 +574,25 @@
   .md .mermaid svg{max-width:100%;height:auto}
   .md .mermaid.mermaid-src{text-align:left;white-space:pre;font-family:var(--mono);
     font-size:11.5px;color:var(--text-2)}
+  .mermaid.dgm-clickable{cursor:zoom-in;position:relative}
+  .mermaid.dgm-clickable:hover{border-color:var(--accent)}
+  .mermaid.dgm-clickable::after{content:"⤢ click to enlarge";position:absolute;
+    top:8px;right:10px;font-size:10.5px;color:var(--text-3);background:var(--surface-2);
+    border:1px solid var(--line);border-radius:6px;padding:1px 7px;opacity:0;transition:.15s}
+  .mermaid.dgm-clickable:hover::after{opacity:1}
+  /* diagram lightbox */
+  .dgm-modal{position:fixed;inset:0;z-index:1000;background:rgba(6,10,14,.82);
+    display:none;flex-direction:column}
+  .dgm-modal.on{display:flex}
+  .dgm-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;color:var(--text-2)}
+  .dgm-bar .sp{flex:1}
+  .dgm-bar button{background:var(--surface-2);border:1px solid var(--line);color:var(--text-1);
+    border-radius:var(--r-sm);width:34px;height:30px;cursor:pointer;font-size:15px;line-height:1}
+  .dgm-bar button:hover{background:var(--surface-3);border-color:var(--accent)}
+  .dgm-stage{flex:1;overflow:auto;cursor:grab}
+  .dgm-stage.drag{cursor:grabbing}
+  .dgm-inner{transform-origin:top left;padding:20px;display:inline-block}
+  .dgm-inner svg{max-width:none!important;height:auto}
   .tablewrap{overflow-x:auto;margin-top:12px;border:1px solid var(--line);border-radius:var(--r-sm)}
   table.ledgertbl{border-collapse:collapse;width:100%;font-size:12.5px}
   table.ledgertbl th{text-align:left;padding:9px 12px;background:var(--surface-2);
@@ -1202,11 +1221,84 @@ window.runMermaid = function(root){
       n.textContent = _fixMermaid(n.textContent || '');
       n.removeAttribute('data-processed');
     });
-    Promise.resolve(m.run({nodes})).catch(()=>{});
+    Promise.resolve(m.run({nodes})).then(() => {
+      nodes.forEach(n => {
+        const svg = n.querySelector('svg');
+        if (!svg) return;
+        n.classList.add('dgm-clickable');
+        n.onclick = () => openDiagram(svg);
+      });
+    }).catch(()=>{});
   }).catch(() => {
     nodes.forEach(n => { n.classList.add('mermaid-src'); n.setAttribute('data-done','1'); });
   });
 };
+
+// ---- diagram lightbox (click a rendered diagram to enlarge / zoom / pan) ----
+let _dgm = null, _dgmZoom = 1;
+function _ensureDgmModal(){
+  if (_dgm) return _dgm;
+  const m = document.createElement('div');
+  m.className = 'dgm-modal';
+  m.innerHTML = `<div class="dgm-bar">
+      <button title="Zoom out" onclick="dgmZoom(-1)">−</button>
+      <button title="Zoom in" onclick="dgmZoom(1)">+</button>
+      <button title="Fit" onclick="dgmFit()">⤢</button>
+      <span class="sp"></span>
+      <button title="Close (Esc)" onclick="closeDiagram()">✕</button>
+    </div>
+    <div class="dgm-stage"><div class="dgm-inner"></div></div>`;
+  document.body.appendChild(m);
+  const stage = m.querySelector('.dgm-stage');
+  // wheel to zoom, drag to pan
+  stage.addEventListener('wheel', e => {
+    if (!m.classList.contains('on')) return;
+    e.preventDefault(); dgmZoom(e.deltaY < 0 ? 1 : -1);
+  }, {passive:false});
+  let down=false, sx=0, sy=0, sl=0, st=0;
+  stage.addEventListener('mousedown', e => { down=true; stage.classList.add('drag');
+    sx=e.clientX; sy=e.clientY; sl=stage.scrollLeft; st=stage.scrollTop; });
+  window.addEventListener('mouseup', () => { down=false; stage.classList.remove('drag'); });
+  window.addEventListener('mousemove', e => { if(!down) return;
+    stage.scrollLeft = sl-(e.clientX-sx); stage.scrollTop = st-(e.clientY-sy); });
+  m.addEventListener('click', e => { if (e.target === m) closeDiagram(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && m.classList.contains('on')) closeDiagram();
+  });
+  _dgm = m;
+  return m;
+}
+window.openDiagram = function(svg){
+  const m = _ensureDgmModal();
+  const inner = m.querySelector('.dgm-inner');
+  const clone = svg.cloneNode(true);
+  clone.removeAttribute('style');
+  // Natural pixel size from the viewBox so zoom scales from 100%.
+  const vb = (svg.getAttribute('viewBox') || '').split(/\s+/).map(Number);
+  const w = vb[2] || svg.clientWidth || 800, h = vb[3] || svg.clientHeight || 600;
+  clone.setAttribute('width', w); clone.setAttribute('height', h);
+  inner.innerHTML = ''; inner.appendChild(clone);
+  inner.dataset.w = w; inner.dataset.h = h;
+  m.classList.add('on');
+  dgmFit();
+};
+window.closeDiagram = function(){ if (_dgm) _dgm.classList.remove('on'); };
+window.dgmZoom = function(dir){
+  _dgmZoom = Math.min(6, Math.max(0.1, _dgmZoom * (dir > 0 ? 1.2 : 1/1.2)));
+  _applyDgmZoom();
+};
+window.dgmFit = function(){
+  const m = _dgm; if (!m) return;
+  const stage = m.querySelector('.dgm-stage'), inner = m.querySelector('.dgm-inner');
+  const w = +inner.dataset.w, h = +inner.dataset.h;
+  const fit = Math.min((stage.clientWidth - 40) / w, (stage.clientHeight - 40) / h);
+  _dgmZoom = Math.min(1.5, Math.max(0.1, fit || 1));
+  _applyDgmZoom();
+};
+function _applyDgmZoom(){
+  const inner = _dgm && _dgm.querySelector('.dgm-inner');
+  if (inner) inner.style.transform = 'scale(' + _dgmZoom + ')';
+}
 
 function mdRender(src){
   const esc = t => t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
