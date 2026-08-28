@@ -2,6 +2,24 @@
 
 Notable feature updates to vulnhunt-local. Newest first.
 
+## 2026-08-27 — App Intel by application, reports multi-delete; Phase 1t validated
+
+- **App Intel is now organized by application, not a scan dropdown.** Scanning the
+  same folder is the same app, so reports are grouped by target repo; the tab shows
+  a list of applications (with Threat model / SBOM badges + scan count), and
+  clicking one opens that application's most recent threat model + SBOM. The report
+  listing now carries `has_sbom` / `has_threat_model` so grouping needs no per-file
+  probing.
+- **Reports table: checkbox multi-select + bulk delete.** Per-row and select-all
+  checkboxes, a selection bar, and a guarded "Delete selected (N)".
+- **Phase 1t validated end-to-end.** A recon+threat-model run on gvisor (2 min,
+  local gpt-oss) correctly characterized it as a *container/OS sandbox runtime*,
+  produced a data-flow diagram and PASTA threats, and emitted hunt targets for the
+  real sandbox surface — `pkg/sentry/platform/systrap` (syscall processing),
+  `runsc/cmd/exec.go`, the admission webhook — exactly what recon's web-only
+  enumeration missed. (The prompt must live in the skill dir the scan uses; it is
+  in `skill/phases/` — point `--skill-dir` there.)
+
 ## 2026-08-27 — Application Intelligence tab + coverage-honesty fix
 
 ### Application Intelligence tab

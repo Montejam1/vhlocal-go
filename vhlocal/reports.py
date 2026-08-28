@@ -77,6 +77,9 @@ class Report:
     ledger_slug: str = ""
     chains: int = 0
     sbom_total: int = 0
+    # Application-intelligence artifacts present in this results dir.
+    has_sbom: bool = False
+    has_threat_model: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
@@ -118,6 +121,9 @@ def parse_report(root: Path) -> Report:
 
     from .consolidate import SCAN_REPORT_FILE, FINDINGS_JSON_FILE
     rep.has_consolidated = (root / SCAN_REPORT_FILE).exists()
+
+    rep.has_sbom = (root / "sbom.cdx.json").exists()
+    rep.has_threat_model = (root / "threat_model.md").exists()
 
     readme = root / "README.md"
     rep.has_report = readme.exists()

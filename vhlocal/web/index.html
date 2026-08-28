@@ -559,8 +559,10 @@
   .ledger-stats>div{display:flex;flex-direction:column;align-items:center}
   .ledger-stats b{font-size:20px;font-weight:700;color:var(--text-1);line-height:1.1}
   .ledger-stats span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3)}
-  .ai-pick{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-  .ai-pick select{max-width:520px}
+  .ai-appcard{cursor:pointer}
+  .ai-appcard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .ai-detail-head{display:flex;align-items:baseline;gap:10px;margin:4px 0 8px}
+  .ai-detail-head h3{font-size:15px;font-weight:600;color:var(--text-1);margin:0}
   .ai-sum{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0 2px;
     font-size:13px;color:var(--text-2)}
   .ai-sum .fbtn{margin-left:auto}
@@ -701,6 +703,15 @@
   .rsub2{font-size:10.5px;color:var(--text-3);margin-top:2px;overflow:hidden;
     text-overflow:ellipsis;white-space:nowrap}
   table.reptbl .sevstrip{margin:0;gap:4px}
+  .bulkbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12.5px;
+    color:var(--text-3);min-height:30px}
+  .bulkbar.active{color:var(--text-1)}
+  .bulkbar button{font-size:12px;padding:4px 11px;border-radius:var(--r-sm);cursor:pointer}
+  .bulkbar button:disabled{opacity:.45;cursor:default}
+  .bulkbar button.danger{background:var(--err-weak);color:var(--err);border:1px solid transparent}
+  .bulkbar button.danger:hover:not(:disabled){background:var(--err);color:#fff}
+  table.reptbl td.chkcol, table.reptbl th.chkcol{width:34px;text-align:center;padding-left:12px}
+  table.reptbl td.chkcol input, table.reptbl th.chkcol input{cursor:pointer}
   .delbtn-t{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:12px;
     padding:2px 4px;border-radius:var(--r-xs);opacity:0;transition:opacity var(--duration-exit) ease}
   table.reptbl tr:hover .delbtn-t{opacity:1}
@@ -2703,13 +2714,12 @@ const VIEWS = {
           <button class="secondary" onclick="loadAppIntel()">Refresh</button>
         </div>
         <p style="color:var(--text-2);font-size:13px;margin:2px 0 14px">
-          What the scan learned about the application itself — a deterministic
+          What the scans learned about each application — a deterministic
           <b>SBOM</b> and the <b>PASTA threat model</b> (with data-flow diagram).
-          Pick a scan to view its intelligence.</p>
-        <div class="ai-pick"><label style="margin:0">Scan</label>
-          <select id="aiReport" onchange="openAppIntel(this.value)"></select></div>
-        <div id="aiBody" style="margin-top:14px"><div class="empty">Loading…</div></div>`;
-      loadAppIntel(opts && opts.id);
+          Pick an application to view its intelligence.</p>
+        <div id="aiApps"><div class="empty">Loading…</div></div>
+        <div id="aiBody" style="margin-top:20px"></div>`;
+      loadAppIntel(opts && opts.repo);
     },
     unmount() {},
   },
@@ -2986,6 +2996,8 @@ function reportsTableHTML(rows) {
       ? `<span class="pill ${r.findings ? 'f' : 'z'}">${r.findings}</span>`
       : '<span class="pill p" title="this run did not finish">incomplete</span>';
     return `<tr onclick="openReport('${esc(r.id)}')">
+      <td class="chkcol"><input type="checkbox" onclick="event.stopPropagation()"
+        onchange="toggleReportSel('${escA(r.id)}',this.checked)" ${_reportSel.has(r.id)?'checked':''}></td>
       <td class="lt"><b>${esc(r.repo || r.name)}</b>
         <div class="rsub2 mono" title="${escA(r.id)}">${esc(r.id)}</div></td>
       <td class="num">${found}</td>
@@ -3000,9 +3012,47 @@ function reportsTableHTML(rows) {
       <td class="num">${_delBtn(r, 'delbtn-t')}</td>
     </tr>`;
   }).join('');
-  return `<div class="tablewrap"><table class="ledgertbl reptbl">
-    <thead><tr>${head}<th></th></tr></thead><tbody>${body}</tbody></table></div>`;
+  const allSel = rows.length && rows.every(r => _reportSel.has(r.id));
+  return `${reportBulkBar()}<div class="tablewrap"><table class="ledgertbl reptbl">
+    <thead><tr><th class="chkcol"><input type="checkbox" ${allSel?'checked':''}
+      title="select all" onclick="toggleAllReports(this.checked)"></th>${head}<th></th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
 }
+
+function reportBulkBar(){
+  const n = _reportSel.size;
+  return `<div class="bulkbar${n?' active':''}">
+    <span>${n} selected</span>
+    <button class="secondary" ${n?'':'disabled'} onclick="clearReportSel()">Clear</button>
+    <button class="danger" ${n?'':'disabled'} onclick="deleteSelectedReports()">Delete selected${n?` (${n})`:''}</button>
+  </div>`;
+}
+
+let _reportSel = new Set();
+window.toggleReportSel = function(id, on){
+  if (on) _reportSel.add(id); else _reportSel.delete(id);
+  const bar = document.querySelector('.bulkbar');
+  if (bar) bar.outerHTML = reportBulkBar();
+};
+window.toggleAllReports = function(on){
+  const rows = sortedReports();
+  if (on) rows.forEach(r => _reportSel.add(r.id)); else _reportSel.clear();
+  renderReports();
+};
+window.clearReportSel = function(){ _reportSel.clear(); renderReports(); };
+window.deleteSelectedReports = async function(){
+  const ids = [..._reportSel];
+  if (!ids.length) return;
+  if (!confirm(`Delete ${ids.length} report${ids.length===1?'':'s'} and all their artifacts?\n\nThis cannot be undone.`)) return;
+  let failed = 0;
+  for (const id of ids){
+    try { await api('/api/reports/' + encodeURIComponent(id), {method:'DELETE'}); }
+    catch(e){ failed++; }
+  }
+  _reportSel.clear();
+  await loadReports();
+  if (failed) alert(`${failed} report(s) could not be deleted.`);
+};
 
 function renderReports() {
   const body = $('reportsBody');
@@ -3439,46 +3489,88 @@ function ledgerLinkHTML(fj) {
     + `Vulnerability ledger for ${esc(name)} &rarr;</a>`;
 }
 
-// ---- Application intelligence (per-scan SBOM + PASTA threat model) ----
-let _aiCache = {};   // report id -> {sbom, tm, tab}
+// ---- Application intelligence (grouped BY APPLICATION) ----
+// Scanning the same folder = the same application, so reports are grouped by
+// their target repo. Each app lists its most recent SBOM + threat model.
+let _aiCache = {};     // report id -> {sbom, tm, tab}
+let _aiApps = [];      // [{key, name, path, scans:[reports], tmReport, sbomReport}]
+let _aiActive = null;  // currently open app key
 
-window.loadAppIntel = async function(preselectId) {
-  const body = $('aiBody'); const sel = $('aiReport');
-  if (!sel) return;
+window.loadAppIntel = async function(preselectRepo) {
+  const apps = $('aiApps');
+  if (!apps) return;
   try {
     const d = await api('/api/reports');
-    const reports = d.reports || [];
-    if (!reports.length) {
-      sel.innerHTML = ''; body.innerHTML = '<div class="empty">No scans yet.</div>'; return;
+    const reports = (d.reports || []).slice()
+      .sort((a,b) => (b.created||0) - (a.created||0));   // newest first
+    const groups = {};
+    for (const r of reports) {
+      const key = r.repo || r.name || '(unknown)';
+      (groups[key] = groups[key] || []).push(r);
     }
-    sel.innerHTML = reports.map(r => {
-      const when = r.created ? new Date(r.created*1000).toLocaleDateString() : (r.stamp||'');
-      return `<option value="${esc(r.id)}">${esc(r.repo || r.name)} · ${esc(r.model||'')} · ${esc(when)}</option>`;
-    }).join('');
-    const pick = (preselectId && reports.some(r=>r.id===preselectId)) ? preselectId : reports[0].id;
-    sel.value = pick;
-    openAppIntel(pick);
-  } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+    _aiApps = Object.keys(groups).map(key => {
+      const scans = groups[key];
+      return {
+        key, path: key,
+        name: (key.split('/').filter(Boolean).pop()) || key,
+        scans,
+        tmReport: scans.find(r => r.has_threat_model) || null,
+        sbomReport: scans.find(r => r.has_sbom) || null,
+      };
+    }).filter(a => a.tmReport || a.sbomReport)   // only apps with intelligence
+      .sort((a,b) => (b.scans[0].created||0) - (a.scans[0].created||0));
+
+    if (!_aiApps.length) {
+      apps.innerHTML = `<div class="empty">No application intelligence yet.<br>
+        Run a scan with <b>Build threat model (PASTA)</b> enabled — each analyzed
+        application then appears here with its SBOM and threat model.</div>`;
+      $('aiBody').innerHTML = '';
+      return;
+    }
+    apps.innerHTML = '<div class="cards">' + _aiApps.map(a => {
+      const when = a.scans[0].created ? new Date(a.scans[0].created*1000).toLocaleDateString() : '';
+      const badges = [
+        a.tmReport ? '<span class="pill z">Threat model</span>' : '',
+        a.sbomReport ? `<span class="pill">SBOM · ${a.sbomReport.sbom_total||''}</span>` : '',
+      ].filter(Boolean).join('');
+      return `<div class="card ai-appcard${a.key===_aiActive?' on':''}" onclick="openApp('${esc(a.key)}')">
+        <h3>${esc(a.name)}</h3>
+        <div class="path" title="${esc(a.path)}">${esc(a.path)}</div>
+        <div class="meta">${badges}<span>${a.scans.length} scan${a.scans.length===1?'':'s'}</span><span>${esc(when)}</span></div>
+      </div>`;
+    }).join('') + '</div>';
+
+    const pick = _aiApps.find(a => a.key === preselectRepo) || _aiApps[0];
+    if (pick) openApp(pick.key);
+  } catch (e) { apps.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+};
+
+window.openApp = async function(key) {
+  _aiActive = key;
+  const app = _aiApps.find(a => a.key === key);
+  const body = $('aiBody');
+  // Reflect selection on the cards.
+  document.querySelectorAll('.ai-appcard').forEach(el => el.classList.remove('on'));
+  if (!app) { body.innerHTML = ''; return; }
+  // Use the most recent scan that actually carries each artifact.
+  const tmId = app.tmReport && app.tmReport.id;
+  const sbomId = app.sbomReport && app.sbomReport.id;
+  body.innerHTML = '<div class="empty">Loading…</div>';
+  const [tmTxt, sbomTxt] = await Promise.all([
+    tmId ? _fetchReportFile(tmId, 'threat_model.md') : Promise.resolve(null),
+    sbomId ? _fetchReportFile(sbomId, 'sbom.cdx.json') : Promise.resolve(null),
+  ]);
+  let sbom = null;
+  if (sbomTxt){ try { sbom = sbomSummaryFromCdx(JSON.parse(sbomTxt)); } catch(e){} }
+  _aiCache[key] = {sbom, tm: tmTxt || null, sbomId, tmId, appName: app.name,
+                   tab: (tmTxt ? 'threat' : 'sbom')};
+  renderAppIntel(key);
 };
 
 function _fetchReportFile(id, path){
   return fetch(`/api/reports/${encodeURIComponent(id)}/file?path=${encodeURIComponent(path)}`)
     .then(r => r.ok ? r.text() : null).catch(() => null);
 }
-
-window.openAppIntel = async function(id){
-  const body = $('aiBody');
-  if (!id) { body.innerHTML = '<div class="empty">Select a scan.</div>'; return; }
-  body.innerHTML = '<div class="empty">Loading…</div>';
-  const [sbomTxt, tmTxt] = await Promise.all([
-    _fetchReportFile(id, 'sbom.cdx.json'),
-    _fetchReportFile(id, 'threat_model.md'),
-  ]);
-  let sbom = null;
-  if (sbomTxt){ try { sbom = sbomSummaryFromCdx(JSON.parse(sbomTxt)); } catch(e){} }
-  _aiCache[id] = {sbom, tm: tmTxt || null, tab: (sbom ? 'sbom' : (tmTxt ? 'threat' : 'sbom'))};
-  renderAppIntel(id);
-};
 
 function sbomSummaryFromCdx(cdx){
   const comps = (cdx && cdx.components) || [];
@@ -3494,41 +3586,39 @@ function sbomSummaryFromCdx(cdx){
 
 window.aiTab = function(id, tab){ if (_aiCache[id]){ _aiCache[id].tab = tab; renderAppIntel(id); } };
 
-function renderAppIntel(id){
-  const body = $('aiBody'), c = _aiCache[id];
+function renderAppIntel(key){
+  const body = $('aiBody'), c = _aiCache[key];
   if (!c || (!c.sbom && !c.tm)){
-    body.innerHTML = `<div class="empty">This scan has no Application Intelligence artifacts.<br>
-      Run a scan with <b>Build threat model (PASTA)</b> enabled to generate the SBOM and threat model.</div>`;
+    body.innerHTML = `<div class="empty">This application has no intelligence artifacts yet.<br>
+      Run a scan with <b>Build threat model (PASTA)</b> enabled.</div>`;
     return;
   }
-  // Buttons stay clickable even when a section is empty — each shows an
-  // actionable empty state rather than being a dead, disabled control.
-  const tabs = `<div class="tabs">
-    <button class="${c.tab==='sbom'?'on':''}" onclick="aiTab('${esc(id)}','sbom')">SBOM${c.sbom?` · ${c.sbom.total}`:''}</button>
-    <button class="${c.tab==='threat'?'on':''}" onclick="aiTab('${esc(id)}','threat')">Threat model (PASTA)</button>
+  const tabs = `<div class="ai-detail-head"><h3>${esc(c.appName||'')}</h3></div>
+    <div class="tabs">
+    <button class="${c.tab==='threat'?'on':''}" onclick="aiTab('${esc(key)}','threat')">Threat model (PASTA)</button>
+    <button class="${c.tab==='sbom'?'on':''}" onclick="aiTab('${esc(key)}','sbom')">SBOM${c.sbom?` · ${c.sbom.total}`:''}</button>
   </div>`;
   let content;
   if (c.tab==='sbom') {
-    content = c.sbom ? sbomHTML(c.sbom, id)
-      : `<div class="empty">No SBOM was generated for this scan.<br>
+    content = c.sbom ? sbomHTML(c.sbom, c.sbomId)
+      : `<div class="empty">No SBOM for this application.<br>
          The SBOM is built automatically when <b>Build threat model (PASTA)</b> is enabled.</div>`;
   } else {
     content = c.tm ? `<div class="md ai-md">${mdRender(c.tm)}</div>`
-      : `<div class="empty">No threat model for this scan yet.<br>
-         Re-run the scan with <b>Build threat model (PASTA)</b> enabled (Scan options)
-         to generate a PASTA threat model and data-flow diagram.</div>`;
+      : `<div class="empty">No threat model for this application yet.<br>
+         Re-run the scan with <b>Build threat model (PASTA)</b> enabled (Scan options).</div>`;
   }
   body.innerHTML = tabs + `<div class="ai-content">${content}</div>`;
 }
 
-function sbomHTML(s, id){
+function sbomHTML(s, sbomId){
   const eco = Object.entries(s.by_ecosystem).map(([k,v])=>`${v} ${esc(k)}`).join(', ');
   const rows = s.components.map(c=>{
     const nm = c.group ? `${esc(c.group)}/${esc(c.name)}` : esc(c.name);
     return `<tr><td class="lt">${nm}</td><td class="mono">${esc(c.version||'—')}</td><td class="mono">${esc(c.ecosystem)}</td><td>${esc(c.license||'—')}</td></tr>`;
   }).join('');
-  return `<div class="ai-sum"><span><b>${s.total}</b> direct dependencies across ${Object.keys(s.by_ecosystem).length} ecosystem(s) · ${esc(eco)}</span>
-    <a class="fbtn" href="/api/reports/${encodeURIComponent(id)}/file?path=sbom.cdx.json" download="sbom.cdx.json">CycloneDX ↓</a></div>
+  const dl = sbomId ? `<a class="fbtn" href="/api/reports/${encodeURIComponent(sbomId)}/file?path=sbom.cdx.json" download="sbom.cdx.json">CycloneDX ↓</a>` : '';
+  return `<div class="ai-sum"><span><b>${s.total}</b> direct dependencies across ${Object.keys(s.by_ecosystem).length} ecosystem(s) · ${esc(eco)}</span>${dl}</div>
     <div class="tablewrap"><table class="ledgertbl"><thead><tr><th>Component</th><th>Version</th><th>Ecosystem</th><th>License</th></tr></thead>
     <tbody>${rows || '<tr><td colspan="4" class="empty">No dependencies detected.</td></tr>'}</tbody></table></div>`;
 }
