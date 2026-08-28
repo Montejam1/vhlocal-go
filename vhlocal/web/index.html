@@ -1185,7 +1185,6 @@ function _fixMermaid(src){
     return line;
   }).join('\n').trim();
 }
-let _mmdSeq = 0;
 window.runMermaid = function(root){
   const nodes = [...(root || document).querySelectorAll('pre.mermaid:not([data-done])')];
   if (!nodes.length) return;
@@ -1193,16 +1192,17 @@ window.runMermaid = function(root){
   const dark = explicit ? explicit !== 'light'
     : !(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches);
   ensureMermaid().then(m => {
-    try { m.initialize({startOnLoad:false, securityLevel:'strict',
+    try { m.initialize({startOnLoad:false, securityLevel:'loose',
                         theme: dark ? 'dark' : 'default'}); } catch(e){}
+    // Put the DECODED, repaired source back into each node as plain text, so
+    // Mermaid parses clean input (textContent getter decodes &gt; → >; _fixMermaid
+    // strips the model's stray backslashes / quotes subgraph labels).
     nodes.forEach(n => {
       n.setAttribute('data-done','1');
-      const src = _fixMermaid(n.textContent || '');     // textContent = decoded source
-      // render() takes the raw string directly — no DOM-escaping ambiguity.
-      m.render('mmd-' + (++_mmdSeq), src)
-        .then(({svg}) => { n.innerHTML = svg; })
-        .catch(() => { n.textContent = src; n.classList.add('mermaid-src'); });
+      n.textContent = _fixMermaid(n.textContent || '');
+      n.removeAttribute('data-processed');
     });
+    Promise.resolve(m.run({nodes})).catch(()=>{});
   }).catch(() => {
     nodes.forEach(n => { n.classList.add('mermaid-src'); n.setAttribute('data-done','1'); });
   });
