@@ -23,11 +23,11 @@
     --bg:#131920; --surface-1:#1B2229; --surface-2:#202831; --surface-3:#242D36;
     --line:#2E3841; --line-strong:#44525E;
     --text-1:#EAF0F4; --text-2:#A3B2BD; --text-3:#71818C;
-    --accent:#4FC3CB; --accent-strong:#7BDDE4; --accent-weak:rgba(79,195,203,.14);
-    --accent-ink:#0B1417;
-    --ok:#5BD6A0; --ok-weak:rgba(91,214,160,.14);
-    --warn:#fe9d4a; --warn-weak:rgba(254,157,74,.13);
-    --err:#ec5162; --err-weak:rgba(236,81,98,.14);
+    --accent:#4C8DF6; --accent-strong:#7EAEF9; --accent-weak:rgba(66,133,244,.16);
+    --accent-ink:#FFFFFF;
+    --ok:#34A853; --ok-weak:rgba(52,168,83,.16);
+    --warn:#FBBC04; --warn-weak:rgba(251,188,4,.15);
+    --err:#EA4335; --err-weak:rgba(234,67,53,.16);
     --run:#4FC3CB;
     /* Severity: warm ink is reserved for what the scan found. Measured ramp —
        min adjacent dE 30.4 normal, 15.1 worst-case colour-vision. */
@@ -48,11 +48,11 @@
       --bg:#EEF1F3; --surface-1:#FFFFFF; --surface-2:#F5F7F9; --surface-3:#E8ECEF;
       --line:#DDE3E8; --line-strong:#C2CCD4;
       --text-1:#101619; --text-2:#54636E; --text-3:#7F8E99;
-      --accent:#0E7A82; --accent-strong:#0B646B; --accent-weak:rgba(14,122,130,.10);
+      --accent:#1A73E8; --accent-strong:#1666D0; --accent-weak:rgba(26,115,232,.11);
       --accent-ink:#FFFFFF;
-      --ok:#127A4B; --ok-weak:rgba(18,122,75,.12);
-      --warn:#a9531e; --warn-weak:rgba(169,83,30,.12);
-      --err:#79191b; --err-weak:rgba(121,25,27,.10);
+      --ok:#188038; --ok-weak:rgba(24,128,56,.13);
+      --warn:#E37400; --warn-weak:rgba(227,116,0,.13);
+      --err:#D93025; --err-weak:rgba(217,48,37,.11);
       --run:#0E7A82;
       --sev-crit:#79191b; --sev-high:#a9531e; --sev-med:#c28e24;
       --sh-1:0 1px 0 rgba(16,24,40,.05);
@@ -64,11 +64,11 @@
     --bg:#EEF1F3; --surface-1:#FFFFFF; --surface-2:#F5F7F9; --surface-3:#E8ECEF;
     --line:#DDE3E8; --line-strong:#C2CCD4;
     --text-1:#101619; --text-2:#54636E; --text-3:#7F8E99;
-    --accent:#0E7A82; --accent-strong:#0B646B; --accent-weak:rgba(14,122,130,.10);
+    --accent:#1A73E8; --accent-strong:#1666D0; --accent-weak:rgba(26,115,232,.11);
     --accent-ink:#FFFFFF;
-    --ok:#127A4B; --ok-weak:rgba(18,122,75,.12);
-    --warn:#a9531e; --warn-weak:rgba(169,83,30,.12);
-    --err:#79191b; --err-weak:rgba(121,25,27,.10);
+    --ok:#188038; --ok-weak:rgba(24,128,56,.13);
+    --warn:#E37400; --warn-weak:rgba(227,116,0,.13);
+    --err:#D93025; --err-weak:rgba(217,48,37,.11);
     --run:#0E7A82;
     --sev-crit:#79191b; --sev-high:#a9531e; --sev-med:#c28e24;
     --sh-1:0 1px 0 rgba(16,24,40,.05);
@@ -569,6 +569,11 @@
   .ai-content{margin-top:8px}
   .ai-md{max-width:960px}
   .ai-md .mdcode{white-space:pre;overflow-x:auto}
+  .md .mermaid, .ai-md .mermaid{background:var(--surface-1);border:1px solid var(--line);
+    border-radius:var(--r-sm);padding:16px;margin:12px 0;text-align:center;overflow-x:auto}
+  .md .mermaid svg{max-width:100%;height:auto}
+  .md .mermaid.mermaid-src{text-align:left;white-space:pre;font-family:var(--mono);
+    font-size:11.5px;color:var(--text-2)}
   .tablewrap{overflow-x:auto;margin-top:12px;border:1px solid var(--line);border-radius:var(--r-sm)}
   table.ledgertbl{border-collapse:collapse;width:100%;font-size:12.5px}
   table.ledgertbl th{text-align:left;padding:9px 12px;background:var(--surface-2);
@@ -1153,6 +1158,40 @@
 // Escapes first, then applies inline/block rules — so model-authored content
 // can never inject markup into this page. Deliberately small: headings,
 // tables, code, lists, rules, links, emphasis. Anything else stays literal.
+// Mermaid is a large lib (~3.5MB), served locally and loaded ONLY when a diagram
+// is actually shown (App Intel threat model / a rendered .md with a mermaid block).
+let _mermaidLoad = null;
+function ensureMermaid(){
+  if (window.mermaid) return Promise.resolve(window.mermaid);
+  if (_mermaidLoad) return _mermaidLoad;
+  _mermaidLoad = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = '/static/mermaid.min.js';
+    s.onload = () => res(window.mermaid);
+    s.onerror = () => rej(new Error('mermaid failed to load'));
+    document.head.appendChild(s);
+  });
+  return _mermaidLoad;
+}
+window.runMermaid = function(root){
+  const nodes = [...(root || document).querySelectorAll('pre.mermaid:not([data-done])')];
+  if (!nodes.length) return;
+  const dark = (document.documentElement.getAttribute('data-theme') || 'dark') !== 'light'
+    && !(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches
+         && !document.documentElement.getAttribute('data-theme'));
+  ensureMermaid().then(m => {
+    try {
+      m.initialize({startOnLoad:false, securityLevel:'strict',
+                    theme: dark ? 'dark' : 'default'});
+    } catch(e){}
+    nodes.forEach(n => n.setAttribute('data-done','1'));
+    m.run({nodes}).catch(()=>{});
+  }).catch(() => {
+    // Loading failed → leave the mermaid source visible as a labeled block.
+    nodes.forEach(n => { n.classList.add('mermaid-src'); n.setAttribute('data-done','1'); });
+  });
+};
+
 function mdRender(src){
   const esc = t => t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   const inline = t => esc(t)
@@ -1170,10 +1209,15 @@ function mdRender(src){
     const L = lines[i];
 
     if (/^```/.test(L)){                       // fenced code
+      const lang = (L.match(/^```\s*([\w-]+)/) || [])[1] || '';
       const buf = []; i++;
       while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
       i++;
-      out.push('<pre class="mdcode">'+esc(buf.join('\n'))+'</pre>');
+      // Mermaid blocks (e.g. the threat model's data-flow diagram) become a
+      // mermaid container; runMermaid() renders them to SVG after insertion.
+      out.push(lang.toLowerCase() === 'mermaid'
+        ? '<pre class="mermaid">'+esc(buf.join('\n'))+'</pre>'
+        : '<pre class="mdcode">'+esc(buf.join('\n'))+'</pre>');
       continue;
     }
     if (isRow(L) && isDiv(lines[i+1]||'')){    // table
@@ -2456,6 +2500,7 @@ window.viewFile = async function(id, path) {
     const t = await r.text();
     v.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
       ? `<div class="md">${mdRender(t)}</div>` : `<pre>${esc(t)}</pre>`);
+    runMermaid(v);
     v.scrollIntoView({behavior:'smooth', block:'start'});
   } catch (e) { v.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
@@ -2643,6 +2688,7 @@ window.dashFile = async function(kind, id, path, into){
     const txt = await r.text();
     body.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
       ? `<div class="md">${mdRender(txt)}</div>` : `<pre>${esc(txt)}</pre>`);
+    runMermaid(body);
     body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
@@ -3609,6 +3655,7 @@ function renderAppIntel(key){
          Re-run the scan with <b>Build threat model (PASTA)</b> enabled (Scan options).</div>`;
   }
   body.innerHTML = tabs + `<div class="ai-content">${content}</div>`;
+  if (c.tab === 'threat') runMermaid(body);   // render the data-flow diagram
 }
 
 function sbomHTML(s, sbomId){
@@ -3712,6 +3759,7 @@ window.viewReportFile = async function(id, path) {
     const txt = await r.text();
     t.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
       ? `<div class="md">${mdRender(txt)}</div>` : `<pre>${esc(txt)}</pre>`);
+    runMermaid(t);
   } catch (e) { t.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
 
