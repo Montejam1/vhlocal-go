@@ -1173,21 +1173,37 @@ function ensureMermaid(){
   });
   return _mermaidLoad;
 }
+// Repair the small syntax mistakes local models routinely emit in Mermaid, so a
+// diagram renders instead of showing "Syntax error in text". Conservative: only
+// unambiguous fixes.
+function _fixMermaid(src){
+  return src.split('\n').map(line => {
+    line = line.replace(/\\+\s*$/, '');                 // stray trailing backslash
+    // Quote a subgraph's bracket label so spaces / unicode (e.g. →) parse.
+    line = line.replace(/^(\s*subgraph\s+[A-Za-z0-9_-]+)\s*\[\s*([^\]"]+?)\s*\]/,
+                        (m, p, lbl) => `${p}["${lbl}"]`);
+    return line;
+  }).join('\n').trim();
+}
+let _mmdSeq = 0;
 window.runMermaid = function(root){
   const nodes = [...(root || document).querySelectorAll('pre.mermaid:not([data-done])')];
   if (!nodes.length) return;
-  const dark = (document.documentElement.getAttribute('data-theme') || 'dark') !== 'light'
-    && !(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches
-         && !document.documentElement.getAttribute('data-theme'));
+  const explicit = document.documentElement.getAttribute('data-theme');
+  const dark = explicit ? explicit !== 'light'
+    : !(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches);
   ensureMermaid().then(m => {
-    try {
-      m.initialize({startOnLoad:false, securityLevel:'strict',
-                    theme: dark ? 'dark' : 'default'});
-    } catch(e){}
-    nodes.forEach(n => n.setAttribute('data-done','1'));
-    m.run({nodes}).catch(()=>{});
+    try { m.initialize({startOnLoad:false, securityLevel:'strict',
+                        theme: dark ? 'dark' : 'default'}); } catch(e){}
+    nodes.forEach(n => {
+      n.setAttribute('data-done','1');
+      const src = _fixMermaid(n.textContent || '');     // textContent = decoded source
+      // render() takes the raw string directly — no DOM-escaping ambiguity.
+      m.render('mmd-' + (++_mmdSeq), src)
+        .then(({svg}) => { n.innerHTML = svg; })
+        .catch(() => { n.textContent = src; n.classList.add('mermaid-src'); });
+    });
   }).catch(() => {
-    // Loading failed → leave the mermaid source visible as a labeled block.
     nodes.forEach(n => { n.classList.add('mermaid-src'); n.setAttribute('data-done','1'); });
   });
 };
