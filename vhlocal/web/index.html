@@ -1026,11 +1026,11 @@
       </label>
       <div id="multiModelArea" style="display:none;margin-top:8px">
         <div class="hint" style="margin:0 0 6px">The model above runs the hunt (Phase 2). Override the other phases here — blank = same as the hunt model.</div>
-        <label for="reconModel">Recon <span class="ph">Phase 1</span></label>
+        <label for="reconModel">Recon <span class="ph">step 1</span></label>
         <select id="reconModel"></select>
-        <label for="verifyModel">Verify <span class="ph">Phase 2b</span></label>
+        <label for="verifyModel">Verify <span class="ph">step 3</span></label>
         <select id="verifyModel"></select>
-        <label for="reproduceModel">Reproduce &amp; report <span class="ph">Phases 3–4</span></label>
+        <label for="reproduceModel">Reproduce &amp; report <span class="ph">steps 4–6</span></label>
         <select id="reproduceModel"></select>
       </div>
       <div class="hint">Options come from your <a onclick="navigate('settings')">Connections</a> in Settings.</div>
@@ -1054,7 +1054,7 @@
             </div>
           </div>
 
-          <label for="phase2Mode">Phase 2 fan-out</label>
+          <label for="phase2Mode">Hunt fan-out</label>
           <select id="phase2Mode">
             <option value="split">Split — one agent per class (thorough, slower)</option>
             <option value="combined">Combined — one agent per partition (~3× faster, quality-uncertain)</option>
@@ -1103,7 +1103,7 @@
             <span class="switch"><input type="checkbox" id="enforceCoverage" checked><span class="track"></span></span>
           </label>
           <label class="switch-row">
-            <span class="switch-txt"><b>Seed recon with route list</b><small>hand Phase 1 the full attack surface</small></span>
+            <span class="switch-txt"><b>Seed recon with route list</b><small>hand Recon the full attack surface</small></span>
             <span class="switch"><input type="checkbox" id="seedRoutes"><span class="track"></span></span>
           </label>
           <label class="switch-row">
@@ -1713,30 +1713,34 @@ function docsHTML(){
   <div class="docwrap">
     <div class="doc-hero">
       <h1>How VulnHunter works</h1>
-      <p>VulnHunter audits a codebase with a fixed, six-phase pipeline. Each phase
-        runs in its own LLM agent context, reads the previous phases' output files,
-        and writes exactly one output of its own. The agent is <b>static-only</b> —
-        it reads, greps, and globs the source and writes findings; it never executes
-        the target's code and never reaches the network except to talk to the model
-        server. The sections below describe exactly what each phase does.</p>
+      <p>VulnHunter audits a codebase as a sequence of steps. Each step runs in its
+        own LLM agent context, reads the previous steps' output files, and writes
+        exactly one output of its own. The agent is <b>static-only</b> — it reads,
+        greps, and globs the source and writes findings; it never executes the
+        target's code and never reaches the network except to talk to the model
+        server. Six steps always run; the <b>Threat model</b> step is optional
+        (enable <i>Build threat model (PASTA)</i> in a scan). The sections below
+        describe exactly what each step does.</p>
       <div class="tags">
         <span>Static analysis</span><span>LLM-driven</span>
-        <span>1 → 2 → 2b → 3 → 3d → 4</span><span>Per-phase model routing</span>
+        <span>Recon → Hunt → Verify → Reproduce → Sweep → Report</span>
+        <span>Per-step model routing</span>
       </div>
     </div>
 
     <div class="pipe">
-      <a data-goto="phase1"><span class="pk">PHASE 1</span><span class="pt">Recon</span><span class="pd">map the attack surface</span></a>
-      <a data-goto="phase2"><span class="pk">PHASE 2</span><span class="pt">Hunt</span><span class="pd">forward-trace every input</span></a>
-      <a data-goto="phase2b"><span class="pk">PHASE 2b</span><span class="pt">Verify</span><span class="pd">disprove candidates</span></a>
-      <a data-goto="phase3"><span class="pk">PHASE 3</span><span class="pt">Reproduce</span><span class="pd">PoC + exploit test</span></a>
-      <a data-goto="phase3d"><span class="pk">PHASE 3d</span><span class="pt">Sweep</span><span class="pd">find every instance</span></a>
-      <a data-goto="phase4"><span class="pk">PHASE 4</span><span class="pt">Report</span><span class="pd">compile findings</span></a>
+      <a data-goto="phase1"><span class="pk">STEP 1</span><span class="pt">Recon</span><span class="pd">map the attack surface</span></a>
+      <a data-goto="phase1t"><span class="pk">OPTIONAL</span><span class="pt">Threat model</span><span class="pd">PASTA · SBOM · DFD</span></a>
+      <a data-goto="phase2"><span class="pk">STEP 2</span><span class="pt">Hunt</span><span class="pd">forward-trace every input</span></a>
+      <a data-goto="phase2b"><span class="pk">STEP 3</span><span class="pt">Verify</span><span class="pd">disprove candidates</span></a>
+      <a data-goto="phase3"><span class="pk">STEP 4</span><span class="pt">Reproduce</span><span class="pd">PoC + exploit test</span></a>
+      <a data-goto="phase3d"><span class="pk">STEP 5</span><span class="pt">Sweep</span><span class="pd">find every instance</span></a>
+      <a data-goto="phase4"><span class="pk">STEP 6</span><span class="pt">Report</span><span class="pd">compile findings</span></a>
     </div>
 
     <!-- PHASE 1 -->
     <section class="doc-sec" id="phase1">
-      <span class="badge">Phase 1 · up to 90 turns</span>
+      <span class="badge">Step 1 · up to 90 turns</span>
       <h2>Recon — attack surface mapping</h2>
       <p class="lead">Map the complete attack surface — every input, sink, entry
         point, and trust boundary — and carve the app into subgraph partitions
@@ -1779,13 +1783,58 @@ function docsHTML(){
       </ul>
       <div class="doc-note"><b>Output contract.</b> An Attack Surface Report whose
         Input Inventory, Threat Model, and Subgraph Partitions tables are
-        machine-parsed to fan out Phase 2 — every production app must appear in at
+        machine-parsed to fan out the Hunt — every production app must appear in at
         least one partition.</div>
+    </section>
+
+    <!-- THREAT MODEL (optional) -->
+    <section class="doc-sec" id="phase1t">
+      <span class="badge">Optional · post-Recon, pre-Hunt · one agent</span>
+      <h2>Threat model — PASTA</h2>
+      <p class="lead">Understand <i>what the application is</i> and threat-model its
+        archetype, so the Hunt is aimed at the surfaces that actually matter — not
+        just the web/RPC entry points recon enumerates. Enable it with <b>Build
+        threat model (PASTA)</b> on a scan.</p>
+      <div class="doc-io">
+        <div><div class="k">Reads</div><div class="v">phase1_output.md + the repo (SBOM generated here)</div></div>
+        <div><div class="k">Writes</div><div class="v">threat_model.md + sbom.cdx.json</div></div>
+      </div>
+      <h3>Why it exists</h3>
+      <p>Recon's attack-surface enumeration is web/RPC-shaped (routes → inputs →
+        sinks). On an unusual target that under-covers — a container sandbox whose
+        real surface is syscall handlers, or a parser whose surface is untrusted
+        input — so the Hunt never looks there. This step reasons top-down from the
+        application's <b>archetype</b> to the threats that matter for that class of
+        software, then points the Hunt at the concrete code.</p>
+      <h3>What it does (following PASTA)</h3>
+      <ul>
+        <li><b>Characterize.</b> What the app is, its archetype (web service · CLI ·
+          language runtime · container/OS sandbox · crypto library · parser · message
+          broker · IaC…), its crown-jewel assets and trust model.</li>
+        <li><b>SBOM.</b> A deterministic <b>CycloneDX 1.5</b> dependency inventory
+          across ecosystems (Python, npm, Go, Maven, Ruby, Rust, PHP) — no model,
+          reproducible. This is PASTA's technical-scope stage.</li>
+        <li><b>Data-flow diagram.</b> A Mermaid DFD of actors, processes, data
+          stores, and <b>trust boundaries</b> — rendered in the App Intel tab.</li>
+        <li><b>Threats.</b> Archetype-specific threat scenarios mapped to STRIDE and
+          the trust boundary each crosses (e.g. a sandbox → guest→host syscall
+          escape; a parser → memory corruption; a crypto lib → side channels).</li>
+        <li><b>Hunt targets.</b> Each threat resolves to concrete files + a likely
+          CWE class. These <b>add</b> Hunt partitions for surfaces recon missed —
+          purely additive, so web apps are unaffected and unusual targets gain the
+          coverage they were missing.</li>
+      </ul>
+      <div class="doc-note"><b>Output contract.</b> A <code>threat_model.md</code>
+        (characterization · DFD · PASTA threats · hunt targets) plus
+        <code>sbom.cdx.json</code>, both surfaced in <a onclick="navigate('appintel')">App
+        Intel</a>. The hunt-targets block is parsed to append partitions for the
+        Hunt. Different model family than the hunt model, so it also acts as an
+        independent second opinion.</div>
     </section>
 
     <!-- PHASE 2 -->
     <section class="doc-sec" id="phase2">
-      <span class="badge">Phase 2 · fan-out · up to 80 turns each</span>
+      <span class="badge">Step 2 · fan-out · up to 80 turns each</span>
       <h2>Hunt — forward tracing</h2>
       <p class="lead">Trace every inventoried input forward to a disposition,
         evaluating it against dangerous sinks by vulnerability class. This is the
@@ -1795,7 +1844,7 @@ function docsHTML(){
         <div><div class="k">Writes</div><div class="v">results/ (one file per agent)</div></div>
       </div>
       <h3>How the fan-out works</h3>
-      <p>The runner parses the partition table from Phase 1 and dispatches
+      <p>The runner parses the partition table from Recon and dispatches
         <b>one agent per (partition × vulnerability class)</b>, plus exactly
         <b>one sink-driven agent</b>. If the model's partition plan omitted any
         enumerated route file, the harness appends deterministic subsystem
@@ -1843,9 +1892,9 @@ function docsHTML(){
 
     <!-- PHASE 2b -->
     <section class="doc-sec" id="phase2b">
-      <span class="badge">Phase 2b · up to 70 turns</span>
+      <span class="badge">Step 3 · up to 70 turns</span>
       <h2>Verify — adversarial falsification</h2>
-      <p class="lead">Try to <b>disprove</b> every Phase 2 candidate with full-codebase
+      <p class="lead">Try to <b>disprove</b> every Hunt candidate with full-codebase
         visibility. Historically about half of raw candidates are false positives;
         this phase is where they're cut.</p>
       <div class="doc-io">
@@ -1897,7 +1946,7 @@ function docsHTML(){
 
     <!-- PHASE 3 -->
     <section class="doc-sec" id="phase3">
-      <span class="badge">Phase 3 · up to 80 turns</span>
+      <span class="badge">Step 4 · up to 80 turns</span>
       <h2>Reproduce, test &amp; fix</h2>
       <p class="lead">Prove each confirmed finding is exploitable end-to-end with a
         PoC and an executable exploit test, then document a fix. Anything that can't
@@ -1909,7 +1958,7 @@ function docsHTML(){
       <h3>What it does</h3>
       <ul>
         <li><b>Completeness check.</b> Maps every confirmed High/Medium finding to a
-          sequential <code>VULN-NNN</code>; the row count must equal Phase 2b's
+          sequential <code>VULN-NNN</code>; the row count must equal the Verify step's
           confirmed count. A finding can only be removed by an explicit failing
           exploit test.</li>
         <li><b>Reproduce.</b> Writes one PoC per finding. When bash is explicitly
@@ -1933,7 +1982,7 @@ function docsHTML(){
 
     <!-- PHASE 3d -->
     <section class="doc-sec" id="phase3d">
-      <span class="badge">Phase 3d · deterministic (no model)</span>
+      <span class="badge">Step 5 · deterministic (no model)</span>
       <h2>Sweep — root-cause instances</h2>
       <p class="lead">Once a finding is confirmed, find every <i>other</i> place its
         root cause occurs across the full codebase — so a pattern found once isn't
@@ -1969,7 +2018,7 @@ function docsHTML(){
 
     <!-- PHASE 4 -->
     <section class="doc-sec" id="phase4">
-      <span class="badge">Phase 4 · up to 50 turns</span>
+      <span class="badge">Step 6 · up to 50 turns</span>
       <h2>Report</h2>
       <p class="lead">Compile every confirmed finding, code smell, resolved input,
         and the sweep table into the final human-readable report.</p>
@@ -1988,7 +2037,7 @@ function docsHTML(){
         <li>A <b>resolved input inventory</b> shows every input's final disposition,
           plus a "not found / excluded" section for the classes that came back
           clean.</li>
-        <li>Includes the Phase 3d sweep table.</li>
+        <li>Includes the Sweep table.</li>
       </ul>
       <div class="doc-note"><b>Validation rule.</b> A finding is invalid if its PoC or
         exploit-test field is empty — each must be a real, clickable path to a saved
@@ -1997,12 +2046,29 @@ function docsHTML(){
         finding count.</div>
     </section>
 
-    <div class="doc-note" style="margin-top:26px">Phases can run on <b>different
-      models</b> — for example recon and reporting on a cheap local model and the
-      hunt on a stronger one — configured per role in <a onclick="navigate('settings')">Settings</a>
-      and the New Scan form. A run can also opt into the <b>Vulnerability Ledger</b>
-      to accumulate confirmed findings across runs of the same target and score each
-      run's recall.</div>
+    <h2 style="margin-top:34px">Beyond the steps</h2>
+    <div class="doc-io" style="margin-top:6px">
+      <div><div class="k">Per-step models</div><div class="v">Recon, Hunt, Verify,
+        Reproduce/Report can each run on a different model (cheap local model for
+        recon/report, a stronger one for the hunt) — set in
+        <a onclick="navigate('settings')">Settings</a> and the New Scan form.</div></div>
+      <div><div class="k">Application Intelligence</div><div class="v">When the
+        Threat-model step runs, its <b>SBOM</b>, <b>threat model</b>, and
+        <b>data-flow diagram</b> are collected per application in the
+        <a onclick="navigate('appintel')">App Intel</a> tab.</div></div>
+      <div><div class="k">Vulnerability Ledger</div><div class="v">A run can merge
+        its confirmed findings into a per-application <a onclick="navigate('ledger')">ledger</a>
+        that tracks findings across runs (open / fixed / regressed) and scores each
+        run's recall.</div></div>
+      <div><div class="k">Honest coverage</div><div class="v">Every report carries a
+        <b>coverage status</b>. A shallow run — no entry points mapped, or a large
+        codebase hunted in a single partition — is marked <b>degraded</b>, never
+        silently "complete".</div></div>
+    </div>
+    <div class="doc-note" style="margin-top:18px">The live scan view shows a
+      step-by-step tracker with the current step pulsing; each finished report
+      opens with per-severity counts, a Scan Health panel, and downloadable
+      artifacts (SARIF, findings.json, run manifest, SBOM).</div>
   </div>`;
 }
 function wireDocs(){
@@ -2227,7 +2293,7 @@ function statTiles(j){
     vsub = j.findings_stage === 'final' ? 'confirmed' : 'confirmed so far';
   } else {
     vulns = '—';
-    vsub = 'after Phase 2b';
+    vsub = 'after Verify';
   }
   return `<div class="kpis stat-row">
     <div class="tile"><div class="k">Model running</div>
@@ -2783,7 +2849,7 @@ window.dashPhase = async function(kind, id, key){
       const mr = await fetch(base + encodeURIComponent(id) + '/file?path=scan_meta.json');
       const meta = mr.ok ? JSON.parse(await mr.text()) : {};
       const ags = (meta.agents || []).filter(a => String(a.phase) === '2');
-      body.innerHTML = `<div class="view-head">Phase 2 — Hunt (${ags.length} agents)</div>`
+      body.innerHTML = `<div class="view-head">Hunt — ${ags.length} agents</div>`
         + `<div class="metacard"><table><tr><th style="width:auto">Agent</th><th>Model</th><th>Turns</th><th>Stopped</th><th></th></tr>`
         + ags.map(a => {
             const file = 'results/' + String(a.label || '').replace(/^p2:/, '').replace(/:/g, '_') + '.md';
