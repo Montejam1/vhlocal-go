@@ -3501,14 +3501,23 @@ function renderAppIntel(id){
       Run a scan with <b>Build threat model (PASTA)</b> enabled to generate the SBOM and threat model.</div>`;
     return;
   }
+  // Buttons stay clickable even when a section is empty — each shows an
+  // actionable empty state rather than being a dead, disabled control.
   const tabs = `<div class="tabs">
-    <button class="${c.tab==='sbom'?'on':''}" ${c.sbom?'':'disabled'} onclick="aiTab('${esc(id)}','sbom')">SBOM${c.sbom?` · ${c.sbom.total}`:''}</button>
-    <button class="${c.tab==='threat'?'on':''}" ${c.tm?'':'disabled'} onclick="aiTab('${esc(id)}','threat')">Threat model (PASTA)</button>
+    <button class="${c.tab==='sbom'?'on':''}" onclick="aiTab('${esc(id)}','sbom')">SBOM${c.sbom?` · ${c.sbom.total}`:''}</button>
+    <button class="${c.tab==='threat'?'on':''}" onclick="aiTab('${esc(id)}','threat')">Threat model (PASTA)</button>
   </div>`;
   let content;
-  if (c.tab==='sbom' && c.sbom) content = sbomHTML(c.sbom, id);
-  else if (c.tab==='threat' && c.tm) content = `<div class="md ai-md">${mdRender(c.tm)}</div>`;
-  else content = `<div class="empty">Not available for this scan.</div>`;
+  if (c.tab==='sbom') {
+    content = c.sbom ? sbomHTML(c.sbom, id)
+      : `<div class="empty">No SBOM was generated for this scan.<br>
+         The SBOM is built automatically when <b>Build threat model (PASTA)</b> is enabled.</div>`;
+  } else {
+    content = c.tm ? `<div class="md ai-md">${mdRender(c.tm)}</div>`
+      : `<div class="empty">No threat model for this scan yet.<br>
+         Re-run the scan with <b>Build threat model (PASTA)</b> enabled (Scan options)
+         to generate a PASTA threat model and data-flow diagram.</div>`;
+  }
   body.innerHTML = tabs + `<div class="ai-content">${content}</div>`;
 }
 
