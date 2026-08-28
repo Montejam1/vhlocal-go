@@ -2,6 +2,25 @@
 
 Notable feature updates to vulnhunt-local. Newest first.
 
+## 2026-08-27 — Application Intelligence tab + coverage-honesty fix
+
+### Application Intelligence tab
+- New top-level **App Intel** tab. Pick a scan; view its intelligence in two
+  sub-tabs: **SBOM** (rendered from `sbom.cdx.json` — component table + ecosystem
+  summary + CycloneDX download) and **Threat model (PASTA)** (the `threat_model.md`
+  rendered, including the data-flow diagram). Reuses the existing report-file
+  endpoint and client markdown renderer — no new backend. (Live Mermaid diagram
+  rendering is a follow-up; the DFD currently renders as a labeled source block.)
+
+### Coverage-honesty fix — a shallow run can no longer report "complete"
+- The gvisor scan enumerated **0 entry points across 2,970 source files** yet
+  reported `coverage_status: complete`. `compute_run_status` now flags two
+  deterministic shallowness signals as **degraded**, regardless of `max_partitions`:
+  recon enumerating **no entry points** over a non-trivial codebase, and a large
+  codebase (150+ source files) hunted in a **single partition**. The reasons name
+  the file count and point at scoping / the PASTA threat model as the fix.
+- Suppressed when the threat model already added partitions. 6 new tests.
+
 ## 2026-08-27 — Phase 1t: PASTA threat model (opt-in) — coverage fix for non-web targets
 
 - **Root problem it fixes:** recon's attack-surface enumeration is web/RPC-shaped

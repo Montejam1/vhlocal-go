@@ -19,6 +19,7 @@ about the scan.
 
 import datetime as _dt
 import json
+import os
 import re
 from collections import Counter
 from dataclasses import asdict, dataclass, field
@@ -1365,6 +1366,43 @@ def coverage_ledger(results_dir: Path, meta: Dict[str, Any],
         return None
 
 
+_SRC_EXT = {
+    ".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".java", ".rb", ".php", ".cs",
+    ".c", ".cc", ".cpp", ".h", ".hpp", ".rs", ".kt", ".scala", ".swift", ".m",
+    ".mm", ".sh", ".pl", ".ex", ".exs", ".erl", ".clj", ".groovy", ".lua", ".r",
+    ".dart", ".vue", ".svelte",
+}
+_SRC_SKIP_DIRS = {
+    ".git", "node_modules", "vendor", "third_party", "third-party", "external",
+    "deps", "dist", "build", "target", "__pycache__", ".venv", "venv", ".tox",
+    "site-packages", "bower_components",
+}
+
+
+def _repo_source_file_count(repo, cap: int = 5000) -> int:
+    """Rough count of first-party source files (skips vendored trees, caps the
+    walk). Used only to judge whether a shallow partition/entry-point count is a
+    coverage concern — a single-partition pass over 2,400 files is not 'complete'.
+    Returns 0 for a missing/unreadable repo so the shallowness checks stay inert."""
+    if not repo:
+        return 0
+    p = Path(repo)
+    if not p.is_dir():
+        return 0
+    n = 0
+    try:
+        for dp, dns, fns in os.walk(p):
+            dns[:] = [d for d in dns if d not in _SRC_SKIP_DIRS]
+            for f in fns:
+                if os.path.splitext(f)[1].lower() in _SRC_EXT:
+                    n += 1
+                    if n >= cap:
+                        return n
+    except OSError:
+        pass
+    return n
+
+
 def compute_run_status(meta: Dict[str, Any], ledger=None) -> Dict[str, Any]:
     """Three orthogonal status axes, deliberately not collapsed into one field.
 
@@ -1411,6 +1449,27 @@ def compute_run_status(meta: Dict[str, Any], ledger=None) -> Dict[str, Any]:
     elif "2" in req and len(parts) <= 1 and (meta.get("max_partitions") or 0) > 1:
         reasons.append("only one partition was analysed (attack surface not "
                        "subdivided)")
+
+    # Shallowness signals — a run that mapped no attack surface, or hunted a large
+    # tree as a single blob, must never read as "complete". These fire regardless
+    # of max_partitions: a deliberate one-partition pass over 2,400 files is still
+    # shallow coverage, not a clean bill of health. (The gvisor case: recon
+    # enumerated 0 entry points and the run reported complete.)
+    repo_files = _repo_source_file_count(meta.get("repo"))
+    ep_total = getattr(ledger, "total", None) if ledger is not None else None
+    if "2" in req and ep_total == 0 and repo_files >= 40:
+        reasons.append(
+            "recon enumerated no entry points across a codebase of {0}{1} source "
+            "files — the attack surface was not mapped, so most of the code was "
+            "not analysed (this target may need scoping to a subsystem, or the "
+            "PASTA threat model to surface non-web attack surface)".format(
+                repo_files, "+" if repo_files >= 5000 else ""))
+    if ("2" in req and len(parts) <= 1 and repo_files >= 150
+            and not meta.get("threat_model_partitions")):
+        reasons.append(
+            "a codebase of {0}{1} source files was analysed in a single partition "
+            "— the attack surface was not subdivided".format(
+                repo_files, "+" if repo_files >= 5000 else ""))
     if meta.get("hunt_halted_reason"):
         # The circuit breaker stopped the hunt fan-out; this is the most important
         # coverage caveat, so state it first and verbatim.

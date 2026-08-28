@@ -559,6 +559,14 @@
   .ledger-stats>div{display:flex;flex-direction:column;align-items:center}
   .ledger-stats b{font-size:20px;font-weight:700;color:var(--text-1);line-height:1.1}
   .ledger-stats span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3)}
+  .ai-pick{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .ai-pick select{max-width:520px}
+  .ai-sum{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0 2px;
+    font-size:13px;color:var(--text-2)}
+  .ai-sum .fbtn{margin-left:auto}
+  .ai-content{margin-top:8px}
+  .ai-md{max-width:960px}
+  .ai-md .mdcode{white-space:pre;overflow-x:auto}
   .tablewrap{overflow-x:auto;margin-top:12px;border:1px solid var(--line);border-radius:var(--r-sm)}
   table.ledgertbl{border-collapse:collapse;width:100%;font-size:12.5px}
   table.ledgertbl th{text-align:left;padding:9px 12px;background:var(--surface-2);
@@ -925,6 +933,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/><path d="M4 8h15M8 4v17"/></svg>
       Ledger</button>
+    <button id="navAppIntel" onclick="navigate('appintel')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/><path d="M3.5 9h4M16.5 9h4"/></svg>
+      App Intel</button>
     <button id="navDocs" onclick="navigate('docs')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -2681,6 +2693,26 @@ const VIEWS = {
     },
     unmount() {},
   },
+  appintel: {
+    nav: 'navAppIntel',
+    mount(el, opts) {
+      el.innerHTML = `
+        <div class="pane-head">
+          <h2>Application intelligence</h2>
+          <span style="flex:1"></span>
+          <button class="secondary" onclick="loadAppIntel()">Refresh</button>
+        </div>
+        <p style="color:var(--text-2);font-size:13px;margin:2px 0 14px">
+          What the scan learned about the application itself — a deterministic
+          <b>SBOM</b> and the <b>PASTA threat model</b> (with data-flow diagram).
+          Pick a scan to view its intelligence.</p>
+        <div class="ai-pick"><label style="margin:0">Scan</label>
+          <select id="aiReport" onchange="openAppIntel(this.value)"></select></div>
+        <div id="aiBody" style="margin-top:14px"><div class="empty">Loading…</div></div>`;
+      loadAppIntel(opts && opts.id);
+    },
+    unmount() {},
+  },
   ledger: {
     nav: 'navLedger',
     mount(el, opts) {
@@ -3405,6 +3437,91 @@ function ledgerLinkHTML(fj) {
   const name = ((fj.meta || {}).repo || '').split('/').filter(Boolean).pop() || 'this application';
   return `<a class="xlink" onclick="navigate('ledger', {slug: '${escA(slug)}'})">`
     + `Vulnerability ledger for ${esc(name)} &rarr;</a>`;
+}
+
+// ---- Application intelligence (per-scan SBOM + PASTA threat model) ----
+let _aiCache = {};   // report id -> {sbom, tm, tab}
+
+window.loadAppIntel = async function(preselectId) {
+  const body = $('aiBody'); const sel = $('aiReport');
+  if (!sel) return;
+  try {
+    const d = await api('/api/reports');
+    const reports = d.reports || [];
+    if (!reports.length) {
+      sel.innerHTML = ''; body.innerHTML = '<div class="empty">No scans yet.</div>'; return;
+    }
+    sel.innerHTML = reports.map(r => {
+      const when = r.created ? new Date(r.created*1000).toLocaleDateString() : (r.stamp||'');
+      return `<option value="${esc(r.id)}">${esc(r.repo || r.name)} · ${esc(r.model||'')} · ${esc(when)}</option>`;
+    }).join('');
+    const pick = (preselectId && reports.some(r=>r.id===preselectId)) ? preselectId : reports[0].id;
+    sel.value = pick;
+    openAppIntel(pick);
+  } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+};
+
+function _fetchReportFile(id, path){
+  return fetch(`/api/reports/${encodeURIComponent(id)}/file?path=${encodeURIComponent(path)}`)
+    .then(r => r.ok ? r.text() : null).catch(() => null);
+}
+
+window.openAppIntel = async function(id){
+  const body = $('aiBody');
+  if (!id) { body.innerHTML = '<div class="empty">Select a scan.</div>'; return; }
+  body.innerHTML = '<div class="empty">Loading…</div>';
+  const [sbomTxt, tmTxt] = await Promise.all([
+    _fetchReportFile(id, 'sbom.cdx.json'),
+    _fetchReportFile(id, 'threat_model.md'),
+  ]);
+  let sbom = null;
+  if (sbomTxt){ try { sbom = sbomSummaryFromCdx(JSON.parse(sbomTxt)); } catch(e){} }
+  _aiCache[id] = {sbom, tm: tmTxt || null, tab: (sbom ? 'sbom' : (tmTxt ? 'threat' : 'sbom'))};
+  renderAppIntel(id);
+};
+
+function sbomSummaryFromCdx(cdx){
+  const comps = (cdx && cdx.components) || [];
+  const byEco = {}, rows = [];
+  for (const c of comps){
+    const eco = ((c.properties||[])[0]||{}).value || '?';
+    byEco[eco] = (byEco[eco]||0)+1;
+    const lic = (((c.licenses||[])[0]||{}).license||{}).name || '';
+    rows.push({name: c.name||'', version: c.version||'', ecosystem: eco, license: lic, group: c.group||''});
+  }
+  return {total: comps.length, by_ecosystem: byEco, components: rows};
+}
+
+window.aiTab = function(id, tab){ if (_aiCache[id]){ _aiCache[id].tab = tab; renderAppIntel(id); } };
+
+function renderAppIntel(id){
+  const body = $('aiBody'), c = _aiCache[id];
+  if (!c || (!c.sbom && !c.tm)){
+    body.innerHTML = `<div class="empty">This scan has no Application Intelligence artifacts.<br>
+      Run a scan with <b>Build threat model (PASTA)</b> enabled to generate the SBOM and threat model.</div>`;
+    return;
+  }
+  const tabs = `<div class="tabs">
+    <button class="${c.tab==='sbom'?'on':''}" ${c.sbom?'':'disabled'} onclick="aiTab('${esc(id)}','sbom')">SBOM${c.sbom?` · ${c.sbom.total}`:''}</button>
+    <button class="${c.tab==='threat'?'on':''}" ${c.tm?'':'disabled'} onclick="aiTab('${esc(id)}','threat')">Threat model (PASTA)</button>
+  </div>`;
+  let content;
+  if (c.tab==='sbom' && c.sbom) content = sbomHTML(c.sbom, id);
+  else if (c.tab==='threat' && c.tm) content = `<div class="md ai-md">${mdRender(c.tm)}</div>`;
+  else content = `<div class="empty">Not available for this scan.</div>`;
+  body.innerHTML = tabs + `<div class="ai-content">${content}</div>`;
+}
+
+function sbomHTML(s, id){
+  const eco = Object.entries(s.by_ecosystem).map(([k,v])=>`${v} ${esc(k)}`).join(', ');
+  const rows = s.components.map(c=>{
+    const nm = c.group ? `${esc(c.group)}/${esc(c.name)}` : esc(c.name);
+    return `<tr><td class="lt">${nm}</td><td class="mono">${esc(c.version||'—')}</td><td class="mono">${esc(c.ecosystem)}</td><td>${esc(c.license||'—')}</td></tr>`;
+  }).join('');
+  return `<div class="ai-sum"><span><b>${s.total}</b> direct dependencies across ${Object.keys(s.by_ecosystem).length} ecosystem(s) · ${esc(eco)}</span>
+    <a class="fbtn" href="/api/reports/${encodeURIComponent(id)}/file?path=sbom.cdx.json" download="sbom.cdx.json">CycloneDX ↓</a></div>
+    <div class="tablewrap"><table class="ledgertbl"><thead><tr><th>Component</th><th>Version</th><th>Ecosystem</th><th>License</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="4" class="empty">No dependencies detected.</td></tr>'}</tbody></table></div>`;
 }
 
 function healthPanelHTML(fj) {
