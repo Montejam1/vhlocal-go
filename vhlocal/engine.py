@@ -508,6 +508,14 @@ def execute_scan(
     results_dir.mkdir(parents=True, exist_ok=True)
 
     selected = select_phases(spec.phases)
+    # Phase 1t (PASTA threat model) is opt-in. Drop it from the plan unless it's
+    # enabled or explicitly requested — otherwise it lands in phases_requested on
+    # every "all" run, gets skipped, and then reports as an "incomplete requested
+    # phase", marking every normal run degraded. Filtering here means it is never
+    # requested when off, so it never counts against coverage.
+    _explicit_1t = "1t" in [k.strip() for k in (spec.phases or "").split(",")]
+    if not (getattr(spec, "threat_model", False) or _explicit_1t):
+        selected = [p for p in selected if p.key != "1t"]
 
     # Per-role model routing: each phase gets a client for its role's model,
     # sharing one client across phases on the same (backend, model, host).
@@ -621,11 +629,6 @@ def execute_scan(
             if spec.resume and spec_phase.key in state.get("completed", []):
                 record.phases_skipped.append(spec_phase.key)
                 emit({"type": "phase_skip", "key": spec_phase.key, "reason": "resume"})
-                continue
-
-            # Phase 1t (PASTA threat model) is opt-in — skip unless enabled.
-            if spec_phase.key == "1t" and not spec.threat_model:
-                emit({"type": "phase_skip", "key": "1t", "reason": "disabled"})
                 continue
 
             prompt_path = phases_dir / spec_phase.prompt_file
