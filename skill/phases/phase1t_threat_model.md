@@ -35,9 +35,23 @@ threats — name it precisely.**
 the processes/components, the data stores, and — critically — the **trust
 boundaries** (where data crosses from less-trusted to more-trusted: network→app,
 guest→host, user→kernel, untrusted-input→parser, tenant→tenant). Produce a **Data
-Flow Diagram** as a Mermaid `flowchart` in a ` ```mermaid ` fenced block. Mark
+Flow Diagram** as a Mermaid `flowchart TD` in a ` ```mermaid ` fenced block. Mark
 trust boundaries with `subgraph` blocks. Every untrusted-input edge crossing a
 boundary is a hunt candidate.
+
+The Mermaid MUST be syntactically valid — it is rendered directly, and a syntax
+error shows the user an error instead of a diagram. Follow these rules exactly:
+- **Always double-quote every node and subgraph label**, e.g. `A["HTTP request"]`,
+  `C["misc device (/dev/foo)"]`, `subgraph TB1["User space"]`. Quoting is
+  mandatory whenever a label contains a space, parenthesis, slash, colon, or any
+  non-alphanumeric character — which is almost always, so just always quote.
+- Use plain ASCII in labels: write `->` or `to`, not the `→` arrow; use a normal
+  hyphen `-`, not a unicode dash.
+- Node ids are short and alphanumeric (`A`, `B2`, `Sentry`); the human text goes
+  in the quoted label, never in the id.
+- Edges are `A --> B` or `A -->|"label"| B`. Do NOT put a trailing backslash on
+  any line. Do NOT include `style`/`classDef`/`click` directives — nodes, edges,
+  and subgraphs only.
 
 **Stage IV — Threat analysis (archetype-driven).** Given the archetype from Stage
 II, enumerate the threats that **matter for this class of software** — not a
