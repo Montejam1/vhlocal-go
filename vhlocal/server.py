@@ -310,6 +310,21 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/profiles":
             from .profiles import list_profiles
             return self._json({"profiles": list_profiles()})
+        if path == "/api/applications":
+            # ?repo=<path> looks up the application for a repo (form pre-fill).
+            repo = (qs.get("repo") or [""])[0]
+            if repo:
+                from .apps import get_application, slug_for
+                app = get_application(repo)
+                return self._json({"slug": slug_for(repo), "application": app})
+            return self._json({"applications": self._applications()})
+        if path.startswith("/api/applications/"):
+            from .apps import is_valid_slug
+            slug = urllib.parse.unquote(path[len("/api/applications/"):]).rstrip("/")
+            if not is_valid_slug(slug):
+                return self._err("bad application id", 400)
+            detail = self._application_detail(slug)
+            return self._json(detail) if detail else self._err("no such application", 404)
         if path == "/api/ledgers":
             from .membank import list_ledgers
             return self._json({"ledgers": list_ledgers()})
@@ -369,6 +384,25 @@ class Handler(BaseHTTPRequestHandler):
             ok = CFG.store.cancel(job_id)
             return self._json({"cancelled": ok}) if ok else self._err(
                 "job not cancellable", 409)
+        if path.startswith("/api/applications/"):
+            # Name / rename an application: POST {name}. Works for an auto-
+            # discovered app (creates its registry entry, keyed by slug).
+            import time as _time
+            from .apps import is_valid_slug, set_name
+            slug = urllib.parse.unquote(path[len("/api/applications/"):]).rstrip("/")
+            if not is_valid_slug(slug):
+                return self._err("bad application id", 400)
+            name = ((self._body() or {}).get("name") or "").strip()
+            if not name:
+                return self._err("name is required", 400)
+            reg, by_slug, ledgers = self._apps_index()
+            if slug not in reg and slug not in by_slug and slug not in ledgers:
+                return self._err("no such application", 404)
+            repo = ((reg.get(slug) or {}).get("repo")
+                    or (ledgers.get(slug) or {}).get("target")
+                    or (by_slug.get(slug, [None])[0].repo if by_slug.get(slug) else ""))
+            ent = set_name(slug, name, repo=repo, when=_time.time())
+            return self._json(ent) if ent else self._err("could not name application", 400)
         return self._err("not found", 404)
 
     def do_DELETE(self) -> None:  # noqa: N802
@@ -513,6 +547,14 @@ class Handler(BaseHTTPRequestHandler):
             sweep_mode=(body.get("sweep_mode") or "deterministic"),
             threat_model=bool(body.get("threat_model")),
         )
+        # Register (or touch) the application for this target, naming it on first
+        # scan. Never blocks the scan on a registry hiccup.
+        try:
+            import time as _time
+            from .apps import register
+            register(repo, name=(body.get("app_name") or "").strip(), when=_time.time())
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning("application register failed: %s", exc)
         job = CFG.store.submit(spec)
         self._json(job.public(), 201)
 
@@ -566,6 +608,67 @@ class Handler(BaseHTTPRequestHandler):
             if rd:
                 out.append(Path(rd))
         return out
+
+    def _apps_index(self):
+        """Group every report by application slug and fold in the registry + the
+        ledger. Returns (registry, {slug: [reports newest-first]}, {slug: ledger})."""
+        from .apps import _load as apps_load
+        from .membank import list_ledgers
+        reg = apps_load()
+        by_slug: Dict[str, list] = {}
+        for r in list_reports(CFG.reports_dir, self._job_result_dirs()):
+            by_slug.setdefault(r.slug or r.name, []).append(r)
+        for scans in by_slug.values():
+            scans.sort(key=lambda x: -(x.created or 0))
+        ledgers = {L.get("slug"): L for L in list_ledgers()}
+        return reg, by_slug, ledgers
+
+    def _app_summary(self, slug, reg, by_slug, ledgers) -> Dict[str, Any]:
+        scans = by_slug.get(slug, [])
+        latest = scans[0] if scans else None
+        entry = reg.get(slug) or {}
+        led = ledgers.get(slug)
+        name = (entry.get("name") or (led or {}).get("target_name")
+                or (latest.repo or latest.name if latest else "") or slug)
+        repo = (entry.get("repo") or (led or {}).get("target")
+                or (latest.repo if latest else "") or "")
+        return {
+            "slug": slug, "name": name, "repo": repo,
+            "named": slug in reg,
+            "scans": len(scans),
+            "last_scanned": (latest.created if latest else entry.get("updated")) or 0,
+            "latest_findings": latest.findings if latest else 0,
+            "latest_severities": latest.severities if latest else {},
+            "latest_coverage": (latest.coverage_status if latest else "") or "",
+            "latest_report_id": latest.id if latest else "",
+            "open_findings": (led or {}).get("open"),
+            "ledger_total": (led or {}).get("total"),
+            "has_threat_model": any(getattr(r, "has_threat_model", False) for r in scans),
+            "has_sbom": any(getattr(r, "has_sbom", False) for r in scans),
+        }
+
+    def _applications(self) -> List[Dict[str, Any]]:
+        reg, by_slug, ledgers = self._apps_index()
+        slugs = set(reg) | set(by_slug) | set(ledgers)
+        out = [self._app_summary(s, reg, by_slug, ledgers) for s in slugs]
+        out.sort(key=lambda a: -(a["last_scanned"] or 0))
+        return out
+
+    def _application_detail(self, slug) -> Optional[Dict[str, Any]]:
+        reg, by_slug, ledgers = self._apps_index()
+        if slug not in reg and slug not in by_slug and slug not in ledgers:
+            return None
+        summary = self._app_summary(slug, reg, by_slug, ledgers)
+        scans = [{
+            "id": r.id, "created": r.created, "model": r.model,
+            "findings": r.findings, "severities": r.severities,
+            "coverage_status": r.coverage_status, "coverage_degraded": r.coverage_degraded,
+            "has_report": r.has_report, "has_threat_model": r.has_threat_model,
+            "has_sbom": r.has_sbom, "recall_pct": r.recall_pct, "chains": r.chains,
+        } for r in by_slug.get(slug, [])]
+        summary["scan_history"] = scans
+        summary["has_ledger"] = slug in ledgers
+        return summary
 
     def _aggregate_stats(self) -> Dict[str, Any]:
         """Roll up headline metrics across every report on disk. Token/time come

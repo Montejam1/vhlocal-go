@@ -80,6 +80,9 @@ class Report:
     # Application-intelligence artifacts present in this results dir.
     has_sbom: bool = False
     has_threat_model: bool = False
+    # The application slug (== the ledger slug of the resolved repo path). Groups
+    # a target's scans, ledger, SBOM and threat model under one application.
+    slug: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
@@ -124,6 +127,17 @@ def parse_report(root: Path) -> Report:
 
     rep.has_sbom = (root / "sbom.cdx.json").exists()
     rep.has_threat_model = (root / "threat_model.md").exists()
+
+    # Application slug from the authoritative repo path in scan_meta.json (the full
+    # resolved path the ledger keys on); fall back to the parsed repo name.
+    try:
+        from .engine import SCAN_META_FILE
+        meta = json.loads((root / SCAN_META_FILE).read_text(encoding="utf-8"))
+        meta_repo = meta.get("repo") or ""
+    except (OSError, ValueError, ImportError):
+        meta_repo = ""
+    from .apps import slug_for
+    rep.slug = slug_for(meta_repo or rep.repo or root.name)
 
     readme = root / "README.md"
     rep.has_report = readme.exists()
