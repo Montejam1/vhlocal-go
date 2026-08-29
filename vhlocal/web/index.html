@@ -2441,12 +2441,24 @@ function phaseSpine(j){
   </div>`;
 }
 
+let _lastDetail = {id: null, tab: null};
 function renderDetail(el, j) {
   const running = j.status === 'running' || j.status === 'queued';
   // Interrupted / cancelled / failed scans that got far enough to have a results
   // directory can be continued from the last completed phase.
   const resumable = !running && j.results_dir
     && ['interrupted','cancelled','failed'].includes(j.status);
+  // The 4s poll repaints this pane. Preserve the current tab's content across a
+  // same-view repaint so it doesn't flash back to "Loading…" and re-fetch (which
+  // collapsed open <details> and reset scroll — the "unreadable Prompts tab").
+  const sameView = _lastDetail.id === j.id && _lastDetail.tab === tab;
+  const prevBody = sameView ? (($('tabbody') || {}).innerHTML || '') : '';
+  // Real preserved content only — not an empty pane, and not a mid-load
+  // "Loading…" placeholder (which must be allowed to finish loading).
+  const hasPrev = !!prevBody && prevBody.indexOf('>Loading…<') === -1;
+  _lastDetail = {id: j.id, tab};
+  const bodyInit = tab === 'live' ? '<div id="feed"></div>'
+    : hasPrev ? prevBody : '<div class="empty">Loading…</div>';
   el.innerHTML = `
     <div class="detail-head">
       <span class="dot s-${j.status}"></span>
@@ -2482,18 +2494,21 @@ function renderDetail(el, j) {
       <button class="${tab==='prompts'?'on':''}" onclick="setTab('prompts')">Prompts</button>
       <button class="${tab==='log'?'on':''}" onclick="setTab('log')">Log</button>
     </div>
-    <div id="tabbody">${tab==='live' ? '<div id="feed"></div>' : '<div class="empty">Loading…</div>'}</div>`;
+    <div id="tabbody">${bodyInit}</div>`;
   loadScanHealth(j.id, running);
   if (tab === 'live') {
     const f = $('feed');
     if (f && window._feedCache) f.innerHTML = window._feedCache;
     if (f) f.scrollTop = f.scrollHeight;
-  } else if (tab === 'log') {
-    loadLog(j.id);
-  } else if (tab === 'prompts') {
-    loadPrompts(j.id);
-  } else {
-    loadFiles(j.id);
+  } else if (!hasPrev) {
+    // Fresh view (tab switch, new job, or returned to this pane): load once.
+    if (tab === 'log') loadLog(j.id);
+    else if (tab === 'prompts') loadPrompts(j.id);
+    else loadFiles(j.id);
+  } else if (tab === 'prompts' && running) {
+    // Same view on a live run: pull new prompts in silently, without flashing —
+    // only rebuild if the set grew, preserving open <details> and scroll.
+    refreshPromptsQuietly(j.id);
   }
 }
 
@@ -2677,7 +2692,30 @@ async function loadPrompts(id) {
       .map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean);
     if (!recs.length) { body.innerHTML = '<div class="empty">No prompts captured yet.</div>'; return; }
     body.innerHTML = promptsHTML(recs);
+    body.dataset.pcount = recs.length;
   } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+}
+
+// Silently pull new prompts during a live run: only rebuild when the set actually
+// grew, and preserve which <details> are open plus the scroll position — so a
+// running scan's Prompts tab stays fresh without ever flashing.
+async function refreshPromptsQuietly(id) {
+  const body = $('tabbody');
+  if (!body) return;
+  try {
+    const r = await fetch('/api/scans/' + id + '/file?path=prompts.jsonl');
+    if (!r.ok) return;
+    const recs = (await r.text()).trim().split('\n').filter(Boolean)
+      .map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean);
+    if (!recs.length || +body.dataset.pcount === recs.length) return;
+    const open = [...body.querySelectorAll('details')].map(d => d.open);
+    const sy = body.scrollTop;
+    body.innerHTML = promptsHTML(recs);
+    body.dataset.pcount = recs.length;
+    const ds = body.querySelectorAll('details');
+    open.forEach((o, i) => { if (ds[i]) ds[i].open = o; });
+    body.scrollTop = sy;
+  } catch (e) { /* keep the existing content on any hiccup */ }
 }
 
 window.viewFile = async function(id, path) {
