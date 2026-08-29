@@ -1202,9 +1202,11 @@ function ensureMermaid(){
 function _fixMermaid(src){
   return src.split('\n').map(line => {
     line = line.replace(/\\+\s*$/, '');                 // stray trailing backslash
-    // Quote a subgraph's bracket label so spaces / unicode (e.g. →) parse.
-    line = line.replace(/^(\s*subgraph\s+[A-Za-z0-9_-]+)\s*\[\s*([^\]"]+?)\s*\]/,
-                        (m, p, lbl) => `${p}["${lbl}"]`);
+    // Quote node / subgraph bracket labels so the characters local models leave
+    // unquoted — spaces, parentheses, slashes, unicode (→, ‑) — parse. Quoting is
+    // always valid in Mermaid and idempotent (already-quoted labels are skipped).
+    line = line.replace(/([A-Za-z0-9_]+)\[([^\]"]+)\]/g, (m, id, lbl) => `${id}["${lbl}"]`);
+    line = line.replace(/([A-Za-z0-9_]+)\{([^}"]+)\}/g, (m, id, lbl) => `${id}{"${lbl}"}`);
     return line;
   }).join('\n').trim();
 }
