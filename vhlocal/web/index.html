@@ -980,10 +980,6 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/><path d="M4 8h15M8 4v17"/></svg>
       Ledger</button>
-    <button id="navAppIntel" onclick="navigate('appintel')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/><path d="M3.5 9h4M16.5 9h4"/></svg>
-      App Intel</button>
     <button id="navDocs" onclick="navigate('docs')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -1012,10 +1008,11 @@
       <input id="repo" placeholder="/path/to/your/repo" spellcheck="false" autocomplete="off"
         onchange="lookupApplication()" onblur="lookupApplication()">
       <div class="hint" id="rootHint"></div>
-      <label>Application <span class="ph" id="appNameHint">name this app</span></label>
-      <input id="appName" placeholder="named on first scan" spellcheck="false" autocomplete="off">
-      <div class="hint">Ties this scan's ledger, threat model &amp; SBOM to a named
-        application. First scan of a folder names it; later scans auto-fill.</div>
+      <label>Application <span class="ph" id="appNameHint">optional</span></label>
+      <input id="appName" placeholder="optional — defaults to the folder name" spellcheck="false" autocomplete="off">
+      <div class="hint">Optional label that ties this scan's ledger, threat model &amp;
+        SBOM to a named application. Leave blank to use the folder name; a known
+        folder auto-fills its existing name.</div>
 
       <label for="profile">Profile <span style="text-transform:none;font-weight:400;color:var(--text-3)">— presets the scan options below</span></label>
       <select id="profile" onchange="applyProfile(this.value)"><option value="">Custom (no preset)</option></select>
@@ -1841,8 +1838,8 @@ function docsHTML(){
       </ul>
       <div class="doc-note"><b>Output contract.</b> A <code>threat_model.md</code>
         (characterization · DFD · PASTA threats · hunt targets) plus
-        <code>sbom.cdx.json</code>, both surfaced in <a onclick="navigate('appintel')">App
-        Intel</a>. The hunt-targets block is parsed to append partitions for the
+        <code>sbom.cdx.json</code>, both surfaced under the application in <a onclick="navigate('applications')">Apps
+        → Intel</a>. The hunt-targets block is parsed to append partitions for the
         Hunt. Different model family than the hunt model, so it also acts as an
         independent second opinion.</div>
     </section>
@@ -2069,8 +2066,8 @@ function docsHTML(){
         <a onclick="navigate('settings')">Settings</a> and the New Scan form.</div></div>
       <div><div class="k">Application Intelligence</div><div class="v">When the
         Threat-model step runs, its <b>SBOM</b>, <b>threat model</b>, and
-        <b>data-flow diagram</b> are collected per application in the
-        <a onclick="navigate('appintel')">App Intel</a> tab.</div></div>
+        <b>data-flow diagram</b> are collected per application in <a onclick="navigate('applications')">Apps</a> (the
+        Threat model / SBOM sub-tabs).</div></div>
       <div><div class="k">Vulnerability Ledger</div><div class="v">A run can merge
         its confirmed findings into a per-application <a onclick="navigate('ledger')">ledger</a>
         that tracks findings across runs (open / fixed / regressed) and scores each
@@ -3007,25 +3004,6 @@ const VIEWS = {
     },
     unmount() {},
   },
-  appintel: {
-    nav: 'navAppIntel',
-    mount(el, opts) {
-      el.innerHTML = `
-        <div class="pane-head">
-          <h2>Application intelligence</h2>
-          <span style="flex:1"></span>
-          <button class="secondary" onclick="loadAppIntel()">Refresh</button>
-        </div>
-        <p style="color:var(--text-2);font-size:13px;margin:2px 0 14px">
-          What the scans learned about each application — a deterministic
-          <b>SBOM</b> and the <b>PASTA threat model</b> (with data-flow diagram).
-          Pick an application to view its intelligence.</p>
-        <div id="aiApps"><div class="empty">Loading…</div></div>
-        <div id="aiBody" style="margin-top:20px"></div>`;
-      loadAppIntel(opts && opts.repo);
-    },
-    unmount() {},
-  },
   ledger: {
     nav: 'navLedger',
     mount(el, opts) {
@@ -3828,40 +3806,29 @@ function appCard(a){
   </div>`;
 }
 
+let _appCur = null, _appTab = 'history';
+
 window.openApplication = async function(slug){
-  _appActive = slug;
+  _appActive = slug; _appTab = 'history';
   document.querySelectorAll('#appsList .ai-appcard').forEach(el =>
     el.classList.toggle('on', el.dataset.slug === slug));
   const host = $('appDetail');
   if (!host) return;
   host.innerHTML = '<div class="empty">Loading…</div>';
   try {
-    const a = await api('/api/applications/' + encodeURIComponent(slug));
-    host.innerHTML = appDetailHTML(a);
+    _appCur = await api('/api/applications/' + encodeURIComponent(slug));
+    host.innerHTML = appDetailHTML(_appCur);
+    renderAppTab();
   } catch(e){ host.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
 
 function appDetailHTML(a){
-  const hist = (a.scan_history || []).map(s => {
-    const d = s.created ? new Date(s.created*1000).toLocaleString() : '';
-    const c = s.coverage_status
-      ? (s.coverage_degraded ? '<span class="pill p">degraded</span>' : '<span class="pill z">clean</span>')
-      : '—';
-    return `<tr onclick="openReport('${esc(s.id)}')" style="cursor:pointer">
-      <td class="mono">${esc(d)}</td>
-      <td class="mono">${esc(s.model||'—')}</td>
-      <td class="num"><span class="pill ${s.findings?'f':'z'}">${s.findings}</span></td>
-      <td>${severityStrip(s.severities) || '—'}</td>
-      <td>${c}</td>
-      <td class="num">${s.has_threat_model ? '✓' : ''}</td>
-    </tr>`;
-  }).join('');
   const acts = [
     a.latest_report_id ? `<button class="secondary" onclick="openReport('${esc(a.latest_report_id)}')">Open latest report</button>` : '',
     a.has_ledger ? `<button class="secondary" onclick="navigate('ledger',{slug:'${esc(a.slug)}'})">Vulnerability ledger</button>` : '',
-    (a.has_sbom||a.has_threat_model) ? `<button class="secondary" onclick="navigate('appintel',{repo:'${escA(a.repo)}'})">Intelligence · SBOM &amp; threat model</button>` : '',
     `<button class="secondary" onclick="scanApplication('${escA(a.repo)}','${escA(a.name)}')">Scan again</button>`,
   ].filter(Boolean).join('');
+  const tmCount = a.has_threat_model ? '' : '';
   return `
     <div class="ledger-head">
       <div>
@@ -3878,11 +3845,67 @@ function appDetailHTML(a){
       </div>
     </div>
     <div class="app-actions">${acts}</div>
-    <h3 style="margin-top:18px">Scan history <small style="color:var(--text-3);font-weight:400">· newest first</small></h3>
+    <div class="tabs" style="margin-top:16px">
+      <button class="${_appTab==='history'?'on':''}" onclick="appTab('history')">History</button>
+      <button class="${_appTab==='threat'?'on':''}" onclick="appTab('threat')">Threat model</button>
+      <button class="${_appTab==='sbom'?'on':''}" onclick="appTab('sbom')">SBOM</button>
+    </div>
+    <div id="appTabBody" class="ai-content"></div>`;
+}
+
+window.appTab = function(t){
+  _appTab = t;
+  const host = $('appDetail');
+  if (_appCur && host){ host.innerHTML = appDetailHTML(_appCur); renderAppTab(); }
+};
+
+function appHistoryHTML(a){
+  const hist = (a.scan_history || []).map(s => {
+    const d = s.created ? new Date(s.created*1000).toLocaleString() : '';
+    const c = s.coverage_status
+      ? (s.coverage_degraded ? '<span class="pill p">degraded</span>' : '<span class="pill z">clean</span>')
+      : '—';
+    return `<tr onclick="openReport('${esc(s.id)}')" style="cursor:pointer">
+      <td class="mono">${esc(d)}</td>
+      <td class="mono">${esc(s.model||'—')}</td>
+      <td class="num"><span class="pill ${s.findings?'f':'z'}">${s.findings}</span></td>
+      <td>${severityStrip(s.severities) || '—'}</td>
+      <td>${c}</td>
+      <td class="num">${s.has_threat_model ? '✓' : ''}</td>
+    </tr>`;
+  }).join('');
+  return `<div style="font-size:11.5px;color:var(--text-3);margin:8px 0 6px">Newest first — click a row to open its report.</div>
     <div class="tablewrap"><table class="ledgertbl">
       <thead><tr><th>When</th><th>Model</th><th>Findings</th><th>Severity</th><th>Coverage</th><th title="threat model built">TM</th></tr></thead>
       <tbody>${hist || '<tr><td colspan="6" class="empty">No scans yet.</td></tr>'}</tbody>
     </table></div>`;
+}
+
+// Intel sub-tabs: the app's latest SBOM / threat model, rendered from the newest
+// scan that carries each. (This is the App-Intel content, now living under Apps.)
+async function renderAppTab(){
+  const body = $('appTabBody'), a = _appCur;
+  if (!body || !a) return;
+  if (_appTab === 'history'){ body.innerHTML = appHistoryHTML(a); return; }
+  const want = _appTab === 'threat' ? 'has_threat_model' : 'has_sbom';
+  const scan = (a.scan_history || []).find(s => s[want]);
+  if (!scan){
+    body.innerHTML = _appTab === 'threat'
+      ? `<div class="empty">No threat model for this application yet.<br>Re-run a scan with <b>Build threat model (PASTA)</b> enabled.</div>`
+      : `<div class="empty">No SBOM for this application yet.<br>The SBOM is built when <b>Build threat model (PASTA)</b> is enabled.</div>`;
+    return;
+  }
+  body.innerHTML = '<div class="empty">Loading…</div>';
+  if (_appTab === 'threat'){
+    const tm = await _fetchReportFile(scan.id, 'threat_model.md');
+    body.innerHTML = tm ? `<div class="md ai-md">${mdRender(tm)}</div>`
+      : '<div class="empty">Threat model unavailable.</div>';
+    if (tm) runMermaid(body);
+  } else {
+    const txt = await _fetchReportFile(scan.id, 'sbom.cdx.json');
+    let s = null; if (txt){ try { s = sbomSummaryFromCdx(JSON.parse(txt)); } catch(e){} }
+    body.innerHTML = s ? sbomHTML(s, scan.id) : '<div class="empty">SBOM unavailable.</div>';
+  }
 }
 
 window.renameApplication = async function(slug, current){
@@ -3905,17 +3928,17 @@ window.lookupApplication = async function(){
   const repoEl = $('repo'), nameEl = $('appName'), hint = $('appNameHint');
   const repo = ((repoEl && repoEl.value) || '').trim();
   if (!repo){ if (hint) hint.textContent = 'name this app'; return; }
-  const folder = repo.replace(/\/+$/,'').split('/').pop() || '';
   try {
     const d = await api('/api/applications?repo=' + encodeURIComponent(repo));
     if (d.application && d.application.name){
+      // Known folder: auto-fill its existing name so the scan re-associates.
       if (nameEl && !nameEl.value) nameEl.value = d.application.name;
       if (hint) hint.textContent = 'known application';
-    } else {
-      if (nameEl && !nameEl.value) nameEl.value = folder;
-      if (hint) hint.textContent = 'new — name it';
+    } else if (hint){
+      // New folder: leave the field blank (it's optional — defaults to folder name).
+      hint.textContent = 'optional';
     }
-  } catch(e){ if (nameEl && !nameEl.value) nameEl.value = folder; }
+  } catch(e){ /* optional field — ignore lookup failures */ }
 };
 
 // Jump to the New-scan form pre-filled for this application.
@@ -3927,84 +3950,7 @@ window.scanApplication = function(repo, name){
   if (r) r.scrollIntoView({behavior:'smooth', block:'center'});
 };
 
-// ---- Application intelligence (grouped BY APPLICATION) ----
-// Scanning the same folder = the same application, so reports are grouped by
-// their target repo. Each app lists its most recent SBOM + threat model.
-let _aiCache = {};     // report id -> {sbom, tm, tab}
-let _aiApps = [];      // [{key, name, path, scans:[reports], tmReport, sbomReport}]
-let _aiActive = null;  // currently open app key
-
-window.loadAppIntel = async function(preselectRepo) {
-  const apps = $('aiApps');
-  if (!apps) return;
-  try {
-    const d = await api('/api/reports');
-    const reports = (d.reports || []).slice()
-      .sort((a,b) => (b.created||0) - (a.created||0));   // newest first
-    const groups = {};
-    for (const r of reports) {
-      const key = r.repo || r.name || '(unknown)';
-      (groups[key] = groups[key] || []).push(r);
-    }
-    _aiApps = Object.keys(groups).map(key => {
-      const scans = groups[key];
-      return {
-        key, path: key,
-        name: (key.split('/').filter(Boolean).pop()) || key,
-        scans,
-        tmReport: scans.find(r => r.has_threat_model) || null,
-        sbomReport: scans.find(r => r.has_sbom) || null,
-      };
-    }).filter(a => a.tmReport || a.sbomReport)   // only apps with intelligence
-      .sort((a,b) => (b.scans[0].created||0) - (a.scans[0].created||0));
-
-    if (!_aiApps.length) {
-      apps.innerHTML = `<div class="empty">No application intelligence yet.<br>
-        Run a scan with <b>Build threat model (PASTA)</b> enabled — each analyzed
-        application then appears here with its SBOM and threat model.</div>`;
-      $('aiBody').innerHTML = '';
-      return;
-    }
-    apps.innerHTML = '<div class="cards">' + _aiApps.map(a => {
-      const when = a.scans[0].created ? new Date(a.scans[0].created*1000).toLocaleDateString() : '';
-      const badges = [
-        a.tmReport ? '<span class="pill z">Threat model</span>' : '',
-        a.sbomReport ? `<span class="pill">SBOM · ${a.sbomReport.sbom_total||''}</span>` : '',
-      ].filter(Boolean).join('');
-      return `<div class="card ai-appcard${a.key===_aiActive?' on':''}" onclick="openApp('${esc(a.key)}')">
-        <h3>${esc(a.name)}</h3>
-        <div class="path" title="${esc(a.path)}">${esc(a.path)}</div>
-        <div class="meta">${badges}<span>${a.scans.length} scan${a.scans.length===1?'':'s'}</span><span>${esc(when)}</span></div>
-      </div>`;
-    }).join('') + '</div>';
-
-    const pick = _aiApps.find(a => a.key === preselectRepo) || _aiApps[0];
-    if (pick) openApp(pick.key);
-  } catch (e) { apps.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
-};
-
-window.openApp = async function(key) {
-  _aiActive = key;
-  const app = _aiApps.find(a => a.key === key);
-  const body = $('aiBody');
-  // Reflect selection on the cards.
-  document.querySelectorAll('.ai-appcard').forEach(el => el.classList.remove('on'));
-  if (!app) { body.innerHTML = ''; return; }
-  // Use the most recent scan that actually carries each artifact.
-  const tmId = app.tmReport && app.tmReport.id;
-  const sbomId = app.sbomReport && app.sbomReport.id;
-  body.innerHTML = '<div class="empty">Loading…</div>';
-  const [tmTxt, sbomTxt] = await Promise.all([
-    tmId ? _fetchReportFile(tmId, 'threat_model.md') : Promise.resolve(null),
-    sbomId ? _fetchReportFile(sbomId, 'sbom.cdx.json') : Promise.resolve(null),
-  ]);
-  let sbom = null;
-  if (sbomTxt){ try { sbom = sbomSummaryFromCdx(JSON.parse(sbomTxt)); } catch(e){} }
-  _aiCache[key] = {sbom, tm: tmTxt || null, sbomId, tmId, appName: app.name,
-                   tab: (tmTxt ? 'threat' : 'sbom')};
-  renderAppIntel(key);
-};
-
+// ---- shared intel helpers (used by the Apps > Intel sub-tabs) ----
 function _fetchReportFile(id, path){
   return fetch(`/api/reports/${encodeURIComponent(id)}/file?path=${encodeURIComponent(path)}`)
     .then(r => r.ok ? r.text() : null).catch(() => null);
@@ -4020,34 +3966,6 @@ function sbomSummaryFromCdx(cdx){
     rows.push({name: c.name||'', version: c.version||'', ecosystem: eco, license: lic, group: c.group||''});
   }
   return {total: comps.length, by_ecosystem: byEco, components: rows};
-}
-
-window.aiTab = function(id, tab){ if (_aiCache[id]){ _aiCache[id].tab = tab; renderAppIntel(id); } };
-
-function renderAppIntel(key){
-  const body = $('aiBody'), c = _aiCache[key];
-  if (!c || (!c.sbom && !c.tm)){
-    body.innerHTML = `<div class="empty">This application has no intelligence artifacts yet.<br>
-      Run a scan with <b>Build threat model (PASTA)</b> enabled.</div>`;
-    return;
-  }
-  const tabs = `<div class="ai-detail-head"><h3>${esc(c.appName||'')}</h3></div>
-    <div class="tabs">
-    <button class="${c.tab==='threat'?'on':''}" onclick="aiTab('${esc(key)}','threat')">Threat model (PASTA)</button>
-    <button class="${c.tab==='sbom'?'on':''}" onclick="aiTab('${esc(key)}','sbom')">SBOM${c.sbom?` · ${c.sbom.total}`:''}</button>
-  </div>`;
-  let content;
-  if (c.tab==='sbom') {
-    content = c.sbom ? sbomHTML(c.sbom, c.sbomId)
-      : `<div class="empty">No SBOM for this application.<br>
-         The SBOM is built automatically when <b>Build threat model (PASTA)</b> is enabled.</div>`;
-  } else {
-    content = c.tm ? `<div class="md ai-md">${mdRender(c.tm)}</div>`
-      : `<div class="empty">No threat model for this application yet.<br>
-         Re-run the scan with <b>Build threat model (PASTA)</b> enabled (Scan options).</div>`;
-  }
-  body.innerHTML = tabs + `<div class="ai-content">${content}</div>`;
-  if (c.tab === 'threat') runMermaid(body);   // render the data-flow diagram
 }
 
 function sbomHTML(s, sbomId){
