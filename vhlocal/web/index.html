@@ -3842,7 +3842,7 @@ window.openApplication = async function(slug){
 
 function appDetailHTML(a){
   const acts = [
-    a.latest_report_id ? `<button class="secondary" onclick="viewReport('${esc(a.latest_report_id)}')">Open latest report</button>` : '',
+    a.latest_report_id ? `<button class="secondary" onclick="openAppReport('${esc(a.latest_report_id)}')">Open latest report</button>` : '',
     a.has_ledger ? `<button class="secondary" onclick="navigate('ledger',{slug:'${esc(a.slug)}'})">Vulnerability ledger</button>` : '',
     `<button class="secondary" onclick="scanApplication('${escA(a.repo)}','${escA(a.name)}')">Scan again</button>`,
   ].filter(Boolean).join('');
@@ -3868,7 +3868,8 @@ function appDetailHTML(a){
       <button class="${_appTab==='threat'?'on':''}" onclick="appTab('threat')">Threat model</button>
       <button class="${_appTab==='sbom'?'on':''}" onclick="appTab('sbom')">SBOM</button>
     </div>
-    <div id="appTabBody" class="ai-content"></div>`;
+    <div id="appTabBody" class="ai-content"></div>
+    <div id="appReportView" style="margin-top:20px"></div>`;
 }
 
 window.appTab = function(t){
@@ -3877,13 +3878,22 @@ window.appTab = function(t){
   if (_appCur && host){ host.innerHTML = appDetailHTML(_appCur); renderAppTab(); }
 };
 
+// Open a scan's report IN PLACE under the application (no jump to the Reports
+// tab). Renders into the app detail's own #appReportView.
+window.openAppReport = function(id){
+  const host = $('appReportView');
+  if (!host) return;
+  openReport(id, host);
+  host.scrollIntoView({behavior:'smooth', block:'start'});
+};
+
 function appHistoryHTML(a){
   const hist = (a.scan_history || []).map(s => {
     const d = s.created ? new Date(s.created*1000).toLocaleString() : '';
     const c = s.coverage_status
       ? (s.coverage_degraded ? '<span class="pill p">degraded</span>' : '<span class="pill z">clean</span>')
       : '—';
-    return `<tr onclick="viewReport('${esc(s.id)}')" style="cursor:pointer">
+    return `<tr onclick="openAppReport('${esc(s.id)}')" style="cursor:pointer">
       <td class="mono">${esc(d)}</td>
       <td class="mono">${esc(s.model||'—')}</td>
       <td class="num"><span class="pill ${s.findings?'f':'z'}">${s.findings}</span></td>
@@ -4035,8 +4045,11 @@ function healthPanelHTML(fj) {
     ${ledgerRecallHTML(fj && fj.vulnerability_ledger)}</div>`;
 }
 
-window.openReport = async function(id) {
-  const v = $('reportView');
+// `host` lets a report render IN PLACE (e.g. inside the Apps detail) instead of
+// only in the Reports tab — no jarring tab switch. Defaults to #reportView.
+window.openReport = async function(id, host) {
+  const v = host || $('reportView');
+  if (!v) return;
   v.innerHTML = '<div class="empty">Loading…</div>';
   try {
     const d = await api(`/api/reports/${encodeURIComponent(id)}/files`);
@@ -4059,6 +4072,7 @@ window.openReport = async function(id) {
       has('findings.json') ? `<a class="fbtn" href="${fileUrl('findings.json')}" download="findings.json">findings.json ↓</a>` : '',
       has('run_manifest.json') ? `<a class="fbtn" href="${fileUrl('run_manifest.json')}" download="run_manifest.json">Manifest ↓</a>` : '',
       has('sbom.cdx.json') ? `<a class="fbtn" href="${fileUrl('sbom.cdx.json')}" download="sbom.cdx.json">SBOM (CycloneDX) ↓</a>` : '',
+      has('threat_model.md') ? `<a class="fbtn" href="${fileUrl('threat_model.md')}" download="threat_model.md">Threat model ↓</a>` : '',
     ].filter(Boolean).join('');
     v.innerHTML = `<div class="view-head">${esc(id)}</div>
       <div style="font-family:var(--mono);font-size:11.5px;color:var(--text-3);margin-bottom:12px">${esc(d.root)}</div>
@@ -4068,19 +4082,34 @@ window.openReport = async function(id) {
       ${findingsSectionHTML(fj)}
       ${chainsSectionHTML(fj)}
       ${appIntelSectionHTML(fj)}
+      ${has('threat_model.md') ? '<div class="rsec" id="reportThreatModel"><h3>Threat model <small>· PASTA · this scan</small></h3><div class="empty">Loading…</div></div>' : ''}
       <div class="rsec"><h3>Artifacts <small>· every file this run wrote</small></h3>
       <div class="metacard"><table><tr><th>File</th><th style="width:90px">Size</th></tr>` +
       d.files.map(f => `<tr><td><a onclick="viewReportFile('${esc(id)}','${esc(f.path)}')">${esc(f.path)}</a></td>
         <td style="color:var(--text-3)">${(f.size/1024).toFixed(1)} KB</td></tr>`).join('') +
       `</table></div></div><div id="reportFile" style="margin-top:16px"></div>`;
+    // Per-scan threat model, rendered inline (with its DFD). Scoped to this
+    // report's host so it works whether the report is shown in Reports or Apps.
+    const tmHost = v.querySelector('#reportThreatModel');
+    if (tmHost) {
+      fetch(fileUrl('threat_model.md')).then(r => r.ok ? r.text() : null).then(tm => {
+        if (tm) { tmHost.insertAdjacentHTML('beforeend', `<div class="md ai-md">${mdRender(tm)}</div>`);
+                  tmHost.querySelector('.empty')?.remove(); runMermaid(tmHost); }
+        else tmHost.querySelector('.empty').textContent = 'Threat model unavailable.';
+      }).catch(() => {});
+    }
     const first = ['SCAN_REPORT.md','README.md'].find(n => has(n));
-    if (first) viewReportFile(id, first);
+    const fileHost = v.querySelector('#reportFile');
+    if (first && fileHost) viewReportFile(id, first, fileHost);
     v.scrollIntoView({behavior:'smooth', block:'start'});
   } catch (e) { v.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
 
-window.viewReportFile = async function(id, path) {
-  const t = $('reportFile');
+// `host` = the file-viewer container (scoped to the report's pane) so a report
+// opened inside Apps doesn't collide with one in the Reports tab.
+window.viewReportFile = async function(id, path, host) {
+  const t = host || $('reportFile');
+  if (!t) return;
   t.innerHTML = '<div class="empty">Loading…</div>';
   try {
     const r = await fetch(`/api/reports/${encodeURIComponent(id)}/file?path=` + encodeURIComponent(path));
