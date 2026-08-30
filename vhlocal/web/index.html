@@ -1212,6 +1212,10 @@ function ensureMermaid(){
 function _fixMermaid(src){
   return src.split('\n').map(line => {
     line = line.replace(/\\+\s*$/, '');                 // stray trailing backslash
+    // Balance an unclosed node bracket / brace — the model sometimes drops the
+    // closing ] or }, e.g.  D["Internal-ops gate (_wrk_gate)"  → append it.
+    const need = (o, c) => Math.max(0, (line.split(o).length-1) - (line.split(c).length-1));
+    line = line + ']'.repeat(need('[', ']')) + '}'.repeat(need('{', '}'));
     // Quote node / subgraph bracket labels so the characters local models leave
     // unquoted — spaces, parentheses, slashes, unicode (→, ‑) — parse. Quoting is
     // always valid in Mermaid and idempotent (already-quoted labels are skipped).
@@ -3443,6 +3447,20 @@ window.openReportFromLedger = function(runId) {
   setTimeout(() => openReport(runId), 0);
 };
 
+// Open a report from any non-Reports view (Apps, etc.): switch to Reports, then
+// open once #reportView exists (openReport writes into it, so a direct call from
+// another pane finds null and throws — this waits for it).
+window.viewReport = function(id) {
+  if (!id) return;
+  navigate('reports');
+  let tries = 0;
+  const go = () => {
+    if ($('reportView')) openReport(id);
+    else if (tries++ < 60) setTimeout(go, 30);
+  };
+  go();
+};
+
 window.openLedger = async function(slug) {
   const host = $('ledgerDetail');
   if (host) { host.innerHTML = '<div class="empty">Loading ledger…</div>';
@@ -3824,7 +3842,7 @@ window.openApplication = async function(slug){
 
 function appDetailHTML(a){
   const acts = [
-    a.latest_report_id ? `<button class="secondary" onclick="openReport('${esc(a.latest_report_id)}')">Open latest report</button>` : '',
+    a.latest_report_id ? `<button class="secondary" onclick="viewReport('${esc(a.latest_report_id)}')">Open latest report</button>` : '',
     a.has_ledger ? `<button class="secondary" onclick="navigate('ledger',{slug:'${esc(a.slug)}'})">Vulnerability ledger</button>` : '',
     `<button class="secondary" onclick="scanApplication('${escA(a.repo)}','${escA(a.name)}')">Scan again</button>`,
   ].filter(Boolean).join('');
@@ -3865,7 +3883,7 @@ function appHistoryHTML(a){
     const c = s.coverage_status
       ? (s.coverage_degraded ? '<span class="pill p">degraded</span>' : '<span class="pill z">clean</span>')
       : '—';
-    return `<tr onclick="openReport('${esc(s.id)}')" style="cursor:pointer">
+    return `<tr onclick="viewReport('${esc(s.id)}')" style="cursor:pointer">
       <td class="mono">${esc(d)}</td>
       <td class="mono">${esc(s.model||'—')}</td>
       <td class="num"><span class="pill ${s.findings?'f':'z'}">${s.findings}</span></td>
