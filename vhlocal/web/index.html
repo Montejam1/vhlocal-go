@@ -3441,10 +3441,13 @@ window.loadLedgers = async function(openSlug) {
 };
 
 // Jump from a ledger entry to the run that recorded it.
+// Open a ledger finding's source report IN PLACE, under the ledger detail — no
+// jump to the Reports tab. Falls back to the Reports view if the inline host
+// isn't present (e.g. an old layout).
 window.openReportFromLedger = function(runId) {
-  navigate('reports');
-  // loadReports() is async and owns #reportView; open once it has rendered.
-  setTimeout(() => openReport(runId), 0);
+  const host = $('ledgerReportView');
+  if (host) { openReport(runId, host); host.scrollIntoView({behavior:'smooth', block:'start'}); }
+  else { navigate('reports'); setTimeout(() => openReport(runId), 0); }
 };
 
 // Open a report from any non-Reports view (Apps, etc.): switch to Reports, then
@@ -3530,7 +3533,8 @@ window.openLedger = async function(slug) {
           </tr></thead>
           <tbody>${rows || '<tr><td colspan="9" class="empty">No findings recorded.</td></tr>'}</tbody>
         </table>
-      </div>`;
+      </div>
+      <div id="ledgerReportView" style="margin-top:20px"></div>`;
   } catch (e) {
     if (host) host.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
   }
