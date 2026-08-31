@@ -725,6 +725,12 @@ def execute_scan(
                             extra = (extra + "\n\n" + sbom_md) if extra else sbom_md
                     except Exception as exc:  # pragma: no cover - defensive
                         log.warning("SBOM for Phase 1t failed: %s", exc)
+                # Downstream model phases (verify / reproduce / report) should use
+                # the threat model's reasoning, not just the recon inventory.
+                if spec_phase.key in ("2b", "3", "4"):
+                    tm_note = _threat_model_note(results_dir)
+                    if tm_note:
+                        extra = (extra + "\n\n" + tm_note) if extra else tm_note
                 task = build_task(spec_phase, prompt_text, repo, results_dir, extra=extra)
                 active = client_for(spec_phase.key)
                 _capture_prompt(results_dir, spec_phase.key,
@@ -874,6 +880,32 @@ def _derive_scan_tag(results_dir: Path) -> str:
     name = Path(results_dir).name
     m = re.search(r"(\d{4}-\d{2}-\d{2}-\d{6})$", name)
     return m.group(1) if m else name
+
+
+def _threat_model_note(results_dir) -> str:
+    """A framing block pointing a phase at the PASTA threat model, when one was
+    built (``threat_model.md`` exists). Returns '' otherwise, so runs without the
+    threat-model step are byte-for-byte unchanged. Gated on the file's existence
+    rather than the spec flag so it also covers a resumed run.
+
+    The threat model informs partitioning already; this makes its *reasoning* —
+    the application archetype, the enumerated threats and their trust boundaries,
+    the attack paths — available to the hunt/verify/report agents so they focus on
+    what matters for this class of application instead of only the recon inventory."""
+    p = Path(results_dir) / "threat_model.md"
+    if not p.exists():
+        return ""
+    return (
+        "## Threat model (read this)\n\n"
+        "A PASTA threat model was produced for this application in `{0}`. Read it "
+        "before you begin and use it to focus your work: the **application "
+        "archetype**, the enumerated **threats** (with their STRIDE categories and "
+        "the trust boundaries they cross), and the **attack paths** tell you what "
+        "is most likely to be exploitable for *this class of application*. Let it "
+        "guide which flows you prioritise and how you calibrate severity. It "
+        "complements the recon inventory — it does not replace tracing each input "
+        "to its sink.\n"
+    ).format(p)
 
 
 def _resolve_reads(reads, results_dir):
@@ -1174,7 +1206,7 @@ def _run_fan_out(
                 "this vulnerability class."
             )
         def extra_for(out):
-            return (
+            block = (
                 "## Your assigned scope\n\n"
                 "**Partition:** {ident} - {desc}\n"
                 "**Vulnerability class:** {code} - {blurb}\n\n"
@@ -1184,6 +1216,10 @@ def _run_fan_out(
                 ident=part.ident, desc=part.description, code=code, blurb=blurb,
                 p1=results_dir / "phase1_output.md", out=out, scope=scope,
             )
+            # When a PASTA threat model was built, hand the hunt its reasoning so
+            # it focuses on the archetype-specific threats, not just the inventory.
+            tm_note = _threat_model_note(results_dir)
+            return (block + "\n" + tm_note) if tm_note else block
         prompt_text = (
             shared + "\n\n---\n\n# Vulnerability class reference: " + code
             + "\n\n" + class_text
