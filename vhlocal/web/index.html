@@ -1209,6 +1209,8 @@ function ensureMermaid(){
 // Repair the small syntax mistakes local models routinely emit in Mermaid, so a
 // diagram renders instead of showing "Syntax error in text". Conservative: only
 // unambiguous fixes.
+// Repair the invalid Mermaid local models routinely emit, so a diagram renders
+// instead of "Syntax error in text". Every rule is conservative and idempotent.
 function _fixMermaid(src){
   return src.split('\n').map(line => {
     line = line.replace(/\\+\s*$/, '');                 // stray trailing backslash
@@ -1216,11 +1218,18 @@ function _fixMermaid(src){
     // closing ] or }, e.g.  D["Internal-ops gate (_wrk_gate)"  → append it.
     const need = (o, c) => Math.max(0, (line.split(o).length-1) - (line.split(c).length-1));
     line = line + ']'.repeat(need('[', ']')) + '}'.repeat(need('{', '}'));
-    // Quote node / subgraph bracket labels so the characters local models leave
-    // unquoted — spaces, parentheses, slashes, unicode (→, ‑) — parse. Quoting is
-    // always valid in Mermaid and idempotent (already-quoted labels are skipped).
+    // Drop stray whitespace between a quoted label and its closing bracket:
+    //   A["spec (JSON)" ]  →  A["spec (JSON)"]   (Mermaid rejects the gap).
+    line = line.replace(/"\s+\]/g, '"]').replace(/"\s+\}/g, '"}');
+    // Quote UNQUOTED node / subgraph bracket labels so spaces, parentheses,
+    // slashes, unicode (→, ‑) parse. Already-quoted labels contain " and are
+    // skipped by the [^\]"] / [^}"] class, so this is idempotent.
     line = line.replace(/([A-Za-z0-9_]+)\[([^\]"]+)\]/g, (m, id, lbl) => `${id}["${lbl}"]`);
     line = line.replace(/([A-Za-z0-9_]+)\{([^}"]+)\}/g, (m, id, lbl) => `${id}{"${lbl}"}`);
+    // Quote UNQUOTED edge labels — the |...| on an arrow. Parentheses / slashes
+    // there also break the parser, e.g.  A -->|bundle (config.json)| B .
+    // [^|"] skips an already-quoted |"..."| label, so this too is idempotent.
+    line = line.replace(/\|([^|"\n]+)\|/g, (m, lbl) => `|"${lbl.trim()}"|`);
     return line;
   }).join('\n').trim();
 }
