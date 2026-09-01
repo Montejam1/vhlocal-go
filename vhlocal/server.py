@@ -267,6 +267,14 @@ class Handler(BaseHTTPRequestHandler):
             return self._serve_web("index.classic.html")
         if path.startswith("/static/"):
             return self._serve_web(path[len("/static/"):])
+        # The React/TypeScript UI (Vite build → web/app/). Its assets live under
+        # /app/assets/…; every other /app path is an SPA route that must return
+        # index.html so the client router can handle it (deep links, refresh).
+        if path == "/app" or path.startswith("/app/"):
+            rel = path[len("/app/"):] if path.startswith("/app/") else ""
+            if rel and (rel.startswith("assets/") or "." in rel.rsplit("/", 1)[-1]):
+                return self._serve_web("app/" + rel)
+            return self._serve_web("app/index.html")
         if path == "/api/config":
             return self._json({
                 "skill_dir": str(CFG.skill_dir),

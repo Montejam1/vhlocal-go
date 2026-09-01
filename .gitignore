@@ -34,3 +34,6 @@ vulnhunter-reports/
 # Local scratch
 scratch/
 tmp/
+
+# Vite build output for the React UI (regenerate with: cd web-react && npm run build)
+vhlocal/web/app/

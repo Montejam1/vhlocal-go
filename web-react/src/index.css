@@ -1,0 +1,163 @@
+@import "tailwindcss";
+
+/* Design tokens — the Google-flavored palette from the original UI, expressed as
+   CSS variables so components read them directly. Dark is the default; an explicit
+   data-theme="light" (or the OS query when unset) switches. */
+:root {
+  --bg: #131920;
+  --surface-1: #1b2229;
+  --surface-2: #202831;
+  --surface-3: #242d36;
+  --line: #2e3841;
+  --line-strong: #44525e;
+  --text-1: #eaf0f4;
+  --text-2: #a3b2bd;
+  --text-3: #71818c;
+  --accent: #4c8df6;
+  --accent-strong: #7eaef9;
+  --accent-weak: rgba(66, 133, 244, 0.16);
+  --accent-ink: #ffffff;
+  --ok: #34a853;
+  --ok-weak: rgba(52, 168, 83, 0.16);
+  --warn: #fbbc04;
+  --warn-weak: rgba(251, 188, 4, 0.15);
+  --err: #ea4335;
+  --err-weak: rgba(234, 67, 53, 0.16);
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+:root[data-theme="light"] {
+  --bg: #f6f8fb;
+  --surface-1: #ffffff;
+  --surface-2: #f0f3f8;
+  --surface-3: #e6ebf2;
+  --line: #e0e6ef;
+  --line-strong: #cdd6e3;
+  --text-1: #141a24;
+  --text-2: #55617a;
+  --text-3: #8b95a7;
+  --accent: #1a73e8;
+  --accent-strong: #1666d0;
+  --accent-weak: rgba(26, 115, 232, 0.11);
+  --ok: #188038;
+  --ok-weak: rgba(24, 128, 56, 0.13);
+  --warn: #e37400;
+  --warn-weak: rgba(227, 116, 0, 0.13);
+  --err: #d93025;
+  --err-weak: rgba(217, 48, 37, 0.11);
+}
+
+/* Map the tokens into Tailwind v4's theme so utilities like bg-surface-1,
+   text-text-2, border-line, text-accent work throughout. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-weak: var(--accent-weak);
+  --color-accent-ink: var(--accent-ink);
+  --color-ok: var(--ok);
+  --color-ok-weak: var(--ok-weak);
+  --color-warn: var(--warn);
+  --color-warn-weak: var(--warn-weak);
+  --color-err: var(--err);
+  --color-err-weak: var(--err-weak);
+  --radius: var(--radius);
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+::selection {
+  background: var(--accent-weak);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+/* Rendered markdown (threat model / reports). */
+.md :where(h1, h2, h3) {
+  color: var(--text-1);
+  font-weight: 600;
+  margin: 1.1em 0 0.5em;
+}
+.md h2 {
+  font-size: 1.1rem;
+}
+.md h3 {
+  font-size: 1rem;
+}
+.md p,
+.md li {
+  color: var(--text-2);
+  line-height: 1.6;
+}
+.md ul {
+  padding-left: 1.2em;
+  list-style: disc;
+}
+.md code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.md pre {
+  overflow-x: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.md table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+  margin: 10px 0;
+}
+.md th,
+.md td {
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  text-align: left;
+}
+.md th {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.mermaid-box {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin: 12px 0;
+  overflow-x: auto;
+  text-align: center;
+  cursor: zoom-in;
+}
+.mermaid-box svg {
+  max-width: 100%;
+  height: auto;
+}
