@@ -161,3 +161,19 @@ body {
   max-width: 100%;
   height: auto;
 }
+
+/* Pulsing current step in the tracker. */
+@keyframes nodepulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+    transform: scale(1);
+  }
+  60% {
+    box-shadow: 0 0 0 13px transparent;
+    transform: scale(1.14);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    transform: scale(1);
+  }
+}

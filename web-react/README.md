@@ -38,4 +38,8 @@ Vertical slices ported so far:
 - [x] App shell — layout, nav rail, theme (dark/light), routing, typed API client
 - [x] **Applications** — list + detail with History / Threat model / SBOM tabs,
       SBOM table, threat-model markdown + rendered DFD (click-to-zoom)
-- [ ] Dashboard, Scans (live SSE), Reports, Ledger, Docs, Settings, New Scan form
+- [x] **Dashboard** — metric tiles (colored), findings-per-scan chart, by-model
+      bars, latest-scan step tracker
+- [x] **Scans** — job list + detail: stat tiles, pulsing step tracker, and a live
+      feed over SSE (`/api/scans/<id>/events`)
+- [ ] Reports, Ledger, Docs, Settings, New Scan form

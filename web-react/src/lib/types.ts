@@ -50,6 +50,51 @@ export interface ReportFiles {
   files: ReportFile[];
 }
 
+export interface Job {
+  id: string;
+  status: string;
+  phase: string | null;
+  agent_label: string | null;
+  agent_index: number;
+  agent_total: number;
+  elapsed: number;
+  created_at: number;
+  finished_at: number | null;
+  prompt_tokens: number;
+  completion_tokens: number;
+  findings_count: number;
+  current_model: string;
+  results_dir: string | null;
+  error: string | null;
+  spec: {
+    repo: string;
+    model: string;
+    phases: string;
+    threat_model?: boolean;
+    verify_model?: string;
+    [k: string]: unknown;
+  };
+}
+
+export interface Stats {
+  scans: number;
+  with_usage: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  avg_tokens_per_scan: number;
+  findings: number;
+  avg_findings_per_scan: number;
+  total_seconds: number;
+  avg_seconds_per_scan: number;
+  by_model: Record<string, { scans: number; tokens: number; findings: number }>;
+}
+
+export interface PhaseDef {
+  key: string;
+  title: string;
+}
+
 // CycloneDX subset we render.
 export interface CdxComponent {
   name: string;

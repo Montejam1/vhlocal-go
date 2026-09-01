@@ -1,4 +1,4 @@
-import type { AppDetail, AppSummary, Cdx, ReportFiles, SbomRow } from "./types";
+import type { AppDetail, AppSummary, Cdx, Job, PhaseDef, ReportFiles, SbomRow, Stats } from "./types";
 
 // Same-origin in prod (Python serves the built app); in dev Vite proxies /api.
 async function getJSON<T>(path: string): Promise<T> {
@@ -37,6 +37,11 @@ export const api = {
     const r = await fetch(api.reportFileUrl(id, path));
     return r.ok ? r.text() : null;
   },
+
+  scans: () => getJSON<{ jobs: Job[]; busy: boolean }>("/api/scans"),
+  stats: () => getJSON<Stats>("/api/stats"),
+  config: () => getJSON<{ phases: PhaseDef[] }>("/api/config"),
+  cancelScan: (id: string) => postJSON(`/api/scans/${encodeURIComponent(id)}/cancel`, {}),
 };
 
 /** Flatten a CycloneDX doc into display rows (mirrors sbom.summary()). */
