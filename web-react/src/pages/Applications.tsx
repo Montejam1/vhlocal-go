@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { api, sbomRows } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
+import { api } from "@/lib/api";
 import type { AppDetail, AppSummary, Cdx } from "@/lib/types";
 import { Card, CardTitle, CardMeta } from "@/components/ui/card";
 import { Badge, SeverityStrip } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { Markdown } from "@/components/Markdown";
+import { SbomTable } from "@/components/SbomTable";
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils";
 
 export function Applications() {
@@ -87,6 +89,7 @@ function AppCard({ app, active, onClick }: { app: AppSummary; active: boolean; o
 }
 
 function AppDetailView({ slug, onRenamed }: { slug: string; onRenamed: () => void }) {
+  const navigate = useNavigate();
   const [detail, setDetail] = useState<AppDetail | null>(null);
   const [tab, setTab] = useState<"history" | "threat" | "sbom">("history");
 
@@ -130,7 +133,7 @@ function AppDetailView({ slug, onRenamed }: { slug: string; onRenamed: () => voi
 
       <div className="mt-4 flex flex-wrap gap-2">
         {detail.latest_report_id && (
-          <Button variant="secondary" size="sm" onClick={() => (window.location.href = `/app/reports?open=${detail.latest_report_id}`)}>
+          <Button variant="secondary" size="sm" onClick={() => navigate(`/reports?open=${detail.latest_report_id}`)}>
             Open latest report
           </Button>
         )}
@@ -169,6 +172,7 @@ function Stats({ items }: { items: [string, number | string][] }) {
 }
 
 function History({ detail }: { detail: AppDetail }) {
+  const navigate = useNavigate();
   const rows = detail.scan_history || [];
   return (
     <div className="overflow-x-auto rounded-[var(--radius-sm,8px)] border border-line">
@@ -192,7 +196,7 @@ function History({ detail }: { detail: AppDetail }) {
           )}
           {rows.map((s) => (
             <tr key={s.id} className="cursor-pointer border-t border-line hover:bg-accent-weak"
-                onClick={() => (window.location.href = `/app/reports?open=${s.id}`)}>
+                onClick={() => navigate(`/reports?open=${s.id}`)}>
               <td className="whitespace-nowrap px-3 py-2 font-mono text-text-2">{fmtDateTime(s.created)}</td>
               <td className="whitespace-nowrap px-3 py-2 font-mono text-text-2">{s.model || "—"}</td>
               <td className="px-3 py-2">
@@ -250,41 +254,4 @@ function IntelTab({ slug, detail, kind }: { slug: string; detail: AppDetail; kin
     );
   if (kind === "threat") return <Markdown>{content as string}</Markdown>;
   return <SbomTable cdx={content as Cdx} id={scan!.id} />;
-}
-
-function SbomTable({ cdx, id }: { cdx: Cdx; id: string }) {
-  const { rows, byEco } = sbomRows(cdx);
-  return (
-    <div>
-      <div className="mb-3 flex flex-wrap items-center gap-3 text-[13px] text-text-2">
-        <span>
-          <b>{rows.length}</b> direct dependencies · {Object.entries(byEco).map(([k, v]) => `${v} ${k}`).join(", ")}
-        </span>
-        <a className="ml-auto" href={api.reportFileUrl(id, "sbom.cdx.json")} download="sbom.cdx.json">
-          <Button variant="secondary" size="sm">CycloneDX ↓</Button>
-        </a>
-      </div>
-      <div className="overflow-x-auto rounded-[var(--radius-sm,8px)] border border-line">
-        <table className="w-full text-[12.5px]">
-          <thead>
-            <tr className="bg-surface-2 text-text-2">
-              {["Component", "Version", "Ecosystem", "License"].map((h) => (
-                <th key={h} className="px-3 py-2 text-left font-semibold">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((c, i) => (
-              <tr key={i} className="border-t border-line">
-                <td className="px-3 py-2 font-mono">{c.group ? `${c.group}/${c.name}` : c.name}</td>
-                <td className="px-3 py-2 font-mono text-text-2">{c.version || "—"}</td>
-                <td className="px-3 py-2"><Badge>{c.ecosystem}</Badge></td>
-                <td className="px-3 py-2 text-text-2">{c.license || "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
 }

@@ -41,6 +41,67 @@ export interface AppDetail extends AppSummary {
   has_ledger: boolean;
 }
 
+export interface ReportRow {
+  id: string;
+  name: string;
+  repo: string;
+  model: string;
+  created: number;
+  stamp: string;
+  findings: number;
+  severities: Severities;
+  coverage_status: string;
+  coverage_degraded: boolean;
+  recall_pct: number | null;
+  chains: number;
+  sbom_total: number;
+  size: number;
+  has_report: boolean;
+  has_sbom: boolean;
+  has_threat_model: boolean;
+  slug: string;
+}
+
+export interface LedgerSummary {
+  slug: string;
+  target: string;
+  target_name: string;
+  runs_recorded: number;
+  total: number;
+  open: number;
+  fixed: number;
+  regressed: number;
+  reliable: number;
+  by_severity: Severities;
+  updated: number;
+}
+
+export interface LedgerStamp {
+  run: string;
+  model: string;
+  date: number;
+}
+export interface LedgerFinding {
+  key: string;
+  canonical_cwe: string;
+  family: string;
+  title: string;
+  location: string;
+  severity: string;
+  first_seen: LedgerStamp;
+  last_seen: LedgerStamp;
+  confirmed_in: string[];
+  confirmed_count: number;
+  cross_family: boolean;
+  status: string;
+  confidence: string;
+}
+export interface LedgerDetail {
+  slug: string;
+  summary: LedgerSummary;
+  findings: LedgerFinding[];
+}
+
 export interface ReportFile {
   path: string;
   size: number;

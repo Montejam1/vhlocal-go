@@ -42,4 +42,10 @@ Vertical slices ported so far:
       bars, latest-scan step tracker
 - [x] **Scans** — job list + detail: stat tiles, pulsing step tracker, and a live
       feed over SSE (`/api/scans/<id>/events`)
-- [ ] Reports, Ledger, Docs, Settings, New Scan form
+- [x] **Reports** — table with checkbox multi-select + bulk delete; in-place
+      detail (health, downloads, report body, threat model + DFD, SBOM,
+      artifacts); deep-linked from Apps via `?open=<id>`
+- [x] **Ledger** — per-application cards + findings table (status / seen /
+      confidence, cross-family marker)
+- [x] **Docs** — the pipeline, step by step, + "beyond the steps"
+- [ ] Settings, New Scan form

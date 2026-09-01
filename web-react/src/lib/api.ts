@@ -1,4 +1,16 @@
-import type { AppDetail, AppSummary, Cdx, Job, PhaseDef, ReportFiles, SbomRow, Stats } from "./types";
+import type {
+  AppDetail,
+  AppSummary,
+  Cdx,
+  Job,
+  LedgerDetail,
+  LedgerSummary,
+  PhaseDef,
+  ReportFiles,
+  ReportRow,
+  SbomRow,
+  Stats,
+} from "./types";
 
 // Same-origin in prod (Python serves the built app); in dev Vite proxies /api.
 async function getJSON<T>(path: string): Promise<T> {
@@ -42,6 +54,15 @@ export const api = {
   stats: () => getJSON<Stats>("/api/stats"),
   config: () => getJSON<{ phases: PhaseDef[] }>("/api/config"),
   cancelScan: (id: string) => postJSON(`/api/scans/${encodeURIComponent(id)}/cancel`, {}),
+
+  reports: () => getJSON<{ reports_dir: string; reports: ReportRow[] }>("/api/reports"),
+  deleteReport: async (id: string) => {
+    const r = await fetch(`/api/reports/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!r.ok) throw new Error(`${r.status} — delete ${id}`);
+  },
+
+  ledgers: () => getJSON<{ ledgers: LedgerSummary[] }>("/api/ledgers").then((d) => d.ledgers),
+  ledger: (slug: string) => getJSON<LedgerDetail>(`/api/ledgers/${encodeURIComponent(slug)}`),
 };
 
 /** Flatten a CycloneDX doc into display rows (mirrors sbom.summary()). */

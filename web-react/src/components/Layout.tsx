@@ -53,10 +53,7 @@ export function Layout() {
       <header className="flex items-center gap-3 border-b border-line bg-surface-1 px-4 h-14">
         <div className="flex items-center gap-2 text-accent">
           <ShieldCheck size={22} />
-          <div>
-            <div className="text-[15px] font-semibold text-text-1 leading-none">vhlocal</div>
-            <div className="text-[10.5px] text-text-3">VulnHunter engine</div>
-          </div>
+          <div className="text-[16px] font-semibold text-text-1">vhlocal</div>
         </div>
         <nav className="ml-4 flex items-center gap-0.5">
           {NAV.map(({ to, label, icon: Icon, end }) => (

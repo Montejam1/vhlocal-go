@@ -26,6 +26,21 @@ export function Badge({ className, variant, ...props }: BadgeProps) {
   return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
+/** Severity → badge variant. Critical/High → err, Medium → warn, Low → accent. */
+export function sevVariant(s: string): BadgeProps["variant"] {
+  const l = (s || "").toLowerCase();
+  if (l.startsWith("crit") || l === "high+") return "err";
+  if (l.startsWith("high")) return "err";
+  if (l.startsWith("med") || l.startsWith("mod")) return "warn";
+  if (l.startsWith("low")) return "accent";
+  return "default";
+}
+
+/** A single severity label as a colored badge. */
+export function SevBadge({ severity }: { severity: string }) {
+  return <Badge variant={sevVariant(severity)}>{severity || "—"}</Badge>;
+}
+
 /** Small severity-colored chip: Critical/High → err, Medium → warn, Low → accent. */
 export function SeverityStrip({ severities }: { severities?: Record<string, number> }) {
   const order = ["Critical", "High+", "High", "Medium", "Moderate", "Low", "Informational", "Info"];
