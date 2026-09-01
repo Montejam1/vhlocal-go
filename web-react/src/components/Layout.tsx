@@ -79,7 +79,9 @@ export function Layout() {
         <ThemeToggle />
       </header>
       <main className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="mx-auto max-w-6xl">
+        {/* Fluid width — use the whole window, with a generous cap on very wide
+            monitors so line lengths stay readable. */}
+        <div className="mx-auto w-full max-w-[1600px] 2xl:max-w-[1800px]">
           <Outlet />
         </div>
       </main>

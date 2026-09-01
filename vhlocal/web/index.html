@@ -565,7 +565,9 @@
   .ledger-stats span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3)}
   .ai-appcard{cursor:pointer}
   .ai-appcard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-  .app-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .app-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px}
+  button.secondary.danger{background:var(--err-weak);color:var(--err);border-color:transparent}
+  button.secondary.danger:hover{background:var(--err);color:#fff}
   .renamebtn{background:none;border:none;color:var(--text-3);cursor:pointer;
     font-size:13px;padding:2px 5px;border-radius:5px}
   .renamebtn:hover{color:var(--accent);background:var(--accent-weak)}
@@ -3858,8 +3860,9 @@ function appDetailHTML(a){
     a.latest_report_id ? `<button class="secondary" onclick="openAppReport('${esc(a.latest_report_id)}')">Open latest report</button>` : '',
     a.has_ledger ? `<button class="secondary" onclick="navigate('ledger',{slug:'${esc(a.slug)}'})">Vulnerability ledger</button>` : '',
     `<button class="secondary" onclick="scanApplication('${escA(a.repo)}','${escA(a.name)}')">Scan again</button>`,
+    `<span style="flex:1"></span>`,
+    `<button class="secondary danger" onclick="forgetApplication('${esc(a.slug)}','${escA(a.name)}',${a.scans||0})">Forget application</button>`,
   ].filter(Boolean).join('');
-  const tmCount = a.has_threat_model ? '' : '';
   return `
     <div class="ledger-head">
       <div>
@@ -3960,6 +3963,21 @@ window.renameApplication = async function(slug, current){
       body: JSON.stringify({name: nm}),
     });
     await loadApplications(slug);
+  } catch(e){ alert(e.message); }
+};
+
+// Forget an application: drop its name + ledger and hide it from the list; its
+// scan reports are kept (still in Reports). Reversible — re-scanning brings it back.
+window.forgetApplication = async function(slug, name, scans){
+  if (!confirm(`Forget application "${name}"?\n\n`
+    + `• its name and vulnerability ledger are removed\n`
+    + `• it disappears from the Apps list\n`
+    + `• its ${scans} scan report(s) are KEPT (still in the Reports tab)\n\n`
+    + `Re-scanning the folder brings the application back.`)) return;
+  try {
+    await api('/api/applications/' + encodeURIComponent(slug), {method:'DELETE'});
+    _appActive = null;
+    await loadApplications();
   } catch(e){ alert(e.message); }
 };
 

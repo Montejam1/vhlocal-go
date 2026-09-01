@@ -156,6 +156,25 @@ export interface PhaseDef {
   title: string;
 }
 
+export interface ConfigResp {
+  phases: PhaseDef[];
+  allow_roots: string[];
+  defaults: {
+    model: string;
+    num_ctx: number;
+    ollama_host: string;
+    openai_host: string;
+    openrouter_host: string;
+    openrouter_key_set: boolean;
+  };
+}
+
+export interface ModelInfo {
+  name: string;
+  size?: number | null;
+  family?: string | null;
+}
+
 // CycloneDX subset we render.
 export interface CdxComponent {
   name: string;

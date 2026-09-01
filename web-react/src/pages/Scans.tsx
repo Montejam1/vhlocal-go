@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { usePoll } from "@/lib/usePoll";
 import { useEvents } from "@/lib/useEvents";
-import type { Job, PhaseDef } from "@/lib/types";
+import type { ConfigResp, Job, PhaseDef } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { Tabs } from "@/components/ui/tabs";
 import { StepTracker } from "@/components/StepTracker";
+import { NewScan } from "./NewScan";
 import { cn, fmtDuration, fmtDateTime } from "@/lib/utils";
 
 const DOT: Record<string, string> = {
@@ -16,12 +18,49 @@ const DOT: Record<string, string> = {
   interrupted: "bg-err",
 };
 
+// The Scans tab leads with launching a scan; History & live is the second sub-tab.
 export function Scans() {
+  const [tab, setTab] = useState<"new" | "history">("new");
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-3">
+        <h1 className="text-xl font-semibold text-text-1">Scans</h1>
+      </div>
+      <Tabs
+        value={tab}
+        onChange={(t) => setTab(t as typeof tab)}
+        tabs={[
+          { key: "new", label: "New scan" },
+          { key: "history", label: "History & live" },
+        ]}
+      />
+      <div className="mt-5">
+        {tab === "new" ? (
+          <NewScan
+            onLaunched={(id) => {
+              setOpenId(id);
+              setTab("history");
+            }}
+          />
+        ) : (
+          <ScanHistory selectId={openId} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ScanHistory({ selectId }: { selectId: string | null }) {
   const scans = usePoll(() => api.scans(), 4000);
-  const cfg = usePoll<{ phases: PhaseDef[] }>(() => api.config(), 0);
-  const [sel, setSel] = useState<string | null>(null);
+  const cfg = usePoll<ConfigResp>(() => api.config(), 0);
+  const [sel, setSel] = useState<string | null>(selectId);
 
   const jobs = scans.data?.jobs || [];
+  useEffect(() => {
+    if (selectId) setSel(selectId);
+  }, [selectId]);
   useEffect(() => {
     if (sel && jobs.some((j) => j.id === sel)) return;
     const pick = jobs.find((j) => ["running", "queued"].includes(j.status)) || jobs[0];
@@ -34,7 +73,7 @@ export function Scans() {
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[300px_1fr]">
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <h1 className="text-xl font-semibold text-text-1">Scans</h1>
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-text-3">All runs</h2>
           <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-text-3">{jobs.length}</span>
         </div>
         <div className="flex flex-col gap-1.5">

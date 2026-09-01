@@ -55,6 +55,23 @@ def ledger_path(target: str) -> Path:
     return ledger_dir() / (_slug(target) + ".json")
 
 
+def delete_ledger_by_slug(slug: str) -> bool:
+    """Delete a target's ledger file by its slug (filename stem). Path-safe: the
+    slug is matched against the enumerated directory, never joined to a path.
+    Returns True if a file was removed."""
+    d = ledger_dir()
+    if not d.is_dir():
+        return False
+    for p in d.glob("*.json"):
+        if p.stem == slug:
+            try:
+                p.unlink()
+                return True
+            except OSError:
+                return False
+    return False
+
+
 def _loc_line(text: str) -> int:
     m = re.search(r"\.\w{1,6}[:\s]+(\d+)", text or "")
     return int(m.group(1)) if m else 0

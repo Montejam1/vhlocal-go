@@ -57,7 +57,16 @@ export function Applications() {
               <AppCard key={a.slug} app={a} active={a.slug === active} onClick={() => setActive(a.slug)} />
             ))}
           </div>
-          {active && <AppDetailView slug={active} onRenamed={load} />}
+          {active && (
+            <AppDetailView
+              slug={active}
+              onRenamed={load}
+              onForgotten={() => {
+                setActive(null);
+                load();
+              }}
+            />
+          )}
         </>
       )}
     </div>
@@ -88,7 +97,15 @@ function AppCard({ app, active, onClick }: { app: AppSummary; active: boolean; o
   );
 }
 
-function AppDetailView({ slug, onRenamed }: { slug: string; onRenamed: () => void }) {
+function AppDetailView({
+  slug,
+  onRenamed,
+  onForgotten,
+}: {
+  slug: string;
+  onRenamed: () => void;
+  onForgotten: () => void;
+}) {
   const navigate = useNavigate();
   const [detail, setDetail] = useState<AppDetail | null>(null);
   const [tab, setTab] = useState<"history" | "threat" | "sbom">("history");
@@ -107,6 +124,25 @@ function AppDetailView({ slug, onRenamed }: { slug: string; onRenamed: () => voi
     await api.renameApplication(slug, name.trim());
     api.application(slug).then(setDetail);
     onRenamed();
+  };
+
+  const forget = async () => {
+    if (
+      !confirm(
+        `Forget application “${detail.name}”?\n\n` +
+          `• its name and vulnerability ledger are removed\n` +
+          `• it disappears from the Apps list\n` +
+          `• its ${detail.scans} scan report(s) are KEPT (still in the Reports tab)\n\n` +
+          `Re-scanning the folder brings the application back.`,
+      )
+    )
+      return;
+    try {
+      await api.forgetApplication(slug);
+      onForgotten();
+    } catch (e) {
+      alert(String((e as Error).message || e));
+    }
   };
 
   return (
@@ -137,6 +173,10 @@ function AppDetailView({ slug, onRenamed }: { slug: string; onRenamed: () => voi
             Open latest report
           </Button>
         )}
+        <span className="flex-1" />
+        <Button variant="danger" size="sm" onClick={forget}>
+          Forget application
+        </Button>
       </div>
 
       <Tabs

@@ -1,11 +1,12 @@
 import { Search, ShieldAlert, Hash, Gauge, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { usePoll } from "@/lib/usePoll";
 import type { Job, PhaseDef, Stats } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StepTracker } from "@/components/StepTracker";
-import { fmtDuration } from "@/lib/utils";
+import { fmtDuration, fmtDateTime } from "@/lib/utils";
 
 function compact(n: number): string {
   if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
@@ -140,23 +141,44 @@ export function Dashboard() {
 }
 
 function LatestScan({ job, phases }: { job: Job; phases: PhaseDef[] }) {
+  const navigate = useNavigate();
   const dot: Record<string, string> = {
-    running: "bg-accent",
+    running: "bg-accent animate-pulse",
     done: "bg-ok",
     queued: "bg-warn",
     failed: "bg-err",
     cancelled: "bg-err",
     interrupted: "bg-err",
   };
+  const tiles: [string, string][] = [
+    ["Model", job.current_model || job.spec?.model || "—"],
+    ["Tokens", `${(job.prompt_tokens / 1e6).toFixed(1)}M in · ${(job.completion_tokens / 1e3).toFixed(0)}K out`],
+    ["Findings", String(job.findings_count ?? "—")],
+    ["Elapsed", fmtDuration(job.elapsed)],
+  ];
   return (
     <div>
-      <div className="mb-3 flex items-center gap-2 text-sm">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
         <span className={`h-2 w-2 rounded-full ${dot[job.status] || "bg-text-3"}`} />
-        <b className="font-mono text-text-1">{job.spec?.repo?.split("/").pop() || job.id}</b>
+        <b className="font-mono text-text-1">{job.spec?.repo || job.id}</b>
         <span className="rounded border border-line bg-surface-2 px-2 py-0.5 text-[11px] uppercase text-text-2">
           {job.status}
         </span>
-        <span className="text-text-3">{job.current_model || job.spec?.model}</span>
+        <span className="text-text-3">· started {fmtDateTime(job.created_at)}</span>
+        <span className="flex-1" />
+        <Button variant="secondary" size="sm" onClick={() => navigate("/scans")}>
+          Open scan →
+        </Button>
+      </div>
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {tiles.map(([label, val]) => (
+          <div key={label} className="rounded-lg border border-line bg-surface-1 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-text-3">{label}</div>
+            <div className="mt-0.5 truncate font-mono text-[13px] text-text-1" title={val}>
+              {val}
+            </div>
+          </div>
+        ))}
       </div>
       <StepTracker job={job} phases={phases} />
     </div>

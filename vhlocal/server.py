@@ -422,6 +422,18 @@ class Handler(BaseHTTPRequestHandler):
             if root is None:
                 return self._err("no such report", 404)
             return self._delete_report(rid, root)
+        if path.startswith("/api/applications/"):
+            # Forget an application: drop its registration/name + delete its
+            # ledger + hide it from the list. Scan reports are KEPT (still in the
+            # Reports tab); re-scanning the folder brings the app back.
+            from .apps import hide, is_valid_slug
+            from .membank import delete_ledger_by_slug
+            slug = urllib.parse.unquote(path[len("/api/applications/"):]).rstrip("/")
+            if not is_valid_slug(slug):
+                return self._err("bad application id", 400)
+            hide(slug)
+            delete_ledger_by_slug(slug)
+            return self._json({"forgotten": slug})
         return self._err("not found", 404)
 
     # ---------- endpoints ----------
@@ -656,8 +668,11 @@ class Handler(BaseHTTPRequestHandler):
         }
 
     def _applications(self) -> List[Dict[str, Any]]:
+        from .apps import hidden_slugs
         reg, by_slug, ledgers = self._apps_index()
-        slugs = set(reg) | set(by_slug) | set(ledgers)
+        # Forgotten apps stay out of the list even though their reports remain.
+        hidden = hidden_slugs()
+        slugs = (set(reg) | set(by_slug) | set(ledgers)) - hidden
         out = [self._app_summary(s, reg, by_slug, ledgers) for s in slugs]
         out.sort(key=lambda a: -(a["last_scanned"] or 0))
         return out

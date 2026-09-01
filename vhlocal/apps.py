@@ -62,11 +62,12 @@ def register(repo: Any, name: Optional[str] = None, when: float = 0.0) -> Dict[s
 
     A non-empty ``name`` sets/updates the label; otherwise the folder name is used
     as the default on creation. Idempotent — subsequent scans of the same path
-    keep the existing name unless a new one is given. Returns the entry."""
+    keep the existing name unless a new one is given. Un-hides a previously
+    forgotten app (a new scan brings it back). Returns the entry."""
     data = _load()
     slug = slug_for(repo)
     entry = data.get(slug)
-    if entry is None:
+    if entry is None or entry.get("hidden"):
         nm = (name or "").strip() or _default_name(repo, slug)
         entry = {"slug": slug, "name": nm, "repo": str(repo or ""),
                  "created": when, "updated": when}
@@ -80,6 +81,24 @@ def register(repo: Any, name: Optional[str] = None, when: float = 0.0) -> Dict[s
             entry["updated"] = when
     _save(data)
     return entry
+
+
+def hide(slug: str) -> bool:
+    """Forget an application: drop its name/registration and mark it hidden so it
+    no longer appears in the Apps list, even though its scan reports remain on
+    disk. Re-scanning the folder un-hides it (see register). Returns True if the
+    slug was known."""
+    data = _load()
+    existed = slug in data
+    data[slug] = {"slug": slug, "hidden": True}
+    _save(data)
+    return existed
+
+
+def hidden_slugs() -> set:
+    """Slugs the user has forgotten — excluded from the Apps list even when their
+    reports/ledger still exist."""
+    return {s for s, e in _load().items() if isinstance(e, dict) and e.get("hidden")}
 
 
 def set_name(slug: str, name: str, repo: Any = "", when: float = 0.0
@@ -107,8 +126,9 @@ def set_name(slug: str, name: str, repo: Any = "", when: float = 0.0
 
 
 def list_applications() -> List[Dict[str, Any]]:
-    """All registered applications, most-recently-updated first."""
-    return sorted(_load().values(), key=lambda a: -(a.get("updated") or 0))
+    """All registered (non-hidden) applications, most-recently-updated first."""
+    vis = [e for e in _load().values() if isinstance(e, dict) and not e.get("hidden")]
+    return sorted(vis, key=lambda a: -(a.get("updated") or 0))
 
 
 _VALID_SLUG = re.compile(r"^[A-Za-z0-9._-]+$")

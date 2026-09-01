@@ -2,10 +2,11 @@ import type {
   AppDetail,
   AppSummary,
   Cdx,
+  ConfigResp,
   Job,
   LedgerDetail,
   LedgerSummary,
-  PhaseDef,
+  ModelInfo,
   ReportFiles,
   ReportRow,
   SbomRow,
@@ -39,6 +40,11 @@ export const api = {
   renameApplication: (slug: string, name: string) =>
     postJSON<AppSummary>(`/api/applications/${encodeURIComponent(slug)}`, { name }),
 
+  forgetApplication: async (slug: string) => {
+    const r = await fetch(`/api/applications/${encodeURIComponent(slug)}`, { method: "DELETE" });
+    if (!r.ok) throw new Error(`${r.status} — forget ${slug}`);
+  },
+
   reportFiles: (id: string) =>
     getJSON<ReportFiles>(`/api/reports/${encodeURIComponent(id)}/files`),
 
@@ -52,8 +58,17 @@ export const api = {
 
   scans: () => getJSON<{ jobs: Job[]; busy: boolean }>("/api/scans"),
   stats: () => getJSON<Stats>("/api/stats"),
-  config: () => getJSON<{ phases: PhaseDef[] }>("/api/config"),
+  config: () => getJSON<ConfigResp>("/api/config"),
   cancelScan: (id: string) => postJSON(`/api/scans/${encodeURIComponent(id)}/cancel`, {}),
+
+  models: (backend: string, host?: string) => {
+    const q = new URLSearchParams({ backend });
+    if (host) q.set("host", host);
+    return getJSON<{ models: ModelInfo[] }>(`/api/models?${q}`).then((d) => d.models);
+  },
+  createScan: (payload: Record<string, unknown>) => postJSON<{ id: string }>("/api/scans", payload),
+  lookupApp: (repo: string) =>
+    getJSON<{ slug: string; application: AppSummary | null }>(`/api/applications?repo=${encodeURIComponent(repo)}`),
 
   reports: () => getJSON<{ reports_dir: string; reports: ReportRow[] }>("/api/reports"),
   deleteReport: async (id: string) => {
