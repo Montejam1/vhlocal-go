@@ -150,3 +150,37 @@ def scan_lines(tag: str, log_file: Optional[Path] = None) -> str:
         except OSError:
             continue
     return "\n".join(out)
+
+
+def read_central_log(tail: int = 0, scan: Optional[str] = None,
+                     level: Optional[str] = None,
+                     log_file: Optional[Path] = None) -> str:
+    """The whole central log (all scans), oldest→newest, optionally filtered.
+
+    ``scan`` restricts to one scan tag; ``level`` keeps only lines at or above a
+    log level (DEBUG<INFO<WARNING<ERROR); ``tail`` keeps the last N lines. Reads
+    the rotated backups too so a long run isn't truncated."""
+    path = Path(log_file).expanduser() if log_file else default_log_file()
+    candidates = [path.with_name(path.name + "." + str(i)) for i in range(_BACKUPS, 0, -1)]
+    candidates.append(path)
+    lines: list = []
+    scan_needle = "[{0}]".format(scan) if scan else None
+    order = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    floor = order.index(level.upper()) if level and level.upper() in order else -1
+    keep_levels = set(order[floor:]) if floor >= 0 else None
+    for f in candidates:
+        if not f.exists():
+            continue
+        try:
+            for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
+                if scan_needle and scan_needle not in line:
+                    continue
+                if keep_levels is not None and not any(
+                        (" " + lv + " ") in line for lv in keep_levels):
+                    continue
+                lines.append(line)
+        except OSError:
+            continue
+    if tail and tail > 0:
+        lines = lines[-tail:]
+    return "\n".join(lines)

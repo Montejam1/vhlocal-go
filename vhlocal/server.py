@@ -333,6 +333,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self._err("bad application id", 400)
             detail = self._application_detail(slug)
             return self._json(detail) if detail else self._err("no such application", 404)
+        if path == "/api/activity":
+            from . import activity
+            limit = int((qs.get("limit") or ["200"])[0])
+            return self._json({"events": activity.recent(
+                limit=min(2000, max(1, limit)),
+                type_prefix=(qs.get("type") or [""])[0],
+                scan=(qs.get("scan") or [""])[0])})
+        if path == "/api/log":
+            from .logsetup import read_central_log
+            tail = int((qs.get("tail") or ["500"])[0])
+            text = read_central_log(
+                tail=min(20000, max(1, tail)),
+                scan=(qs.get("scan") or [None])[0] or None,
+                level=(qs.get("level") or [None])[0] or None)
+            return self._json({"text": text})
         if path == "/api/ledgers":
             from .membank import list_ledgers
             return self._json({"ledgers": list_ledgers()})
@@ -410,6 +425,9 @@ class Handler(BaseHTTPRequestHandler):
                     or (ledgers.get(slug) or {}).get("target")
                     or (by_slug.get(slug, [None])[0].repo if by_slug.get(slug) else ""))
             ent = set_name(slug, name, repo=repo, when=_time.time())
+            if ent:
+                from . import activity
+                activity.app_event("app.renamed", slug, name, repo)
             return self._json(ent) if ent else self._err("could not name application", 400)
         return self._err("not found", 404)
 
@@ -433,6 +451,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._err("bad application id", 400)
             hide(slug)
             delete_ledger_by_slug(slug)
+            from . import activity
+            activity.app_event("app.forgotten", slug)
             return self._json({"forgotten": slug})
         return self._err("not found", 404)
 
@@ -462,6 +482,8 @@ class Handler(BaseHTTPRequestHandler):
         except OSError as exc:
             return self._err("delete failed: {0}".format(exc), 500)
         log.info("deleted report %s (%s)", rid, root)
+        from . import activity
+        activity.report_deleted(rid)
         return self._json({"deleted": rid})
 
     def _serve_web(self, name: str) -> None:
@@ -571,8 +593,12 @@ class Handler(BaseHTTPRequestHandler):
         # scan. Never blocks the scan on a registry hiccup.
         try:
             import time as _time
-            from .apps import register
-            register(repo, name=(body.get("app_name") or "").strip(), when=_time.time())
+            from . import activity
+            from .apps import get_application, register, slug_for
+            existed = get_application(repo) is not None
+            ent = register(repo, name=(body.get("app_name") or "").strip(), when=_time.time())
+            if not existed:
+                activity.app_event("app.named", slug_for(repo), ent.get("name", ""), str(repo))
         except Exception as exc:  # pragma: no cover - defensive
             log.warning("application register failed: %s", exc)
         job = CFG.store.submit(spec)

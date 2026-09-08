@@ -155,6 +155,12 @@ class JobStore:
             self._jobs[job.id] = job
             self._events[job.id] = []
             self._save()
+        try:
+            from . import activity
+            activity.scan_started(job.id, spec.repo, spec.model,
+                                  getattr(spec, "threat_model", False))
+        except Exception:  # pragma: no cover - activity logging never blocks a scan
+            pass
         self._queue.put(job.id)
         if self.auto_start:
             self.start_worker()
@@ -301,6 +307,19 @@ class JobStore:
                     self._current = None
                     self._cancelled.discard(job_id)
                 self._emit(job_id, {"type": "job_end", "status": job.status})
+                # Structured activity trail: one terminal event per scan (+ a
+                # threat-model event when this run produced one). Best-effort.
+                try:
+                    from . import activity
+                    secs = ((job.finished_at or time.time()) - job.started_at
+                            if job.started_at else None)
+                    activity.scan_finished(job.id, job.status, job.spec.get("repo", ""),
+                                           job.spec.get("model", ""),
+                                           findings=job.findings_count, seconds=secs)
+                    if job.results_dir and (Path(job.results_dir) / "threat_model.md").exists():
+                        activity.threat_model_built(job.id, job.spec.get("repo", ""))
+                except Exception:  # pragma: no cover
+                    pass
 
     def _fail(self, job: Job, message: str) -> None:
         with self._lock:
