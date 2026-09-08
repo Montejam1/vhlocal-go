@@ -5,6 +5,7 @@ import { Dashboard } from "@/pages/Dashboard";
 import { Scans } from "@/pages/Scans";
 import { Reports } from "@/pages/Reports";
 import { Ledger } from "@/pages/Ledger";
+import { Activity } from "@/pages/Activity";
 import { Docs } from "@/pages/Docs";
 import { Placeholder } from "@/components/Placeholder";
 
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="scans" element={<Scans />} />
           <Route path="reports" element={<Reports />} />
           <Route path="ledger" element={<Ledger />} />
+          <Route path="activity" element={<Activity />} />
           <Route path="docs" element={<Docs />} />
           <Route path="settings" element={<Placeholder title="Settings" note="Coming next." />} />
           <Route path="*" element={<Placeholder title="Not found" note="No such view." />} />

@@ -48,4 +48,6 @@ Vertical slices ported so far:
 - [x] **Ledger** — per-application cards + findings table (status / seen /
       confidence, cross-family marker)
 - [x] **Docs** — the pipeline, step by step, + "beyond the steps"
-- [ ] Settings, New Scan form
+- [x] **Activity** — structured audit feed (type filter, cross-link to a scan's
+      log) + a global raw-log view (scan/level/tail filters)
+- [ ] Settings

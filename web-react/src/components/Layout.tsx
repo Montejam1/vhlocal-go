@@ -7,6 +7,7 @@ import {
   BookMarked,
   BookOpen,
   Settings,
+  Activity as ActivityIcon,
   Moon,
   Sun,
   ShieldCheck,
@@ -20,6 +21,7 @@ const NAV = [
   { to: "/scans", label: "Scans", icon: Search },
   { to: "/reports", label: "Reports", icon: FileText },
   { to: "/ledger", label: "Ledger", icon: BookMarked },
+  { to: "/activity", label: "Activity", icon: ActivityIcon },
   { to: "/docs", label: "Docs", icon: BookOpen },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

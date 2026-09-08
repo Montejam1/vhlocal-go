@@ -565,6 +565,17 @@
   .ledger-stats span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3)}
   .ai-appcard{cursor:pointer}
   .ai-appcard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  /* Activity feed + log */
+  .actfeed{display:flex;flex-direction:column;gap:6px}
+  .actrow{display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--line);
+    border-radius:var(--r-sm);background:var(--surface-1)}
+  .acttime{flex:none;width:150px;font-family:var(--mono);font-size:11px;color:var(--text-3)}
+  .actmsg{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:13px;color:var(--text-1)}
+  .actrow .runlink{flex:none;font-size:11px}
+  pre.actlog{height:70vh;overflow:auto;background:var(--surface-1);border:1px solid var(--line);
+    border-radius:var(--r-sm);padding:12px;font-family:var(--mono);font-size:11.5px;
+    line-height:1.55;color:var(--text-2);white-space:pre;margin:0}
   .app-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px}
   button.secondary.danger{background:var(--err-weak);color:var(--err);border-color:transparent}
   button.secondary.danger:hover{background:var(--err);color:#fff}
@@ -982,6 +993,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/><path d="M4 8h15M8 4v17"/></svg>
       Ledger</button>
+    <button id="navActivity" onclick="navigate('activity')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+      Activity</button>
     <button id="navDocs" onclick="navigate('docs')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -1429,7 +1444,14 @@ async function boot() {
   // the dashboard — deferring navigate() until after them left a cold load
   // showing the scan rail against an empty canvas.
   paintFavicon();
-  navigate('home');
+  // Honor a #view deep link (e.g. #activity) so views are bookmarkable/shareable
+  // and the browser back/forward buttons move between them.
+  const _initial = (location.hash || '').replace(/^#/, '').split('?')[0];
+  navigate(VIEWS[_initial] ? _initial : 'home');
+  window.addEventListener('hashchange', () => {
+    const v = (location.hash || '').replace(/^#/, '').split('?')[0];
+    if (VIEWS[v] && v !== view) navigate(v);
+  });
   CFG = await api('/api/config');
   // The dashboard's phase overview is driven by CFG.phases, which arrived after
   // that first paint. Redraw it now, but only if the operator is still there.
@@ -3039,6 +3061,23 @@ const VIEWS = {
     },
     unmount() {},
   },
+  activity: {
+    nav: 'navActivity',
+    mount(el) {
+      el.innerHTML = `
+        <div class="pane-head"><h2>Activity</h2></div>
+        <p style="color:var(--text-2);font-size:13px;margin:2px 0 12px">
+          A centralized record of what the engine did — a structured audit feed and
+          the raw central log.</p>
+        <div class="tabs">
+          <button id="actTabFeed" class="on" onclick="setActivityTab('feed')">Activity feed</button>
+          <button id="actTabLog" onclick="setActivityTab('log')">Log</button>
+        </div>
+        <div id="activityBody" style="margin-top:14px"><div class="empty">Loading…</div></div>`;
+      setActivityTab('feed');
+    },
+    unmount() {},
+  },
   docs: {
     nav: 'navDocs',
     mount(el) { el.innerHTML = docsHTML(); wireDocs(); },
@@ -3058,6 +3097,11 @@ window.navigate = function(name, opts) {
   // transitions, and nothing at all where it doesn't. The swap itself is
   // identical either way — the transition only wraps it.
   const next = VIEWS[name] ? name : 'scans';
+  // Keep the URL hash in sync so views are deep-linkable and back/forward work.
+  // Guarded so programmatic navigation doesn't loop with the hashchange listener.
+  if (('#' + next) !== location.hash) {
+    try { history.replaceState(null, '', '#' + next); } catch (e) {}
+  }
   // Chrome moves first, synchronously, OUTSIDE the transition. startViewTransition
   // defers its callback by a frame, so anything classed inside it stays wrong for
   // the whole cross-fade — the header lit the old tab over the new page. Only the
@@ -3412,6 +3456,81 @@ function _sevChips(bySev) {
   });
   return keys.map(k=>`<span class="sevchip ${_sevClass(k)}">${bySev[k]} ${esc(k)}</span>`).join('');
 }
+
+// ---- Activity: structured audit feed + the raw central log ----
+const _ACT_VARIANT = {
+  'scan.started':'alt','scan.completed':'ok','scan.cancelled':'warn','scan.failed':'err',
+  'scan.interrupted':'err','threat_model.built':'alt','app.named':'','app.renamed':'',
+  'app.forgotten':'warn','report.deleted':'warn',
+};
+let _actLogScan = '';
+
+window.setActivityTab = function(tab) {
+  const f = $('actTabFeed'), l = $('actTabLog');
+  if (f) f.className = tab === 'feed' ? 'on' : '';
+  if (l) l.className = tab === 'log' ? 'on' : '';
+  if (tab === 'feed') loadActivityFeed(); else loadActivityLog();
+};
+
+window.loadActivityFeed = async function() {
+  const body = $('activityBody');
+  if (!body) return;
+  const type = ($('actType') && $('actType').value) || '';
+  try {
+    const d = await api('/api/activity?limit=300' + (type ? '&type=' + type : ''));
+    const evs = d.events || [];
+    const bar = `<div class="hrow" style="margin-bottom:10px">
+      <select id="actType" onchange="loadActivityFeed()">
+        <option value="">All events</option>
+        <option value="scan">Scans</option><option value="app">Applications</option>
+        <option value="report">Reports</option><option value="threat_model">Threat models</option>
+      </select><span style="flex:1"></span>
+      <button class="secondary" onclick="loadActivityFeed()">Refresh</button></div>`;
+    body.innerHTML = bar + (evs.length ? '<div class="actfeed">' + evs.map(e => {
+      const when = e.ts ? new Date(e.ts*1000).toLocaleString() : '';
+      const v = _ACT_VARIANT[e.type] || '';
+      const log = e.scan ? `<a class="runlink" title="View this scan's log slice"
+        onclick="activityOpenLog('${escA(e.scan)}')">log ↗</a>` : '';
+      return `<div class="actrow"><span class="acttime">${esc(when)}</span>
+        <span class="hbadge ${v}">${esc(e.type)}</span>
+        <span class="actmsg" title="${escA(e.message||'')}">${esc(e.message||'')}</span>${log}</div>`;
+    }).join('') + '</div>' : '<div class="empty">No activity yet. Run a scan and it appears here.</div>');
+    if ($('actType')) $('actType').value = type;
+  } catch(e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+};
+
+window.activityOpenLog = function(scan) {
+  _actLogScan = scan || '';
+  setActivityTab('log');
+};
+
+window.loadActivityLog = async function() {
+  const body = $('activityBody');
+  if (!body) return;
+  const level = ($('actLevel') && $('actLevel').value) || '';
+  const tail = ($('actTail') && $('actTail').value) || '500';
+  try {
+    const q = new URLSearchParams({tail});
+    if (_actLogScan) q.set('scan', _actLogScan);
+    if (level) q.set('level', level);
+    const d = await api('/api/log?' + q.toString());
+    const scanChip = _actLogScan
+      ? `<span class="hbadge alt">scan ${esc(_actLogScan)} <a onclick="_actLogScan='';loadActivityLog()" style="cursor:pointer">✕</a></span>`
+      : '<span style="color:var(--text-3);font-size:12px">all scans</span>';
+    body.innerHTML = `<div class="hrow" style="margin-bottom:10px">${scanChip}
+      <select id="actLevel" onchange="loadActivityLog()">
+        <option value="">All levels</option><option value="INFO">INFO+</option>
+        <option value="WARNING">WARNING+</option><option value="ERROR">ERROR+</option></select>
+      <select id="actTail" onchange="loadActivityLog()">
+        <option value="200">last 200</option><option value="500">last 500</option>
+        <option value="1000">last 1000</option><option value="5000">last 5000</option></select>
+      <span style="flex:1"></span><button class="secondary" onclick="loadActivityLog()">Refresh</button></div>
+      <pre class="actlog">${esc(d.text || '(no matching log lines)')}</pre>`;
+    if ($('actLevel')) $('actLevel').value = level;
+    if ($('actTail')) $('actTail').value = tail;
+    const pre = body.querySelector('.actlog'); if (pre) pre.scrollTop = pre.scrollHeight;
+  } catch(e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+};
 
 window.loadLedgers = async function(openSlug) {
   const body = $('ledgerBody');

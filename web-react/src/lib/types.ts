@@ -175,6 +175,19 @@ export interface ModelInfo {
   family?: string | null;
 }
 
+export interface ActivityEvent {
+  ts: number;
+  type: string;
+  message: string;
+  scan?: string;
+  repo?: string;
+  app?: string;
+  model?: string;
+  findings?: number;
+  report?: string;
+  level?: string;
+}
+
 // CycloneDX subset we render.
 export interface CdxComponent {
   name: string;

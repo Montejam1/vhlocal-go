@@ -1,4 +1,5 @@
 import type {
+  ActivityEvent,
   AppDetail,
   AppSummary,
   Cdx,
@@ -78,6 +79,21 @@ export const api = {
 
   ledgers: () => getJSON<{ ledgers: LedgerSummary[] }>("/api/ledgers").then((d) => d.ledgers),
   ledger: (slug: string) => getJSON<LedgerDetail>(`/api/ledgers/${encodeURIComponent(slug)}`),
+
+  activity: (opts: { limit?: number; type?: string; scan?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.limit) q.set("limit", String(opts.limit));
+    if (opts.type) q.set("type", opts.type);
+    if (opts.scan) q.set("scan", opts.scan);
+    return getJSON<{ events: ActivityEvent[] }>(`/api/activity?${q}`).then((d) => d.events);
+  },
+  log: (opts: { tail?: number; scan?: string; level?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.tail) q.set("tail", String(opts.tail));
+    if (opts.scan) q.set("scan", opts.scan);
+    if (opts.level) q.set("level", opts.level);
+    return getJSON<{ text: string }>(`/api/log?${q}`).then((d) => d.text);
+  },
 };
 
 /** Flatten a CycloneDX doc into display rows (mirrors sbom.summary()). */
