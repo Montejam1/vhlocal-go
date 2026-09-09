@@ -619,6 +619,7 @@ class Handler(BaseHTTPRequestHandler):
             backend=backend,
             max_output_tokens=int(body.get("max_output_tokens") or 32768),
             sweep_mode=(body.get("sweep_mode") or "deterministic"),
+            quality_strictness=(body.get("quality_strictness") or "balanced"),
             threat_model=bool(body.get("threat_model")),
         )
         # Register (or touch) the application for this target, naming it on first

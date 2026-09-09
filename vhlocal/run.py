@@ -41,6 +41,7 @@ DEFAULT_SKILL_DIR = default_skill_dir()
 _PROFILE_DEFAULTS = {
     "num_ctx": DEFAULT_NUM_CTX, "max_partitions": 8, "phase2_mode": "split",
     "phases": "all", "concurrency": 1, "reasoning_effort": None,
+    "quality_strictness": "balanced",
     "max_output_tokens": 32768, "max_budget_usd": 0.0,
     "enforce_coverage": True, "seed_routes": False, "seed_prior": False,
     "hunt_samples": 1, "iac_lens": True, "remediate": False, "redact": False,
@@ -125,6 +126,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--sweep-mode", choices=["deterministic", "model"],
                     default="deterministic",
                     help="Phase 3d sweep: 'deterministic' (grep, default) or 'model'.")
+    ap.add_argument("--quality-strictness", dest="quality_strictness",
+                    choices=["lenient", "balanced", "strict"], default="balanced",
+                    help="Pre-report corroboration bar for publishing a finding vs a "
+                         "hypothesis: 'lenient' (any one signal), 'balanced' (sink "
+                         "classes need a source-pattern match; default), or 'strict' "
+                         "(source-pattern + a second signal).")
 
     # profile-overridable booleans
     ap.add_argument("--seed-routes", dest="seed_routes", action="store_true", default=S,
@@ -222,6 +229,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         reproduce_backend=args.reproduce_backend,
         resume=args.resume,
         sweep_mode=args.sweep_mode,
+        quality_strictness=args.quality_strictness,
         num_ctx=resolved["num_ctx"],
         max_partitions=resolved["max_partitions"],
         phase2_mode=resolved["phase2_mode"],

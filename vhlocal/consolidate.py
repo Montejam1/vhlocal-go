@@ -180,6 +180,15 @@ def _assessment_label(classification: str) -> str:
     }.get(classification, "Hypothesis — further investigation required")
 
 
+_QUALITY_SYMBOL = {"pass": "✓", "fail": "✗", "na": "—"}
+
+
+def _format_quality_checks(checks: List[Dict[str, str]]) -> str:
+    """One-line ``✓ name / ✗ name / — name`` summary of the quality battery."""
+    return " · ".join("{0} {1}".format(_QUALITY_SYMBOL.get(c.get("status", ""), "?"),
+                                       c.get("name", "")) for c in checks)
+
+
 @dataclass
 class Finding:
     id: str
@@ -234,6 +243,13 @@ class Finding:
     # run — a higher share is a stronger recall/confidence signal.
     votes: int = 0
     vote_samples: int = 0
+    # True when this candidate came through the Phase-2b verification pass (the
+    # confirmed spine) — a corroboration signal the quality battery reads.
+    from_confirmed: bool = False
+    # Per-check results from the pre-report quality battery (quality.evaluate),
+    # each {name, status, reason}. Explains why the candidate did or didn't clear
+    # the statically-supported bar. Empty on old reports.
+    quality_checks: List[Dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return dict(asdict(self), potential_severity=self.severity)
@@ -858,8 +874,35 @@ def parse_findings(results_dir: Path) -> List[Finding]:
     # the hunt set collapse later in flag_duplicates.
     hunt = _hunt_evidence_findings(results_dir)
     if hunt and (not chosen or _wellformed_count(hunt) > _wellformed_count(chosen) + RECOVERY_MARGIN):
-        return hunt
-    return chosen
+        return _mark_confirmed(hunt, spine)
+    return _mark_confirmed(chosen, spine)
+
+
+def _confirmed_key(location: str) -> str:
+    """basename:line identity for matching a finding to the Phase-2b confirmed
+    set across path-prefix differences (the spine often cites a shorter path)."""
+    m = re.search(r"([\w./+\-]+\.\w+):(\d+)", location or "")
+    return (Path(m.group(1)).name + ":" + m.group(2)) if m else ""
+
+
+def _mark_confirmed(findings: List[Finding], spine: List[Finding]) -> List[Finding]:
+    """Flag findings that came through Phase-2b verification. When the spine *is*
+    the chosen set every finding is confirmed; otherwise match by cited location.
+    This drives the quality battery's ``agreement`` corroboration signal — a
+    finding that survived verification is independently corroborated."""
+    if not spine:
+        return findings
+    if findings is spine:
+        for f in findings:
+            f.from_confirmed = True
+        return findings
+    keys = {k for k in (_confirmed_key(s.location) for s in spine) if k}
+    if not keys:
+        return findings
+    for f in findings:
+        if _confirmed_key(f.location) in keys:
+            f.from_confirmed = True
+    return findings
 
 
 def _parse_report_tables(results_dir: Path) -> List[Finding]:
@@ -1434,44 +1477,18 @@ def _location_resolves(location: str, repo: Optional[Path]) -> bool:
     return False
 
 
-def _static_gate(f: Finding, repo: Optional[Path]):
-    """The harness's own static evidence gate. Passing does NOT require a human
-    review — it means the candidate carries the minimum static substance the
-    scanner can honestly stand behind: a specific weakness claim (not an
-    input-inventory placeholder), a weakness class (CWE), and a source location
-    that resolves against the scanned tree. Returns ``(ok, reason)``; ``reason``
-    names why the gate failed so the report can explain the hypothesis."""
-    if _is_placeholder(f):
-        return False, ("Not statically supported: this reads as an input-inventory "
-                       "row rather than a specific weakness claim.")
-    if not _clean(f.cwe) and not _clean(getattr(f, "normalized_cwe", "")):
-        return False, "Not statically supported: no weakness class (CWE) was assigned."
-    if _is_weak_title(f.title or "", f.id):
-        return False, ("Not statically supported: the title is too generic to name a "
-                       "specific weakness.")
-    if not _clean(f.location):
-        return False, "Not statically supported: no source location was cited."
-    # ``_location_resolves`` is lenient when the checkout is unavailable (it
-    # cannot disprove a location it cannot see) — so a well-formed candidate keeps
-    # its static-support tier on a re-render without the tree, and only a location
-    # that is definitively absent from a *present* tree fails. The stricter
-    # checkout requirement belongs to the reviewed tier (evidence.review_support).
-    if not _location_resolves(f.location, repo):
-        return False, ("Not statically supported: the cited source location does not "
-                       "resolve against the scanned tree.")
-    return True, ""
-
-
 def assess_candidates(findings: List[Finding], meta: Dict[str, Any]) -> None:
     """Assign each candidate a publication tier from the strongest evidence it
     clears — ``reviewed`` (a source-grounded review record) > ``statically_supported``
-    (the harness's own static gate) > ``hypothesis`` (clears neither). Confidence
-    never exceeds evidence, so a bigger candidate pool never reads as verified
-    yield; but a well-formed static finding is still useful default output rather
-    than being collapsed to a bare hypothesis."""
+    (the harness's own quality battery — see quality.py) > ``hypothesis`` (clears
+    neither). Confidence never exceeds evidence, so a bigger candidate pool never
+    reads as verified yield; but a well-formed, corroborated finding is still
+    useful default output rather than being collapsed to a bare hypothesis."""
     from .evidence import candidate_key, review_support
+    from . import quality
     raw_repo = meta.get("repo")
     repo = Path(raw_repo).resolve() if raw_repo and Path(raw_repo).is_dir() else None
+    level = quality.normalize_level(meta.get("quality_strictness"))
     for f in findings:
         f.candidate_key = candidate_key(f, meta.get("git_commit", ""))
         reviewed, review_reason = review_support(f, meta)
@@ -1479,20 +1496,22 @@ def assess_candidates(findings: List[Finding], meta: Dict[str, Any]) -> None:
             f.classification = CLASS_REVIEWED
             f.assessment = ASSESS_SUPPORTED
             f.assessment_reason = review_reason
+            # Still record the battery, so the report can show corroboration
+            # alongside the review.
+            f.quality_checks = quality.evaluate(f, repo, level).checks_as_dicts()
             continue
-        static_ok, static_reason = _static_gate(f, repo)
-        if static_ok:
+        # The pre-report quality battery: corroborate the claim against the actual
+        # source at the configured strictness, rather than accepting metadata
+        # completeness as evidence.
+        q = quality.evaluate(f, repo, level)
+        f.quality_checks = q.checks_as_dicts()
+        if q.substantiated:
             f.classification = CLASS_STATICALLY_SUPPORTED
             f.assessment = ASSESS_SUPPORTED
-            f.assessment_reason = (
-                "Statically supported by the harness: a specific weakness claim, a "
-                "weakness class, and a source location that resolves against the "
-                "scanned tree. No source-grounded review is recorded, so this is not "
-                "an independently reviewed vulnerability.")
         else:
             f.classification = CLASS_HYPOTHESIS
             f.assessment = ASSESS_UNRESOLVED
-            f.assessment_reason = static_reason or review_reason
+        f.assessment_reason = q.reason
     by_id = {f.id: f for f in findings}
     for f in findings:
         if not f.duplicate_of:
@@ -1842,12 +1861,14 @@ def render(results_dir: Path) -> str:
     # family:file:func).
     backfill_locations(findings, results_dir, meta.get("repo", ""))
     flag_duplicates(findings)
+    # Votes are applied before assessment: the quality battery's agreement check
+    # reads them (≥2 independent hunt samples is a corroboration signal).
+    _apply_votes(findings, results_dir)
     assess_candidates(findings, meta)
     apply_validation(findings, meta)
     apply_knowledge(findings)
     apply_normalized_severity(findings)
     findings = rank(findings)
-    _apply_votes(findings, results_dir)
     red_count = _maybe_redact(findings, meta)
     # Mode A: label each finding new/persisting/regressed vs the prior report.
     lifecycle = reconcile_lifecycle(findings, results_dir, meta)
@@ -2113,6 +2134,9 @@ def render(results_dir: Path) -> str:
             A("| Why the scanner flagged this | {0} |".format(
                 _clean(f.hypothesis_reason or f.data_flow or "No candidate-specific explanation was provided.").replace("|", "\\|")))
             A("| Evidence assessment | {0} |".format(_clean(f.assessment_reason).replace("|", "\\|")))
+            if f.quality_checks:
+                A("| Quality checks | {0} |".format(
+                    _format_quality_checks(f.quality_checks).replace("|", "\\|")))
             # Severity is the deterministic family baseline (stable across runs);
             # the model's own tier is preserved beside it when it differed.
             if f.reported_severity and f.reported_severity != f.severity:
@@ -2412,12 +2436,13 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     # family:file:func).
     backfill_locations(findings, results_dir, meta.get("repo", ""))
     flag_duplicates(findings)
+    # Votes feed the quality battery's agreement check — apply before assessment.
+    _apply_votes(findings, results_dir)
     assess_candidates(findings, meta)
     apply_validation(findings, meta)
     apply_knowledge(findings)
     apply_normalized_severity(findings)
     findings = rank(findings)
-    _apply_votes(findings, results_dir)
     # Mask secrets/PII in the finding objects so findings.json, SARIF, and the
     # ledger all derive from masked values (render() redacts its own copy for the
     # markdown/HTML). No-op unless the run opted into redaction.

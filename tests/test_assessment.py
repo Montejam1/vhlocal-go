@@ -25,11 +25,13 @@ from vhlocal.consolidate import (  # noqa: E402
 
 
 def _repo(files):
+    """files: a list of paths (empty bodies) or a {path: body} dict."""
     d = Path(tempfile.mkdtemp())
-    for rel in files:
+    items = files.items() if isinstance(files, dict) else ((f, "x\n") for f in files)
+    for rel, body in items:
         p = d / rel
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text("x\n", encoding="utf-8")
+        p.write_text(body, encoding="utf-8")
     return d
 
 
@@ -68,21 +70,25 @@ class StaticGate(unittest.TestCase):
         C.assess_candidates([f], {"repo": str(repo) if repo else ""})
         return f.assessment, f.classification
 
-    def test_wellformed_candidate_is_statically_supported(self):
-        # A weakness class + a concrete claim + a resolvable location clears the
-        # harness's own static gate: supported, statically_supported tier.
-        repo = _repo(["app/search.py"])
+    def test_wellformed_sink_candidate_is_statically_supported(self):
+        # A sink class corroborated by a matching sink in the cited source clears
+        # the (balanced-default) bar: supported, statically_supported tier.
+        repo = _repo({"app/search.py":
+                      "def s(q):\n    cur.execute('SELECT * FROM t WHERE q=' + q)\n"})
         f = Finding(id="V1", title="SQL injection in search", cwe="CWE-89",
-                    location="app/search.py:12")
+                    location="app/search.py:2", data_flow="q -> execute(sql)")
         self.assertEqual(self._assess(f, repo),
                          (ASSESS_SUPPORTED, CLASS_STATICALLY_SUPPORTED))
 
-    def test_basename_match_is_statically_supported(self):
-        # The model often cites a path missing its package dir — a basename match
-        # anywhere in the tree still resolves the location.
+    def test_logic_candidate_with_flow_and_agreement_is_supported(self):
+        # A logic class (IDOR) has no syntactic sink; a described flow + a precise
+        # location (basename-matched) + agreement carry it. The basename match
+        # (regions.py → backend/app/routers/regions.py) resolves the location.
         repo = _repo(["backend/app/routers/regions.py"])
         f = Finding(id="V1", title="IDOR on region", cwe="CWE-639",
-                    location="regions.py:50")
+                    location="regions.py:50",
+                    data_flow="region_id -> record returned without an owner check",
+                    from_confirmed=True)
         self.assertEqual(self._assess(f, repo),
                          (ASSESS_SUPPORTED, CLASS_STATICALLY_SUPPORTED))
 
@@ -113,12 +119,14 @@ class StaticGate(unittest.TestCase):
         self.assertEqual(self._assess(f, repo),
                          (ASSESS_UNRESOLVED, CLASS_HYPOTHESIS))
 
-    def test_no_repo_context_keeps_static_support(self):
-        # When the checkout is unavailable the static gate cannot disprove a cited
-        # location, so a well-formed candidate keeps its static-support tier (this
-        # preserves a finding's tier across a re-render without the tree). The
-        # stricter checkout requirement is the reviewed tier's, not this one's.
-        f = Finding(id="V1", title="SQLi in handler", cwe="CWE-89", location="x.py:1")
+    def test_no_repo_context_leans_on_other_signals(self):
+        # When the checkout is unavailable the source can't be corroborated, so a
+        # candidate keeps its static-support tier only if another signal backs it
+        # (a described flow or agreement) — this preserves a corroborated finding's
+        # tier across a re-render without the tree, without promoting a bare claim.
+        f = Finding(id="V1", title="SQLi in handler", cwe="CWE-89", location="x.py:1",
+                    data_flow="user input -> cursor.execute builds the query string",
+                    from_confirmed=True)
         self.assertEqual(self._assess(f, None),
                          (ASSESS_SUPPORTED, CLASS_STATICALLY_SUPPORTED))
 

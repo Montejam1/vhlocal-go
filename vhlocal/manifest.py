@@ -18,7 +18,7 @@ _CONFIG_KEYS = ("model", "verify_model", "recon_model", "reproduce_model",
                 "backend", "num_ctx", "max_partitions", "phase2_mode",
                 "phases_requested", "seed_prior", "ledger", "redact",
                 "reasoning_effort", "max_output_tokens", "hunt_samples",
-                "max_budget_usd")
+                "max_budget_usd", "quality_strictness")
 
 
 def _config_hash(meta: Dict[str, Any]) -> str:
@@ -62,6 +62,7 @@ def build_manifest(meta: Dict[str, Any], run_status: Optional[Dict[str, Any]] = 
             "num_ctx": meta.get("num_ctx"),
             "max_partitions": meta.get("max_partitions"),
             "phase2_mode": meta.get("phase2_mode"),
+            "quality_strictness": meta.get("quality_strictness") or "balanced",
             "phases_requested": meta.get("phases_requested") or [],
             "seed_prior": bool(meta.get("seed_prior")),
             "ledger": bool(meta.get("ledger")),

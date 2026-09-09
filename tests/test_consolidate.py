@@ -333,6 +333,7 @@ class TestVulnerabilityLedger(unittest.TestCase):
         (d / "results" / "sg-1.md").write_text(
             "#### [VULN-001] Code Injection via eval()\n- **Class**: CWE-94\n"
             "- **Location**: app/ops.py:76\n- **Severity**: High\n"
+            "- **Data Flow**: request.json body -> eval(code) executes attacker input\n"
             "- **Root Cause**: user input reaches eval.\n", encoding="utf-8")
         _, js = write_consolidated(d)
         data = json.loads(js.read_text("utf-8"))

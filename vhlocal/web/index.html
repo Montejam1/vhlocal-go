@@ -1091,6 +1091,14 @@
             <option value="combined">Combined — one agent per partition (~3× faster, quality-uncertain)</option>
           </select>
 
+          <label for="qualityStrictness">Quality bar</label>
+          <select id="qualityStrictness">
+            <option value="lenient">Lenient — any one corroboration signal</option>
+            <option value="balanced" selected>Balanced — sink classes need a source match (default)</option>
+            <option value="strict">Strict — source match + a second signal</option>
+          </select>
+          <div class="hint">How much the harness must corroborate a candidate against the real source before reporting it as a finding rather than a hypothesis.</div>
+
           <div class="row" style="margin-top:12px">
             <div>
               <label for="reasoningEffort">Reasoning effort</label>
@@ -1497,6 +1505,7 @@ async function loadProfiles() {
 const _PROFILE_FIELDS = {
   hunt_samples: ['huntSamples', 'val'], max_partitions: ['maxPart', 'val'],
   phase2_mode: ['phase2Mode', 'val'], phases: ['phases', 'val'],
+  quality_strictness: ['qualityStrictness', 'val'],
   concurrency: ['concurrency', 'val'], reasoning_effort: ['reasoningEffort', 'val'],
   max_output_tokens: ['maxOutTokens', 'val'], max_budget_usd: ['maxBudget', 'val'],
   iac_lens: ['iacLens', 'chk'], remediate: ['remediate', 'chk'],
@@ -3801,6 +3810,12 @@ function _fblock(label, val) {
   return val ? `<div class="fblock"><span class="fk">${esc(label)}</span>`
     + `<pre>${esc(val)}</pre></div>` : '';
 }
+// Compact one-line summary of the pre-report quality battery (quality.py).
+function _qualityLine(checks) {
+  if (!Array.isArray(checks) || !checks.length) return '';
+  const sym = {pass: '✓', fail: '✗', na: '—'};
+  return checks.map(c => (sym[c && c.status] || '?') + ' ' + (c && c.name || '')).join(' · ');
+}
 
 window.toggleFinding = function(i) {
   const det = document.getElementById('fd-' + i);
@@ -3835,6 +3850,7 @@ function findingsSectionHTML(fj) {
     const detail = [
       _fblock('Why the scanner flagged this', f.hypothesis_reason || f.data_flow || 'No candidate-specific explanation was provided.'),
       _fblock('Evidence assessment', f.assessment_reason || 'No substantiated review is recorded.'),
+      _fkv('Quality checks', _qualityLine(f.quality_checks), true),
       _fkv('Reported severity', f.reported_severity && f.reported_severity !== _fsev(f) ? f.reported_severity : ''),
       _fkv('Reported CWE', f.cwe && f.cwe !== _fcwe(f) ? f.cwe : '', true),
       _fkv('CWE family', f.cwe_family),
@@ -4353,6 +4369,7 @@ $('start').onclick = async function() {
     redact: $('redact').checked,
     remediate: $('remediate').checked,
     phase2_mode: $('phase2Mode').value,
+    quality_strictness: $('qualityStrictness').value,
     concurrency: parseInt($('concurrency').value || '1', 10),
     reasoning_effort: $('reasoningEffort').value || null,
     max_output_tokens: parseInt($('maxOutTokens').value || '32768', 10),

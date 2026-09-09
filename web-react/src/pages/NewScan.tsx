@@ -52,6 +52,7 @@ export function NewScan({ onLaunched }: { onLaunched: (id: string) => void }) {
   const [phases, setPhases] = useState("all");
   const [maxPart, setMaxPart] = useState(8);
   const [samples, setSamples] = useState(1);
+  const [quality, setQuality] = useState("balanced");
   const [flags, setFlags] = useState({
     threat_model: false,
     iac_lens: true,
@@ -130,6 +131,7 @@ export function NewScan({ onLaunched }: { onLaunched: (id: string) => void }) {
         phases: phases.trim() || "all",
         max_partitions: maxPart,
         hunt_samples: samples,
+        quality_strictness: quality,
         ...flags,
       });
       onLaunched(job.id);
@@ -197,6 +199,16 @@ export function NewScan({ onLaunched }: { onLaunched: (id: string) => void }) {
           </Field>
           <Field label="Hunt samples" hint="1–5; unions repeated passes">
             <input type="number" min={1} max={5} className={inputCls} value={samples} onChange={(e) => setSamples(Math.max(1, Math.min(5, +e.target.value || 1)))} />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Field label="Quality bar" hint="corroboration needed to report a finding vs a hypothesis">
+            <select className={inputCls} value={quality} onChange={(e) => setQuality(e.target.value)}>
+              <option value="lenient">Lenient — any one signal</option>
+              <option value="balanced">Balanced — source match (default)</option>
+              <option value="strict">Strict — source + a second signal</option>
+            </select>
           </Field>
         </div>
 

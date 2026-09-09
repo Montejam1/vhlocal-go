@@ -18,7 +18,7 @@ from typing import Any, Dict, List
 # backend — those are chosen from configured connections at launch.
 _ALLOWED = {
     "num_ctx", "max_partitions", "phase2_mode", "phases", "concurrency",
-    "reasoning_effort", "max_output_tokens", "sweep_mode",
+    "reasoning_effort", "max_output_tokens", "sweep_mode", "quality_strictness",
     "enforce_coverage", "seed_routes", "seed_prior",
     "hunt_samples", "iac_lens", "remediate", "redact", "ledger",
     "max_budget_usd",

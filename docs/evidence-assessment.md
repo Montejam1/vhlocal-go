@@ -9,11 +9,12 @@ hypothesis. There are three publication tiers (`classification`):
   scanned tree. A model's own `Confirmed`/`PASS` prose never lifts a candidate out
   of this tier on its own. Hypotheses are surfaced as worth investigating; they are
   *not* published as findings.
-- **`statically_supported`** — clears the harness's own static gate: a weakness
-  class (CWE), a concrete claim (not a placeholder), and a cited source location
-  that resolves. The scanner can honestly stand behind this from static facts, but
-  no independent source-grounded review exists. This is the default tier for a
-  well-formed candidate and the useful default output of a scan.
+- **`statically_supported`** — clears the harness's own **quality battery**
+  (`quality.py`, see below): a structural floor (weakness class, a concrete claim,
+  a resolvable location) *plus* deterministic corroboration against the actual
+  source at the configured strictness. The scanner can honestly stand behind this
+  from static facts, but no independent source-grounded review exists. This is the
+  useful default output of a scan.
 - **`reviewed`** — additionally backed by a source-grounded review record (see
   below): the highest tier.
 
@@ -45,6 +46,40 @@ records only substantiated findings — a hypothesis is not a tracked vulnerabil
 SARIF hypotheses have `kind: review` and `level: note`; substantiated candidates
 are `kind: fail`, with the tier, potential severity, and explanations in
 properties.
+
+## Quality checks (the `statically_supported` bar)
+
+Metadata completeness alone does not substantiate a finding — a model can cite a
+CWE and a real file yet be describing a bug that isn't there. Before a candidate
+publishes, `quality.evaluate` runs a battery of **deterministic** checks against
+the actual source and records them per finding as `quality_checks`
+(`{name, status, reason}`, shown in the report as a `✓ / ✗ / — name` line):
+
+- **Structural floor** (all levels): `weakness_class`, `concrete_claim`,
+  `location_resolves`. Fail any → `hypothesis`.
+- **Corroboration**: `source_corroborated` (the cited source, in a window around
+  the line, contains a sink pattern for the CWE — reusing the `sweep` pattern
+  table; N/A for logic/authorization classes with no syntactic sink),
+  `flow_described` (a real source→sink / ownership-gap data flow), `agreement`
+  (≥2 hunt samples reported the site, or the finding came through Phase-2b).
+
+How much corroboration the `statically_supported` bar demands is the
+`quality_strictness` config (`--quality-strictness`, the UI "Quality bar", or a
+profile), recorded in `scan_meta.json` so a re-render assesses at the run's level:
+
+- **`lenient`** — any one corroboration signal (for any class).
+- **`balanced`** (default) — sink classes MUST show a source-pattern match (a
+  *checked-and-absent* sink demotes to `hypothesis`); logic classes need
+  `flow_described` + a line-precise location + `agreement`. When the source can't
+  be checked (no checkout, or no derivable pattern) the benefit of the doubt falls
+  back to flow-or-agreement, so a re-render without the tree never degrades a
+  corroborated finding's tier.
+- **`strict`** — sink classes need a source-pattern match AND a second signal
+  (flow or agreement); logic classes as in `balanced`.
+
+Only the `statically_supported` bar moves with this setting; the `reviewed` tier
+always requires a source-grounded review record, and `hypothesis` always means the
+structural floor or all corroboration failed.
 
 ## Recording an evidence review
 

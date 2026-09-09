@@ -159,6 +159,13 @@ class ScanSpec:
     # sink pattern directly — fast, complete, default) or "model" (the old
     # model-driven iterative grep).
     sweep_mode: str = "deterministic"
+    # Pre-report quality-check strictness — how much deterministic corroboration a
+    # candidate must clear to publish as a substantiated finding vs a hypothesis:
+    # "lenient" (any one corroboration signal), "balanced" (sink classes need a
+    # source-pattern match; logic classes need flow + precise location + agreement),
+    # or "strict" (sink classes need source-pattern AND a second signal). See
+    # quality.py.
+    quality_strictness: str = "balanced"
     # Opt-in Phase 1t: a post-recon, pre-hunt PASTA threat model + data-flow
     # diagram. Its "Hunt targets" ADD partitions for archetype-specific surfaces
     # recon's web/RPC entry-point enumeration misses (a sandbox's syscall
@@ -181,6 +188,7 @@ class ScanSpec:
         for f in (
             "model", "host", "phases", "verify_model", "verify_host",
             "phase2_mode", "reasoning_effort", "backend", "sweep_mode",
+            "quality_strictness",
             "verify_backend", "recon_model", "recon_backend", "recon_host",
             "reproduce_model", "reproduce_backend", "reproduce_host",
         ):
@@ -324,6 +332,9 @@ class RunRecord:
     budget_halted_reason: str = ""
     # Set when the hunt circuit breaker halted the fan-out (transport storm).
     hunt_halted_reason: str = ""
+    # Pre-report quality-check strictness applied when consolidating (see
+    # quality.py). Recorded so a re-render assesses at the run's chosen level.
+    quality_strictness: str = "balanced"
 
     def to_dict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
@@ -596,6 +607,7 @@ def execute_scan(
         max_budget_usd=spec.max_budget_usd,
         hunt_samples=spec.hunt_samples,
         iac_lens=spec.iac_lens,
+        quality_strictness=spec.quality_strictness,
     )
 
     emit({

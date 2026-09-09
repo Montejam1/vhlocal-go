@@ -18,9 +18,10 @@ class EvidenceReview(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.repo = Path(self.tmp.name)
-        (self.repo / "app.py").write_text('value = request.args["q"]\nexecute(value)\n')
+        (self.repo / "app.py").write_text('value = request.args["q"]\ncur.execute(value)\n')
         self.f = C.Finding(id="V1", title="Query injection", cwe="CWE-89",
-                           location="app.py:2", status="Confirmed", exploit_test="PASS")
+                           location="app.py:2", status="Confirmed", exploit_test="PASS",
+                           data_flow="q -> cur.execute(value)")
         self.meta = {"repo": str(self.repo), "git_commit": "revision-one"}
         self.key = candidate_key(self.f, "revision-one")
         self.record = {
@@ -31,7 +32,7 @@ class EvidenceReview(unittest.TestCase):
             "defenses_reviewed": "No binding or validation in this path.",
             "security_impact": "Caller can change query semantics.",
             "evidence": [{"path": "app.py", "start_line": 1, "end_line": 2,
-                          "quote": 'value = request.args["q"]\nexecute(value)'}],
+                          "quote": 'value = request.args["q"]\ncur.execute(value)'}],
         }
 
     def assess(self, record=None):
@@ -45,7 +46,7 @@ class EvidenceReview(unittest.TestCase):
         # model's own "Confirmed"/"PASS" prose never earns the higher *reviewed*
         # tier — that requires a source-grounded review record.
         self.assertEqual(self.assess(), "statically_supported")
-        self.assertIn("No source-grounded review is recorded", self.f.assessment_reason)
+        self.assertIn("Statically supported", self.f.assessment_reason)
         self.assertEqual(self.f.test_status, "not_run")
 
     def test_source_grounded_review_has_an_explanation(self):
