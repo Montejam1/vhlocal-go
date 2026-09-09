@@ -15,6 +15,12 @@ export function Ledger() {
     if (ledgers && !active && ledgers[0]) setActive(ledgers[0].slug);
   }, [ledgers, active]);
 
+  // A cleared ledger disappears from the list — drop the selection and reload.
+  const onCleared = (slug: string) => {
+    if (active === slug) setActive(null);
+    refresh();
+  };
+
   return (
     <div>
       <div className="flex items-center gap-3">
@@ -43,7 +49,7 @@ export function Ledger() {
               <LedgerCard key={l.slug} l={l} active={l.slug === active} onClick={() => setActive(l.slug)} />
             ))}
           </div>
-          {active && <LedgerView slug={active} />}
+          {active && <LedgerView slug={active} onListRefresh={refresh} onCleared={onCleared} />}
         </>
       )}
     </div>
@@ -74,13 +80,59 @@ function LedgerCard({ l, active, onClick }: { l: LedgerSummary; active: boolean;
 
 const SEV_ORDER = ["Critical", "High+", "High", "Medium", "Moderate", "Low", "Informational", "Info", "Unrated"];
 
-function LedgerView({ slug }: { slug: string }) {
+function LedgerView({
+  slug,
+  onListRefresh,
+  onCleared,
+}: {
+  slug: string;
+  onListRefresh: () => void;
+  onCleared: (slug: string) => void;
+}) {
   const [d, setD] = useState<LedgerDetail | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = () => api.ledger(slug).then(setD).catch(() => setD(null));
   useEffect(() => {
     setD(null);
-    api.ledger(slug).then(setD).catch(() => setD(null));
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
   if (!d) return <div className="mt-6 py-8 text-center text-text-3">Loading…</div>;
+
+  const clearLedger = async () => {
+    if (!window.confirm(
+      `Clear the entire ledger for “${d.summary.target_name}”?\n\n` +
+      `This permanently removes all ${d.summary.total} tracked finding(s) across ` +
+      `every run. Scan reports are kept — only the accumulated ledger is cleared.`,
+    )) return;
+    setBusy(true);
+    try {
+      await api.clearLedger(slug);
+      onCleared(slug);
+    } catch {
+      window.alert("Failed to clear the ledger.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeFinding = async (f: LedgerFinding) => {
+    if (!window.confirm(
+      `Remove this finding from the ledger?\n\n${f.title || f.key}\n\n` +
+      `It stops being tracked across runs. A later scan that re-confirms it will ` +
+      `add it back.`,
+    )) return;
+    setBusy(true);
+    try {
+      await api.removeLedgerFinding(slug, f.key);
+      await load();
+      onListRefresh();
+    } catch {
+      window.alert("Failed to remove the finding.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const sm = d.summary;
   const rank = (s: string) => (SEV_ORDER.indexOf(s) + 99) % 100;
@@ -114,6 +166,9 @@ function LedgerView({ slug }: { slug: string }) {
             ),
           )}
         </div>
+        <Button variant="danger" size="sm" disabled={busy || sm.total === 0} onClick={clearLedger}>
+          Clear ledger
+        </Button>
       </div>
 
       <div className="my-3">
@@ -124,8 +179,8 @@ function LedgerView({ slug }: { slug: string }) {
         <table className="w-full text-[12.5px]">
           <thead>
             <tr className="bg-surface-2 text-text-2">
-              {["Severity", "Finding", "CWE", "Location", "Status", "Seen", "Confidence"].map((h) => (
-                <th key={h} className="whitespace-nowrap px-3 py-2 text-left font-semibold">
+              {["Severity", "Finding", "CWE", "Location", "Status", "Seen", "Confidence", ""].map((h, i) => (
+                <th key={h || `act-${i}`} className="whitespace-nowrap px-3 py-2 text-left font-semibold">
                   {h}
                 </th>
               ))}
@@ -134,7 +189,7 @@ function LedgerView({ slug }: { slug: string }) {
           <tbody>
             {findings.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-6 text-center text-text-3">No findings recorded.</td>
+                <td colSpan={8} className="py-6 text-center text-text-3">No findings recorded.</td>
               </tr>
             )}
             {findings.map((f) => (
@@ -148,6 +203,17 @@ function LedgerView({ slug }: { slug: string }) {
                   {f.confirmed_count}×{f.cross_family ? " ⨯fam" : ""}
                 </td>
                 <td className="px-3 py-2">{confBadge(f.confidence)}</td>
+                <td className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => removeFinding(f)}
+                    title="Remove this finding from the ledger"
+                    className="rounded px-1.5 py-0.5 text-text-3 hover:bg-err-weak hover:text-err disabled:opacity-40"
+                  >
+                    ✕
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

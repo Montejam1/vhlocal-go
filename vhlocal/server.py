@@ -454,6 +454,38 @@ class Handler(BaseHTTPRequestHandler):
             from . import activity
             activity.app_event("app.forgotten", slug)
             return self._json({"forgotten": slug})
+        if path.startswith("/api/ledgers/"):
+            # Clear a whole ledger, or remove one tracked finding from it, without
+            # forgetting the application or touching its scan reports.
+            #   DELETE /api/ledgers/<slug>                 -> clear the ledger
+            #   DELETE /api/ledgers/<slug>/finding?key=..  -> remove one finding
+            # The finding key contains ':' and '/', so it travels URL-encoded in
+            # the query string rather than the path.
+            from .apps import is_valid_slug
+            from .membank import delete_ledger_by_slug, remove_finding_by_slug
+            from . import activity
+            rest = urllib.parse.unquote(path[len("/api/ledgers/"):]).rstrip("/")
+            if rest.endswith("/finding"):
+                slug = rest[:-len("/finding")]
+                if not is_valid_slug(slug):
+                    return self._err("bad ledger id", 400)
+                qs = urllib.parse.parse_qs(parsed.query)
+                key = (qs.get("key") or [""])[0]
+                if not key:
+                    return self._err("finding key is required", 400)
+                if remove_finding_by_slug(slug, key):
+                    activity.record("ledger.finding_removed",
+                                    "Removed a finding from ledger " + slug,
+                                    slug=slug, key=key)
+                    return self._json({"removed": key})
+                return self._err("no such finding", 404)
+            slug = rest
+            if not is_valid_slug(slug):
+                return self._err("bad ledger id", 400)
+            if delete_ledger_by_slug(slug):
+                activity.record("ledger.cleared", "Cleared ledger " + slug, slug=slug)
+                return self._json({"cleared": slug})
+            return self._err("no such ledger", 404)
         return self._err("not found", 404)
 
     # ---------- endpoints ----------

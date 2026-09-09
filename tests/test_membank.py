@@ -114,6 +114,53 @@ class Merge(_Base):
         self.assertEqual(s["total_known"], 1)
 
 
+class ClearAndRemove(_Base):
+    def _seed(self):
+        a = _F("V1", "CWE-89", "db/users.py:20", "SQLi", "q -> execute(sql)")
+        b = _F("V2", "CWE-79", "app/views.py:9", "XSS", "name -> render(tmpl)")
+        _prep([a, b])
+        membank.update_ledger(Path("/r/run1"), [a, b], self._meta())
+        slug = membank.list_ledgers()[0]["slug"]
+        return slug, membank.ledger_key(a), membank.ledger_key(b)
+
+    def test_clear_ledger_removes_the_file(self):
+        slug, _ka, _kb = self._seed()
+        self.assertIsNotNone(membank.load_ledger(slug))
+        self.assertTrue(membank.delete_ledger_by_slug(slug))
+        self.assertIsNone(membank.load_ledger(slug))          # gone
+        self.assertEqual(membank.list_ledgers(), [])
+        # A second clear is a no-op, not an error.
+        self.assertFalse(membank.delete_ledger_by_slug(slug))
+
+    def test_clear_unknown_slug_is_false(self):
+        self._seed()
+        self.assertFalse(membank.delete_ledger_by_slug("no-such-slug"))
+
+    def test_remove_one_finding_keeps_the_rest(self):
+        slug, ka, kb = self._seed()
+        self.assertTrue(membank.remove_finding_by_slug(slug, ka))
+        led = membank.load_ledger(slug)
+        keys = {e["key"] for e in led["findings"]}
+        self.assertNotIn(ka, keys)
+        self.assertIn(kb, keys)                                # sibling untouched
+        self.assertEqual(led["summary"]["total"], 1)
+
+    def test_remove_unknown_key_is_false(self):
+        slug, _ka, _kb = self._seed()
+        self.assertFalse(membank.remove_finding_by_slug(slug, "nope:nope:nope"))
+        self.assertEqual(membank.load_ledger(slug)["summary"]["total"], 2)
+
+    def test_removed_finding_reappears_when_reconfirmed(self):
+        # Removal is not a permanent suppression — a later run re-adds it.
+        slug, ka, _kb = self._seed()
+        membank.remove_finding_by_slug(slug, ka)
+        self.assertEqual(membank.load_ledger(slug)["summary"]["total"], 1)
+        a = _F("V1", "CWE-89", "db/users.py:20", "SQLi", "q -> execute(sql)")
+        _prep([a])
+        membank.update_ledger(Path("/r/run2"), [a], self._meta(when=2000.0))
+        self.assertEqual(membank.load_ledger(slug)["summary"]["total"], 2)
+
+
 class Confidence(_Base):
     def _entry_conf(self):
         led = membank._load(self.repo)

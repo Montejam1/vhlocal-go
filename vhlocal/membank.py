@@ -72,6 +72,35 @@ def delete_ledger_by_slug(slug: str) -> bool:
     return False
 
 
+def remove_finding_by_slug(slug: str, key: str) -> bool:
+    """Remove a single tracked finding (by its stable ledger key) from a target's
+    ledger, identified by slug. Path-safe: the slug is matched against the
+    enumerated directory listing, never joined to a path, and the file is rewritten
+    in place (not via ``_save``) so a since-moved target path can't misroute the
+    write. Returns True if a finding was removed."""
+    d = ledger_dir()
+    if not d.is_dir():
+        return False
+    for p in d.glob("*.json"):
+        if p.stem != slug:
+            continue
+        try:
+            led = json.loads(p.read_text("utf-8"))
+        except (OSError, ValueError):
+            return False
+        findings = led.get("findings") or []
+        kept = [e for e in findings if e.get("key") != key]
+        if len(kept) == len(findings):
+            return False  # no finding with that key
+        led["findings"] = kept
+        try:
+            p.write_text(json.dumps(led, indent=2), encoding="utf-8")
+            return True
+        except OSError:
+            return False
+    return False
+
+
 def _loc_line(text: str) -> int:
     m = re.search(r"\.\w{1,6}[:\s]+(\d+)", text or "")
     return int(m.group(1)) if m else 0

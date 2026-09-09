@@ -79,6 +79,17 @@ export const api = {
 
   ledgers: () => getJSON<{ ledgers: LedgerSummary[] }>("/api/ledgers").then((d) => d.ledgers),
   ledger: (slug: string) => getJSON<LedgerDetail>(`/api/ledgers/${encodeURIComponent(slug)}`),
+  clearLedger: async (slug: string) => {
+    const r = await fetch(`/api/ledgers/${encodeURIComponent(slug)}`, { method: "DELETE" });
+    if (!r.ok) throw new Error(`${r.status} — clear ledger ${slug}`);
+  },
+  removeLedgerFinding: async (slug: string, key: string) => {
+    const r = await fetch(
+      `/api/ledgers/${encodeURIComponent(slug)}/finding?key=${encodeURIComponent(key)}`,
+      { method: "DELETE" },
+    );
+    if (!r.ok) throw new Error(`${r.status} — remove finding`);
+  },
 
   activity: (opts: { limit?: number; type?: string; scan?: string } = {}) => {
     const q = new URLSearchParams();

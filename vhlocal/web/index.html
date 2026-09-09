@@ -623,6 +623,10 @@
   table.ledgertbl tr:hover td{background:var(--accent-weak)}
   table.ledgertbl td.lt{min-width:260px;max-width:520px;color:var(--text-1)}
   table.ledgertbl td.mono{font-family:var(--mono);font-size:11px;color:var(--text-2);white-space:nowrap}
+  table.ledgertbl td.act{width:34px;text-align:right;padding-left:4px;padding-right:8px}
+  table.ledgertbl td.act button{appearance:none;border:none;background:none;cursor:pointer;
+    font-size:13px;line-height:1;color:var(--text-3);border-radius:6px;padding:4px 6px}
+  table.ledgertbl td.act button:hover{background:var(--err-weak);color:var(--err)}
   table.ledgertbl td.loc{max-width:220px;overflow:hidden;text-overflow:ellipsis}
 
   .empty{color:var(--text-3);padding:44px 0;text-align:center;font-size:13px}
@@ -3636,6 +3640,8 @@ window.openLedger = async function(slug) {
         <td>${conf(e.confidence)}</td>
         <td>${seenCell(e.first_seen)}</td>
         <td>${seenCell(e.last_seen)}</td>
+        <td class="act"><button type="button" title="Remove this finding from the ledger"
+          onclick="event.stopPropagation();removeLedgerFinding('${escA(slug)}','${escA(e.key)}')">✕</button></td>
       </tr>`).join('');
     host.innerHTML = `
       <div class="ledger-head">
@@ -3651,6 +3657,8 @@ window.openLedger = async function(slug) {
           <div><b>${sm.reliable||0}</b><span>reliable</span></div>
           <div><b>${sm.runs_recorded||0}</b><span>runs</span></div>
         </div>
+        <button class="secondary danger" style="margin-left:14px" ${(sm.total||0)?'':'disabled'}
+          onclick="clearLedger('${escA(slug)}','${escA(sm.target_name||'')}',${sm.total||0})">Clear ledger</button>
       </div>
       <div class="sevrow" style="margin:10px 0 4px">${_sevChips(sm.by_severity)}</div>
       <div class="tablewrap">
@@ -3660,14 +3668,39 @@ window.openLedger = async function(slug) {
             <th>Status</th><th title="how many independent runs confirmed this">Seen</th><th>Confidence</th>
             <th title="the run that first recorded this finding">First seen</th>
             <th title="the most recent run that confirmed it">Last seen</th>
+            <th></th>
           </tr></thead>
-          <tbody>${rows || '<tr><td colspan="9" class="empty">No findings recorded.</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="10" class="empty">No findings recorded.</td></tr>'}</tbody>
         </table>
       </div>
       <div id="ledgerReportView" style="margin-top:20px"></div>`;
   } catch (e) {
     if (host) host.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
   }
+};
+
+// Clear an entire ledger (all tracked findings across every run). Scan reports
+// are untouched — only the accumulated memory bank is emptied. A future scan of
+// the same target that opts into the ledger rebuilds it.
+window.clearLedger = async function(slug, name, total){
+  if (!confirm(`Clear the entire ledger for “${name}”?\n\nThis permanently removes all `
+    + `${total} tracked finding(s) across every run. Scan reports are kept — only the `
+    + `accumulated ledger is cleared.`)) return;
+  try {
+    await api('/api/ledgers/' + encodeURIComponent(slug), {method:'DELETE'});
+    loadLedgers();   // ledger is gone — repaint the list (or the empty state)
+  } catch (e) { alert('Failed to clear the ledger: ' + e.message); }
+};
+
+// Remove a single tracked finding from a ledger by its stable key.
+window.removeLedgerFinding = async function(slug, key){
+  if (!confirm('Remove this finding from the ledger?\n\nIt stops being tracked across '
+    + 'runs. A later scan that re-confirms it will add it back.')) return;
+  try {
+    await api('/api/ledgers/' + encodeURIComponent(slug) + '/finding?key='
+              + encodeURIComponent(key), {method:'DELETE'});
+    loadLedgers(slug);   // repaint cards + re-open this ledger with the row gone
+  } catch (e) { alert('Failed to remove the finding: ' + e.message); }
 };
 
 // The ledger's recall block — written into findings.json on every run that opted
