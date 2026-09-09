@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from vhlocal.consolidate import (  # noqa: E402
+    CLASS_STATICALLY_SUPPORTED,
     Finding,
     apply_knowledge,
     apply_normalized_severity,
@@ -31,7 +32,10 @@ def _prep(findings):
 
 
 def _F(fid, cwe, loc, title, data_flow=""):
-    return Finding(id=fid, cwe=cwe, location=loc, title=title, data_flow=data_flow)
+    # Ledger findings are substantiated by definition — only non-hypothesis
+    # candidates enter the ledger (a hypothesis is not a tracked vulnerability).
+    return Finding(id=fid, cwe=cwe, location=loc, title=title, data_flow=data_flow,
+                   classification=CLASS_STATICALLY_SUPPORTED)
 
 
 class _Base(unittest.TestCase):

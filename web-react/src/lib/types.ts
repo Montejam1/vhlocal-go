@@ -26,6 +26,7 @@ export interface ScanHistoryRow {
   created: number;
   model: string;
   findings: number;
+  hypotheses?: number;
   severities: Severities;
   coverage_status: string;
   coverage_degraded: boolean;
@@ -49,6 +50,7 @@ export interface ReportRow {
   created: number;
   stamp: string;
   findings: number;
+  hypotheses?: number;
   severities: Severities;
   coverage_status: string;
   coverage_degraded: boolean;

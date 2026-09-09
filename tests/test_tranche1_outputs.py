@@ -52,11 +52,11 @@ class Redaction(unittest.TestCase):
 
 
 _FINDINGS = [
-    {"id": "VULN-001", "title": "Unsafe eval", "severity": "High+",
+    {"id": "VULN-001", "classification": "reviewed", "title": "Unsafe eval", "severity": "High+",
      "normalized_severity": "High+", "cwe": "CWE-95", "normalized_cwe": "CWE-94",
      "canonical_name": "Code Injection", "location": "app/x.py:42",
      "finding_lifecycle": "new"},
-    {"id": "VULN-002", "title": "IDOR", "severity": "Medium",
+    {"id": "VULN-002", "classification": "statically_supported", "title": "IDOR", "severity": "Medium",
      "normalized_severity": "Medium", "cwe": "CWE-639", "normalized_cwe": "CWE-639",
      "location": "app/users.py:17"},
     {"id": "VULN-003", "title": "dup", "severity": "Low", "cwe": "CWE-79",

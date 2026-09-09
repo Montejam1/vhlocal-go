@@ -3280,7 +3280,7 @@ function _delBtn(r, cls) {
 function reportsCardsHTML(rows) {
   return '<div class="cards">' + rows.map(r => {
     const fp = r.has_report
-      ? `<span class="pill ${r.findings ? 'f' : 'z'}">${r.findings} finding${r.findings===1?'':'s'}</span>`
+      ? `<span class="pill ${r.findings ? 'f' : ''}">${r.findings} substantiated</span>${r.hypotheses ? ` <span class="pill">${r.hypotheses} hypotheses</span>` : ''}`
       : `<span class="pill p">incomplete</span>`;
     const quality = reportQuality(r);
     return `<div class="card" onclick="openReport('${esc(r.id)}')">
@@ -3333,7 +3333,7 @@ function reportsTableHTML(rows) {
       ? `<span class="pill ${r.recall_pct >= 80 ? 'z' : 'p'}" title="re-found this share of the findings already known for this application">${r.recall_pct}%</span>`
       : _DASH;
     const found = r.has_report
-      ? `<span class="pill ${r.findings ? 'f' : 'z'}">${r.findings}</span>`
+      ? `<span class="pill ${r.findings ? 'f' : ''}">${r.findings} substantiated${r.hypotheses ? ` · ${r.hypotheses} hypotheses` : ''}</span>`
       : '<span class="pill p" title="this run did not finish">incomplete</span>';
     return `<tr onclick="openReport('${esc(r.id)}')">
       <td class="chkcol"><input type="checkbox" onclick="event.stopPropagation()"
@@ -3744,7 +3744,15 @@ const _STATE_LABEL = {
   dynamically_confirmed: ['z', 'runtime-verified'],
   statically_supported: ['', 'static'],
 };
+// Substantiated = the two published tiers (statically_supported | reviewed);
+// a bare hypothesis is neither. Kept in one place so every finding view agrees.
+function _isSubstantiated(f) {
+  return !!f && (f.classification === 'statically_supported' || f.classification === 'reviewed');
+}
 function stateCell(f) {
+  if (!_isSubstantiated(f)) return '<span class="pill" title="Further investigation required">Hypothesis</span>';
+  if (f.classification === 'statically_supported')
+    return '<span class="pill" title="Harness static gate; no source-grounded review on record">Statically-supported</span>';
   const st = String(f.finding_state || '').toLowerCase();
   if (!st) return _DASH;
   const pair = _STATE_LABEL[st] || ['', st.replace(/_/g, ' ')];
@@ -3792,6 +3800,8 @@ function findingsSectionHTML(fj) {
   const rows = ranked.map((f, i) => {
     const dup = dupes[f.id] || 0;
     const detail = [
+      _fblock('Why the scanner flagged this', f.hypothesis_reason || f.data_flow || 'No candidate-specific explanation was provided.'),
+      _fblock('Evidence assessment', f.assessment_reason || 'No substantiated review is recorded.'),
       _fkv('Reported severity', f.reported_severity && f.reported_severity !== _fsev(f) ? f.reported_severity : ''),
       _fkv('Reported CWE', f.cwe && f.cwe !== _fcwe(f) ? f.cwe : '', true),
       _fkv('CWE family', f.cwe_family),
@@ -3800,7 +3810,7 @@ function findingsSectionHTML(fj) {
       _fkv('Validation', (f.validation_method || '').replace(/_/g, ' ')),
       _fkv('Model claim', f.status),
       _fkv('Exploit test (model)', f.exploit_test),
-      _fkv('Exploitability', f.exploitability),
+      _fkv('Exploitability', _isSubstantiated(f) ? f.exploitability : 'Not established; further investigation required.'),
       _fkv('CVE', f.cve, true),
       _fkv('Reference', f.reference),
       _fkv('Source artifact', f.source, true),
@@ -3823,14 +3833,15 @@ function findingsSectionHTML(fj) {
       detail || '<div class="empty">No further detail recorded for this finding.</div>'}</td></tr>`;
   }).join('');
   const merged = all.length - unique.length;
+  const substantiated = unique.filter(_isSubstantiated).length;
   return `<div class="rsec">
-    <h3>Findings <small>· ${unique.length} unique root cause${unique.length === 1 ? '' : 's'}${
+    <h3>Hypotheses and substantiated vulnerabilities <small>· ${substantiated} substantiated · ${unique.length - substantiated} hypotheses${
       merged ? ` · ${merged} duplicate${merged === 1 ? '' : 's'} merged` : ''}</small></h3>
-    <div class="hint rsub">Click a row for the full record.${
+    <div class="hint rsub">Severity describes potential impact, not certainty. Click a row for the evidence assessment.${
       sampled ? ' <b>Votes</b> counts the independent hunt samples that reported that site.' : ''}${
       lifecycled ? ' <b>Lifecycle</b> is relative to the most recent prior report of this target.' : ''}</div>
     <div class="tablewrap"><table class="ledgertbl findtbl"><thead><tr>
-      <th>Severity</th><th>Finding</th><th>CWE</th><th>Location</th>
+      <th>Potential severity</th><th>Candidate</th><th>CWE</th><th>Location</th>
       ${sampled ? '<th title="independent hunt samples that reported this site">Votes</th>' : ''}
       ${lifecycled ? '<th title="relative to the most recent prior report of this target">Lifecycle</th>' : ''}
       <th title="harness-derived, not the model&#39;s own claim">State</th>

@@ -163,7 +163,13 @@ def update_ledger(results_dir, findings: List[Any], meta: Dict[str, Any]) -> Dic
 
     led = _load(target)
     by_key = {e["key"]: e for e in led["findings"]}
-    unique = [f for f in findings if not _fval(f, "duplicate_of")]
+    # Only substantiated findings enter the ledger — a hypothesis is not a tracked
+    # vulnerability, and recording one would present an unreviewed claim as a
+    # ledger finding. Findings from older runs that predate classification (no
+    # classification field → "") are still recorded, so recall is not lost.
+    unique = [f for f in findings
+              if not _fval(f, "duplicate_of")
+              and _fval(f, "classification") != "hypothesis"]
     cur = {}
     for f in unique:
         cur[ledger_key(f)] = f

@@ -1,11 +1,9 @@
-"""The harness owns candidate assessment: a candidate is 'supported' only when it
-clears an evidence gate (weakness class + real security claim + a source location
-that resolves against the scanned tree). Under-evidenced candidates stay
-'unresolved' — kept and counted, never silently promoted to a finding. Leaked
-input-inventory rows are not candidates at all. Reported confidence must never
-exceed the evidence collected.
-
-These lock in the failure modes from the proposal's acceptance table."""
+"""Three publication tiers: a bare hypothesis (clears no evidence gate), a
+statically-supported finding (the harness's own static gate: weakness class +
+concrete claim + a resolvable location), and a reviewed vulnerability (a
+source-grounded review record). Confidence never exceeds evidence, but a
+well-formed static finding is useful default output — not collapsed to a
+hypothesis. Leaked input-inventory rows are not candidates at all."""
 
 import sys
 import tempfile
@@ -18,6 +16,8 @@ from vhlocal import consolidate as C  # noqa: E402
 from vhlocal.consolidate import (  # noqa: E402
     ASSESS_SUPPORTED,
     ASSESS_UNRESOLVED,
+    CLASS_HYPOTHESIS,
+    CLASS_STATICALLY_SUPPORTED,
     STATE_STATIC_SUPPORTED,
     STATE_UNRESOLVED,
     Finding,
@@ -63,51 +63,70 @@ class InventoryRows(unittest.TestCase):
         self.assertFalse(C._is_inventory_row(f))
 
 
-class EvidenceGate(unittest.TestCase):
+class StaticGate(unittest.TestCase):
     def _assess(self, f, repo=None):
         C.assess_candidates([f], {"repo": str(repo) if repo else ""})
-        return f.assessment
+        return f.assessment, f.classification
 
-    def test_supported_needs_cwe_claim_and_resolvable_location(self):
+    def test_wellformed_candidate_is_statically_supported(self):
+        # A weakness class + a concrete claim + a resolvable location clears the
+        # harness's own static gate: supported, statically_supported tier.
         repo = _repo(["app/search.py"])
         f = Finding(id="V1", title="SQL injection in search", cwe="CWE-89",
                     location="app/search.py:12")
-        self.assertEqual(self._assess(f, repo), ASSESS_SUPPORTED)
+        self.assertEqual(self._assess(f, repo),
+                         (ASSESS_SUPPORTED, CLASS_STATICALLY_SUPPORTED))
 
-    def test_missing_cwe_is_unresolved(self):
+    def test_basename_match_is_statically_supported(self):
+        # The model often cites a path missing its package dir — a basename match
+        # anywhere in the tree still resolves the location.
+        repo = _repo(["backend/app/routers/regions.py"])
+        f = Finding(id="V1", title="IDOR on region", cwe="CWE-639",
+                    location="regions.py:50")
+        self.assertEqual(self._assess(f, repo),
+                         (ASSESS_SUPPORTED, CLASS_STATICALLY_SUPPORTED))
+
+    def test_missing_cwe_is_hypothesis(self):
         repo = _repo(["app/x.py"])
         f = Finding(id="V1", title="Something suspicious here", cwe="",
                     location="app/x.py:1")
-        self.assertEqual(self._assess(f, repo), ASSESS_UNRESOLVED)
+        self.assertEqual(self._assess(f, repo),
+                         (ASSESS_UNRESOLVED, CLASS_HYPOTHESIS))
 
-    def test_weak_title_is_unresolved(self):
+    def test_weak_title_is_hypothesis(self):
         repo = _repo(["app/x.py"])
         f = Finding(id="V1", title="POST /api/x", cwe="CWE-89", location="app/x.py:1")
-        self.assertEqual(self._assess(f, repo), ASSESS_UNRESOLVED)
+        self.assertEqual(self._assess(f, repo),
+                         (ASSESS_UNRESOLVED, CLASS_HYPOTHESIS))
 
-    def test_citation_to_missing_file_is_unresolved(self):
+    def test_citation_to_missing_file_is_hypothesis(self):
         # A source reference that doesn't resolve against the scanned tree fails.
         repo = _repo(["app/real.py"])
         f = Finding(id="V1", title="SQLi in ghost", cwe="CWE-89",
                     location="app/ghost.py:9")
-        self.assertEqual(self._assess(f, repo), ASSESS_UNRESOLVED)
+        self.assertEqual(self._assess(f, repo),
+                         (ASSESS_UNRESOLVED, CLASS_HYPOTHESIS))
 
-    def test_basename_match_resolves(self):
-        # The model often cites a path missing its package dir — basename match ok.
-        repo = _repo(["backend/app/routers/regions.py"])
-        f = Finding(id="V1", title="IDOR on region", cwe="CWE-639",
-                    location="regions.py:50")
-        self.assertEqual(self._assess(f, repo), ASSESS_SUPPORTED)
+    def test_missing_location_is_hypothesis(self):
+        repo = _repo(["app/x.py"])
+        f = Finding(id="V1", title="SQLi in handler", cwe="CWE-89", location="")
+        self.assertEqual(self._assess(f, repo),
+                         (ASSESS_UNRESOLVED, CLASS_HYPOTHESIS))
 
-    def test_no_repo_context_degrades_to_supported(self):
-        # An old-report re-render with no repo must not invent unresolved verdicts.
-        f = Finding(id="V1", title="SQLi", cwe="CWE-89", location="x.py:1")
-        self.assertEqual(self._assess(f, None), ASSESS_SUPPORTED)
+    def test_no_repo_context_keeps_static_support(self):
+        # When the checkout is unavailable the static gate cannot disprove a cited
+        # location, so a well-formed candidate keeps its static-support tier (this
+        # preserves a finding's tier across a re-render without the tree). The
+        # stricter checkout requirement is the reviewed tier's, not this one's.
+        f = Finding(id="V1", title="SQLi in handler", cwe="CWE-89", location="x.py:1")
+        self.assertEqual(self._assess(f, None),
+                         (ASSESS_SUPPORTED, CLASS_STATICALLY_SUPPORTED))
 
-    def test_duplicate_inherits_supported(self):
+    def test_orphan_duplicate_is_hypothesis(self):
         f = Finding(id="V2", title="dup", duplicate_of="V1")
         C.assess_candidates([f], {})
-        self.assertEqual(f.assessment, ASSESS_SUPPORTED)
+        self.assertEqual(f.assessment, ASSESS_UNRESOLVED)
+        self.assertEqual(f.classification, CLASS_HYPOTHESIS)
 
 
 class Promotion(unittest.TestCase):
@@ -128,17 +147,24 @@ class Promotion(unittest.TestCase):
 
 
 class Totals(unittest.TestCase):
-    def test_assessment_totals_separate_supported_from_unresolved(self):
+    def test_assessment_totals_separate_tiers(self):
         fs = [
-            Finding(id="V1", assessment=ASSESS_SUPPORTED),
-            Finding(id="V2", assessment=ASSESS_SUPPORTED),
-            Finding(id="V3", assessment=ASSESS_UNRESOLVED),
-            Finding(id="V4", assessment=ASSESS_SUPPORTED, duplicate_of="V1"),
+            Finding(id="V1", assessment=ASSESS_SUPPORTED,
+                    classification=CLASS_STATICALLY_SUPPORTED),
+            Finding(id="V2", assessment=ASSESS_SUPPORTED,
+                    classification=C.CLASS_REVIEWED),
+            Finding(id="V3", assessment=ASSESS_UNRESOLVED,
+                    classification=CLASS_HYPOTHESIS),
+            Finding(id="V4", assessment=ASSESS_SUPPORTED,
+                    classification=CLASS_STATICALLY_SUPPORTED, duplicate_of="V1"),
         ]
         t = C.assessment_totals(fs)
         self.assertEqual(t["candidates"], 3)  # duplicate excluded
         self.assertEqual(t["supported"], 2)
         self.assertEqual(t["unresolved"], 1)
+        self.assertEqual(t["statically_supported"], 1)
+        self.assertEqual(t["reviewed"], 1)
+        self.assertEqual(t["hypotheses"], 1)
 
 
 if __name__ == "__main__":

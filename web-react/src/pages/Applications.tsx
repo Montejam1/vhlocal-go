@@ -240,7 +240,15 @@ function History({ detail }: { detail: AppDetail }) {
               <td className="whitespace-nowrap px-3 py-2 font-mono text-text-2">{fmtDateTime(s.created)}</td>
               <td className="whitespace-nowrap px-3 py-2 font-mono text-text-2">{s.model || "—"}</td>
               <td className="px-3 py-2">
-                <Badge variant={s.findings ? "err" : "ok"}>{s.findings}</Badge>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant={s.findings ? "err" : "ok"}>{s.findings}</Badge>
+                  {!!s.hypotheses && (
+                    <span className="text-[10.5px] text-text-3"
+                          title="Hypotheses — worth investigating, not substantiated findings">
+                      +{s.hypotheses} hyp
+                    </span>
+                  )}
+                </div>
               </td>
               <td className="px-3 py-2"><SeverityStrip severities={s.severities} /></td>
               <td className="px-3 py-2">

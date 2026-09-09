@@ -56,6 +56,7 @@ class Report:
     created: float = 0.0
     stamp: str = ""
     findings: int = 0
+    hypotheses: int = 0
     severities: Dict[str, int] = field(default_factory=dict)
     findings_summary: str = ""
     branch: str = ""
@@ -174,8 +175,14 @@ def _findings_from_json(path: Path, rep: Report) -> bool:
     # Unique root causes only — clustered duplicates are excluded, matching the
     # headline count in the consolidated report.
     unique = [f for f in findings if isinstance(f, dict) and not f.get("duplicate_of")]
+    if "hypothesis_counts" in data:
+        # Substantiated tiers (statically_supported, reviewed) publish as findings;
+        # bare hypotheses are counted separately, not as findings.
+        substantiated = ("statically_supported", "reviewed")
+        rep.hypotheses = sum(f.get("classification") not in substantiated for f in unique)
+        unique = [f for f in unique if f.get("classification") in substantiated]
     rep.findings = len(unique)
-    counts = data.get("counts")
+    counts = data.get("vulnerability_counts", data.get("counts"))
     if isinstance(counts, dict):
         for label, n in counts.items():
             if isinstance(n, int) and n:

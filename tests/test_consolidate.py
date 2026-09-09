@@ -325,8 +325,15 @@ class TestVulnerabilityLedger(unittest.TestCase):
         self.assertEqual(list(Path(self._tmp.name).glob("*.json")), [])
 
     def test_ledger_written_and_summarized_when_opted_in(self):
-        d = self._dir(**{"phase3_output__md": PHASE3_TABLE,
-                         "scan_meta__json": json.dumps(dict(META, ledger=True))})
+        # The ledger records substantiated findings, so the run needs at least one
+        # well-formed candidate (CWE + concrete title + location) that clears the
+        # static gate — a bare hypothesis is not a tracked vulnerability.
+        d = self._dir(**{"scan_meta__json": json.dumps(dict(META, ledger=True))})
+        (d / "results").mkdir()
+        (d / "results" / "sg-1.md").write_text(
+            "#### [VULN-001] Code Injection via eval()\n- **Class**: CWE-94\n"
+            "- **Location**: app/ops.py:76\n- **Severity**: High\n"
+            "- **Root Cause**: user input reaches eval.\n", encoding="utf-8")
         _, js = write_consolidated(d)
         data = json.loads(js.read_text("utf-8"))
         bank = data["vulnerability_ledger"]
@@ -521,7 +528,7 @@ class TestValidationLabeling(unittest.TestCase):
         apply_validation([f], {"bash_enabled": False})
         self.assertEqual(f.test_status, "not_run")
         self.assertEqual(f.validation_method, "static_reasoning")
-        self.assertEqual(f.finding_state, "statically_supported")
+        self.assertEqual(f.finding_state, "unresolved")
         self.assertEqual(f.poc_status, "authored")
         # Model claim preserved verbatim, but not promoted to a verdict.
         self.assertEqual(f.status, "Confirmed")
@@ -533,9 +540,11 @@ class TestValidationLabeling(unittest.TestCase):
         self.assertEqual(f.test_status, "not_run")
 
     def test_dynamic_pass_requires_record(self):
-        f = Finding(id="VULN-1")
-        meta = {"bash_enabled": True,
-                "execution_records": {"VULN-1": {"exit_code": 0}}}
+        f = Finding(id="VULN-1", assessment="supported", candidate_key="key")
+        meta = {"bash_enabled": True, "git_commit": "rev",
+                "execution_records": {"VULN-1": {"exit_code": 0,
+                    "candidate_key": "key", "revision": "rev",
+                    "security_property_violated": True}}}
         apply_validation([f], meta)
         self.assertEqual(f.test_status, "passed")
         self.assertEqual(f.finding_state, "dynamically_confirmed")
@@ -598,7 +607,7 @@ class TestRender(unittest.TestCase):
 
     def test_has_expected_sections(self):
         for s in ("Consolidated Scan Report", "1. Scan summary", "2. Checks enabled",
-                  "3. Findings by severity", "4. Findings ranked by priority",
+                  "3. Hypotheses and substantiated vulnerabilities", "4. Investigation priorities",
                   "Scope and limitations"):
             self.assertIn(s, self.out)
 
@@ -617,8 +626,8 @@ class TestRender(unittest.TestCase):
         self.assertIn("max_turns", self.out)
 
     def test_static_only_limitation_stated(self):
-        self.assertIn("Static analysis only", self.out)
-        self.assertIn("never executed", self.out)
+        self.assertIn("Evidence levels are separate from severity", self.out)
+        self.assertIn("do not prove execution", self.out)
 
     def test_same_model_falsification_warned(self):
         # META has no verify_model — the report must call that out.
@@ -653,12 +662,12 @@ class TestWrite(unittest.TestCase):
         md, _js = write_consolidated(d)
         text = md.read_text(encoding="utf-8")
         self.assertIn("unknown", text)
-        self.assertIn("4. Findings ranked by priority", text)
+        self.assertIn("4. Investigation priorities", text)
 
     def test_empty_dir_still_produces_report(self):
         d = Path(tempfile.mkdtemp())
         md, _js = write_consolidated(d)
-        self.assertIn("No findings were reported", md.read_text(encoding="utf-8"))
+        self.assertIn("No hypotheses or substantiated vulnerabilities were reported", md.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

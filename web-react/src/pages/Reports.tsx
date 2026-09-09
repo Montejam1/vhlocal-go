@@ -110,7 +110,17 @@ export function Reports() {
                   </td>
                   <td className="px-3 py-2">
                     {r.has_report ? (
-                      <Badge variant={r.findings ? "err" : "ok"}>{r.findings}</Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant={r.findings ? "err" : "ok"}>{r.findings}</Badge>
+                        {!!r.hypotheses && (
+                          <span
+                            className="text-[10.5px] text-text-3"
+                            title="Hypotheses — worth investigating, not substantiated findings"
+                          >
+                            +{r.hypotheses} hyp
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <Badge variant="warn">incomplete</Badge>
                     )}
@@ -188,7 +198,12 @@ function ReportDetail({ id, row, onClose }: { id: string; row?: ReportRow; onClo
 
       {row && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          {row.has_report && <Badge variant={row.findings ? "err" : "ok"}>{row.findings} findings</Badge>}
+          {row.has_report && <Badge variant={row.findings ? "err" : "ok"}>{row.findings} substantiated</Badge>}
+          {!!row.hypotheses && (
+            <Badge variant="warn" title="Worth investigating, not substantiated findings">
+              {row.hypotheses} hypotheses
+            </Badge>
+          )}
           <SeverityStrip severities={row.severities} />
           {row.coverage_status &&
             (row.coverage_degraded ? <Badge variant="warn">coverage degraded</Badge> : <Badge variant="ok">clean run</Badge>)}

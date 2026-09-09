@@ -200,7 +200,7 @@ class TestContent(_Base):
         self.assertIn("did not finish cleanly", self.html)
 
     def test_static_only_stated(self):
-        self.assertIn("Static analysis only", self.html)
+        self.assertIn("Evidence levels are separate from severity", self.html)
 
     def test_same_model_falsification_warned(self):
         self.assertIn("same model as the hunt phase", self.html)
@@ -225,7 +225,7 @@ class TestEmpty(_Base):
     def test_empty_dir_produces_valid_document(self):
         html = render_html(Path(tempfile.mkdtemp()))
         self.assertTrue(html.startswith("<!doctype html>"))
-        self.assertIn("No findings were reported", html)
+        self.assertIn("No hypotheses or substantiated vulnerabilities were reported", html)
 
     def test_write_html_creates_file(self):
         d = self.build()

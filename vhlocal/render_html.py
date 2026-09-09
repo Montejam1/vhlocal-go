@@ -38,9 +38,14 @@ from .consolidate import (
     SEVERITY_ORDER,
     VALIDATION_DYNAMIC,
     Finding,
+    _assessment_label,
     _clean,
+    _is_substantiated,
     apply_normalized_severity,
     apply_validation,
+    assess_candidates,
+    assessment_totals,
+    backfill_locations,
     compute_run_status,
     coverage_ledger,
     flag_duplicates,
@@ -55,7 +60,7 @@ SCAN_REPORT_HTML = "SCAN_REPORT.html"
 # pick up. SCAN_REPORT.html is a generated snapshot, so without a stamp an
 # improvement silently applies only to *new* scans and every older report keeps
 # rendering with whatever version wrote it.
-RENDERER_VERSION = "10"
+RENDERER_VERSION = "11"
 _STAMP = '<meta name="generator" content="vhlocal-report/{0}">'.format(RENDERER_VERSION)
 
 # Status palette — fixed, never themed. Same hexes in both modes.
@@ -465,7 +470,9 @@ def render_html(results_dir: Path) -> str:
     results_dir = Path(results_dir)
     meta = load_meta(results_dir)
     findings = parse_findings(results_dir)
+    backfill_locations(findings, results_dir, meta.get("repo", ""))
     flag_duplicates(findings)
+    assess_candidates(findings, meta)
     apply_validation(findings, meta)
     apply_knowledge(findings)
     apply_normalized_severity(findings)
@@ -549,7 +556,10 @@ def render_html(results_dir: Path) -> str:
     A('<div class="lead"><div class="hero">')
     A('<div class="n">{0}</div>'.format(total))
     A('<div class="l">{0} reported</div>'.format(
-        "finding" if total == 1 else "findings"))
+        "candidate" if total == 1 else "candidates"))
+    at = assessment_totals(unique)
+    A('<div>{0} substantiated vulnerabilities · {1} hypotheses worth investigating</div>'.format(
+        at["supported"], at["unresolved"]))
     A('</div></div>')
 
     A('<div class="kpis">')
@@ -642,19 +652,19 @@ def render_html(results_dir: Path) -> str:
             A('</dl></div></details>')
 
     # ---------------- findings ----------------
-    A('<h2>Findings <span style="text-transform:none;letter-spacing:0">'
+    A('<h2>Hypotheses and substantiated vulnerabilities <span style="text-transform:none;letter-spacing:0">'
       '(<span id="shown">{0}</span> shown)</span></h2>'.format(total))
 
     if not total:
-        A('<div class="empty">No findings were reported.')
+        A('<div class="empty">No hypotheses or substantiated vulnerabilities were reported.')
         if not (results_dir / "README.md").exists():
             A('<br><br>The scanner\'s final report is absent, so this may be an '
               'incomplete scan rather than a clean result.')
         A('</div>')
     else:
         A('<div class="controls">')
-        A('<input id="q" type="search" placeholder="Filter findings…" '
-          'aria-label="Filter findings">')
+        A('<input id="q" type="search" placeholder="Filter candidates…" '
+          'aria-label="Filter candidates">')
         for lbl in SEV_LABELS:
             if not counts.get(lbl):
                 continue
@@ -673,6 +683,10 @@ def render_html(results_dir: Path) -> str:
             A('<details class="finding" data-sev="{0}" data-search="{1}">'.format(
                 _e(f.severity), _e(hay)))
             A('<summary><span class="rank">{0}</span>{1}'.format(i, _sev_badge(f.severity)))
+            A('<span class="fcwe">{0}</span>'.format(
+                {"reviewed": "Reviewed vulnerability",
+                 "statically_supported": "Statically-supported"}.get(
+                     f.classification, "Hypothesis")))
             A('<span class="ftitle">{0}</span>'.format(_e(f.title or f.id)))
             chip_cwe = f.normalized_cwe or f.cwe
             if chip_cwe:
@@ -704,7 +718,7 @@ def render_html(results_dir: Path) -> str:
                     A('<dt>Family</dt><dd>{0}</dd>'.format(_e(f.canonical_name)))
             if f.description:
                 A('<dt>Description</dt><dd>{0}</dd>'.format(_e(f.description)))
-            if f.exploitability:
+            if f.exploitability and _is_substantiated(f.classification):
                 basis = ("statically confirmed (source→sink); not runtime-tested"
                          if f.validation_method != VALIDATION_DYNAMIC
                          else "runtime-verified")
@@ -712,6 +726,10 @@ def render_html(results_dir: Path) -> str:
                   'var(--text-muted)">Basis: {1}</span></dd>'.format(
                       _e(f.exploitability), _e(basis)))
             for label, val, mono in (
+                ("Assessment", _assessment_label(f.classification), False),
+                ("Why the scanner flagged this", f.hypothesis_reason or f.data_flow or "No candidate-specific explanation was provided.", False),
+                ("Evidence assessment", f.assessment_reason, False),
+                ("Potential severity", f.severity if f.classification == "hypothesis" else "", False),
                 ("Location", _clean(f.location), True),
                 ("Entry point", f.entry_point, False),
                 ("Data flow", f.data_flow, False),
@@ -731,7 +749,7 @@ def render_html(results_dir: Path) -> str:
                 "dynamic execution" if f.validation_method == VALIDATION_DYNAMIC
                 else "static reasoning")))
             A('<dt>Finding state</dt><dd>{0}</dd>'.format(_e(
-                (f.finding_state or "statically_supported").replace("_", " "))))
+                (f.finding_state or "hypothesis").replace("_", " "))))
             if f.finding_lifecycle:
                 A('<dt>Lifecycle</dt><dd>{0}</dd>'.format(_e({
                     "new": "new this scan",
@@ -889,10 +907,10 @@ def render_html(results_dir: Path) -> str:
 
     # ---------------- limitations ----------------
     A('<h2>Scope and limitations</h2><ul class="lim">')
-    A('<li><strong>Static analysis only.</strong> This harness has no shell tool: '
-      'exploit tests were written but never executed, and the target\'s '
-      'dependencies were never installed. Every finding is confirmed by '
-      'reasoning, not by running code.</li>')
+    A('<li><strong>Evidence levels are separate from severity.</strong> '
+      'Hypotheses are potential vulnerabilities requiring further investigation. '
+      'Substantiated vulnerabilities require an explicit review with matching source evidence. '
+      'Authored tests and model-written PASS claims do not prove execution or impact.</li>')
     A('<li><strong>Excluded by design:</strong> test code, build scripts, '
       'vendored and third-party directories, generated code, and documentation.</li>')
     if not meta.get("verify_model") and meta.get("model"):

@@ -106,7 +106,16 @@ def build_sarif(findings: List[Dict[str, Any]], meta: Dict[str, Any],
                 phys["region"] = {"startLine": line}
         sev = f.get("normalized_severity") or f.get("severity") or "Unrated"
         msg = f.get("title") or name or rid
-        props: Dict[str, Any] = {"severity": sev}
+        classification = f.get("classification") or "hypothesis"
+        # Substantiated = harness static gate (statically_supported) or a
+        # source-grounded review (reviewed). Only these publish as SARIF results
+        # (kind:fail); hypotheses are emitted as kind:review notes.
+        substantiated = classification in ("statically_supported", "reviewed")
+        props: Dict[str, Any] = {
+            "severity": sev, "classification": classification,
+            "hypothesisReason": f.get("hypothesis_reason") or "",
+            "assessmentReason": f.get("assessment_reason") or "No substantiated review is recorded.",
+        }
         if cwe:
             props["cwe"] = cwe
             if num:
@@ -122,8 +131,9 @@ def build_sarif(findings: List[Dict[str, Any]], meta: Dict[str, Any],
             props["findingId"] = f["id"]
         res: Dict[str, Any] = {
             "ruleId": rid,
-            "level": _level(sev),
-            "message": {"text": "[{0}] {1}".format(sev, msg)},
+            "level": _level(sev) if substantiated else "note",
+            "kind": "fail" if substantiated else "review",
+            "message": {"text": "[{0}; potential severity: {1}] {2}".format(classification, sev, msg)},
             "properties": props,
         }
         if phys:

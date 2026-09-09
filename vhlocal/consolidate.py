@@ -141,12 +141,43 @@ STATE_UNRESOLVED = "unresolved"
 POC_AUTHORED = "authored"
 POC_NONE = "none"
 
-# Candidate assessment — the harness's own disposition, distinct from the model's
-# verbatim claim. A candidate is `supported` only when it clears an evidence gate
-# (a weakness class, a real security claim, and a source location that resolves
-# against the scanned tree); otherwise `unresolved`.
+# Candidate assessment is distinct from the hunter's claim. Only an explicit
+# review with matching source evidence can substantiate a vulnerability.
 ASSESS_SUPPORTED = "supported"
 ASSESS_UNRESOLVED = "unresolved"
+
+# Publication tier (``classification``). Confidence never exceeds evidence, so a
+# candidate is labelled by the strongest evidence it clears — not collapsed to a
+# single "vulnerability yes/no":
+#   hypothesis           — clears no evidence gate (no weakness class, a
+#                          placeholder title, or a source location that does not
+#                          resolve against the scanned tree). Not published as a
+#                          finding; surfaced separately as worth investigating.
+#   statically_supported — clears the harness's own static gate (weakness class +
+#                          a concrete claim + a location that resolves). The
+#                          scanner can honestly stand behind this from static
+#                          facts, but no independent source-grounded review exists.
+#   reviewed             — additionally backed by a source-grounded review record
+#                          (see evidence.review_support): the highest tier.
+# "Substantiated" = statically_supported OR reviewed = assessment == SUPPORTED.
+CLASS_HYPOTHESIS = "hypothesis"
+CLASS_STATICALLY_SUPPORTED = "statically_supported"
+CLASS_REVIEWED = "reviewed"
+SUBSTANTIATED_CLASSES = (CLASS_STATICALLY_SUPPORTED, CLASS_REVIEWED)
+
+
+def _is_substantiated(classification: str) -> bool:
+    """Whether a classification denotes a published finding (not a hypothesis)."""
+    return classification in SUBSTANTIATED_CLASSES
+
+
+def _assessment_label(classification: str) -> str:
+    """Human-facing tier label for a candidate's classification."""
+    return {
+        CLASS_REVIEWED: "Reviewed vulnerability (source-grounded review on record)",
+        CLASS_STATICALLY_SUPPORTED: "Statically-supported finding (harness static gate; no review on record)",
+        CLASS_HYPOTHESIS: "Hypothesis — further investigation required",
+    }.get(classification, "Hypothesis — further investigation required")
 
 
 @dataclass
@@ -175,10 +206,12 @@ class Finding:
     test_status: str = ""
     validation_method: str = ""
     finding_state: str = ""
-    # Harness assessment disposition (set by assess_candidates): "supported" once
-    # the evidence gate passes, else "unresolved". Separate from finding_state so
-    # a candidate absent the evidence to support it is never counted as a finding.
+    # Publication assessment, separate from runtime reproduction status.
     assessment: str = ""
+    classification: str = "hypothesis"
+    candidate_key: str = ""
+    hypothesis_reason: str = ""
+    assessment_reason: str = ""
     # Deterministic CWE knowledge (set by knowledge.apply_knowledge). `cve` is
     # deliberately "N/A" for first-party code findings — see knowledge.py.
     description: str = ""
@@ -203,7 +236,7 @@ class Finding:
     vote_samples: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        return dict(asdict(self), potential_severity=self.severity)
 
 
 def _clean(v: str) -> str:
@@ -285,6 +318,9 @@ def _extract_source_findings(path: Path) -> Dict[str, Dict[str, str]]:
             severity = sm.group(1) if sm else ""
         out[key] = {"title": title, "cwe": cwe, "location": location,
                     "severity": severity}
+        reason = re.search(r"(?im)^[-*]?\s*\*\*Root Cause\*\*\s*:\s*(.+)$", block)
+        if reason:
+            out[key]["hypothesis_reason"] = reason[1].strip()
     return out
 
 
@@ -339,6 +375,7 @@ def _confirmed_spine(results_dir: Path) -> List[Finding]:
             severity=label, severity_rank=rank,
             cwe=cwe, location=detail.get("location", ""),
             source=it.source or HANDOFF_FILE,
+            hypothesis_reason=detail.get("hypothesis_reason", ""),
         ))
     return findings
 
@@ -436,7 +473,7 @@ def _enrich_spine_from_report(spine: List[Finding], results_dir: Path) -> None:
             f.title = d.title
         if not f.location and d.location:
             f.location = d.location
-        for attr in ("entry_point", "data_flow", "fix", "poc", "exploit_test"):
+        for attr in ("entry_point", "data_flow", "fix", "poc", "exploit_test", "hypothesis_reason"):
             if not getattr(f, attr) and getattr(d, attr):
                 setattr(f, attr, getattr(d, attr))
 
@@ -694,6 +731,11 @@ def _parse_hunt_blocks(text: str) -> Dict[str, Dict[str, str]]:
             rec["severity"] = sev
         if loc and not rec.get("location"):
             rec["location"] = loc
+        for label, key in (("Root Cause", "hypothesis_reason"),
+                           ("Data Flow", "data_flow"), ("Entry Point", "entry_point")):
+            match = re.search(r"(?im)^[-*]?\s*\*\*" + label + r"\*\*\s*:\s*(.+)$", block)
+            if match:
+                rec[key] = match[1].strip()
     return out
 
 
@@ -720,6 +762,9 @@ def _parse_hunt_file(path: Path) -> List[Finding]:
             cwe=b.get("cwe") or t.get("cwe") or "",
             location=b.get("location") or t.get("location") or "",
             source=path.name,
+            hypothesis_reason=b.get("hypothesis_reason", ""),
+            entry_point=b.get("entry_point", ""),
+            data_flow=b.get("data_flow", ""),
         ))
     return findings
 
@@ -812,7 +857,7 @@ def parse_findings(results_dir: Path) -> List[Finding]:
     # while rescuing a report the model mangled. Cross-partition duplicates in
     # the hunt set collapse later in flag_duplicates.
     hunt = _hunt_evidence_findings(results_dir)
-    if hunt and _wellformed_count(hunt) > _wellformed_count(chosen) + RECOVERY_MARGIN:
+    if hunt and (not chosen or _wellformed_count(hunt) > _wellformed_count(chosen) + RECOVERY_MARGIN):
         return hunt
     return chosen
 
@@ -904,6 +949,8 @@ def _enrich_from_details(readme: Path, findings: List[Finding]) -> None:
                 continue
             if key == "location" and not f.location:
                 f.location = val
+            elif key == "root cause" and not f.hypothesis_reason:
+                f.hypothesis_reason = val
             elif key.startswith("entry") and not f.entry_point:
                 f.entry_point = val
             elif key.startswith("data flow") and not f.data_flow:
@@ -1351,6 +1398,8 @@ def apply_normalized_severity(findings: List[Finding]) -> None:
     ``knowledge.apply_knowledge`` (which sets ``normalized_severity``) and before
     ``rank``."""
     for f in findings:
+        if not _is_substantiated(f.classification):
+            f.exploitability = "Not established; this hypothesis requires further investigation."
         ns = getattr(f, "normalized_severity", "")
         if ns and ns != f.severity:
             f.reported_severity = f.severity
@@ -1385,47 +1434,91 @@ def _location_resolves(location: str, repo: Optional[Path]) -> bool:
     return False
 
 
-def assess_candidates(findings: List[Finding], meta: Dict[str, Any]) -> None:
-    """Set each candidate's harness assessment — ``supported`` or ``unresolved``.
+def _static_gate(f: Finding, repo: Optional[Path]):
+    """The harness's own static evidence gate. Passing does NOT require a human
+    review — it means the candidate carries the minimum static substance the
+    scanner can honestly stand behind: a specific weakness claim (not an
+    input-inventory placeholder), a weakness class (CWE), and a source location
+    that resolves against the scanned tree. Returns ``(ok, reason)``; ``reason``
+    names why the gate failed so the report can explain the hypothesis."""
+    if _is_placeholder(f):
+        return False, ("Not statically supported: this reads as an input-inventory "
+                       "row rather than a specific weakness claim.")
+    if not _clean(f.cwe) and not _clean(getattr(f, "normalized_cwe", "")):
+        return False, "Not statically supported: no weakness class (CWE) was assigned."
+    if _is_weak_title(f.title or "", f.id):
+        return False, ("Not statically supported: the title is too generic to name a "
+                       "specific weakness.")
+    if not _clean(f.location):
+        return False, "Not statically supported: no source location was cited."
+    # ``_location_resolves`` is lenient when the checkout is unavailable (it
+    # cannot disprove a location it cannot see) — so a well-formed candidate keeps
+    # its static-support tier on a re-render without the tree, and only a location
+    # that is definitively absent from a *present* tree fails. The stricter
+    # checkout requirement belongs to the reviewed tier (evidence.review_support).
+    if not _location_resolves(f.location, repo):
+        return False, ("Not statically supported: the cited source location does not "
+                       "resolve against the scanned tree.")
+    return True, ""
 
-    The evidence gate (proposal §3, adapted to a static-only harness): a candidate
-    is ``supported`` only when it carries
-      * a weakness class (a raw or normalized CWE),
-      * a real security claim (a title that is not a weak/inventory reference), and
-      * a source location that resolves against the scanned tree.
-    Anything missing an essential piece is ``unresolved`` — kept and counted as a
-    candidate, but never presented as a supported finding. Duplicates inherit the
-    assessment question from their canonical finding, so only canonical rows are
-    gated here. Never raises; missing context degrades to ``supported`` rather
-    than inventing an unresolved verdict."""
-    repo = None
-    r = meta.get("repo")
-    if r:
-        try:
-            rp = Path(r)
-            repo = rp if rp.is_dir() else None
-        except (OSError, ValueError):
-            repo = None
+
+def assess_candidates(findings: List[Finding], meta: Dict[str, Any]) -> None:
+    """Assign each candidate a publication tier from the strongest evidence it
+    clears — ``reviewed`` (a source-grounded review record) > ``statically_supported``
+    (the harness's own static gate) > ``hypothesis`` (clears neither). Confidence
+    never exceeds evidence, so a bigger candidate pool never reads as verified
+    yield; but a well-formed static finding is still useful default output rather
+    than being collapsed to a bare hypothesis."""
+    from .evidence import candidate_key, review_support
+    raw_repo = meta.get("repo")
+    repo = Path(raw_repo).resolve() if raw_repo and Path(raw_repo).is_dir() else None
     for f in findings:
-        if f.duplicate_of:
-            f.assessment = ASSESS_SUPPORTED  # judged via its canonical row
+        f.candidate_key = candidate_key(f, meta.get("git_commit", ""))
+        reviewed, review_reason = review_support(f, meta)
+        if reviewed:
+            f.classification = CLASS_REVIEWED
+            f.assessment = ASSESS_SUPPORTED
+            f.assessment_reason = review_reason
             continue
-        has_cwe = bool(_clean(f.cwe) or _clean(f.normalized_cwe))
-        has_claim = bool(_clean(f.title)) and not _is_weak_title(f.title, f.id)
-        loc_ok = _location_resolves(f.location, repo)
-        f.assessment = (ASSESS_SUPPORTED if (has_cwe and has_claim and loc_ok)
-                        else ASSESS_UNRESOLVED)
+        static_ok, static_reason = _static_gate(f, repo)
+        if static_ok:
+            f.classification = CLASS_STATICALLY_SUPPORTED
+            f.assessment = ASSESS_SUPPORTED
+            f.assessment_reason = (
+                "Statically supported by the harness: a specific weakness claim, a "
+                "weakness class, and a source location that resolves against the "
+                "scanned tree. No source-grounded review is recorded, so this is not "
+                "an independently reviewed vulnerability.")
+        else:
+            f.classification = CLASS_HYPOTHESIS
+            f.assessment = ASSESS_UNRESOLVED
+            f.assessment_reason = static_reason or review_reason
+    by_id = {f.id: f for f in findings}
+    for f in findings:
+        if not f.duplicate_of:
+            continue
+        canonical = by_id.get(f.duplicate_of)
+        if canonical and not canonical.duplicate_of:
+            f.assessment = canonical.assessment
+            f.classification = canonical.classification
+            f.assessment_reason = canonical.assessment_reason
 
 
 def assessment_totals(findings: List[Finding]) -> Dict[str, int]:
     """Separate totals so a larger candidate pool never reads as verified yield:
-    candidates (canonical, non-duplicate), supported, unresolved, reproduced."""
+    candidates (canonical, non-duplicate), the two substantiated tiers
+    (``statically_supported`` and ``reviewed``), hypotheses, and reproduced.
+    ``supported`` (= statically_supported + reviewed) and ``unresolved`` are kept
+    for back-compat with earlier readers."""
     canon = [f for f in findings if not f.duplicate_of]
-    supported = [f for f in canon if f.assessment == ASSESS_SUPPORTED]
     return {
         "candidates": len(canon),
-        "supported": len(supported),
+        "supported": sum(1 for f in canon if f.assessment == ASSESS_SUPPORTED),
         "unresolved": sum(1 for f in canon if f.assessment == ASSESS_UNRESOLVED),
+        "statically_supported": sum(
+            1 for f in canon if f.classification == CLASS_STATICALLY_SUPPORTED),
+        "reviewed": sum(1 for f in canon if f.classification == CLASS_REVIEWED),
+        "hypotheses": sum(1 for f in canon if f.classification == CLASS_HYPOTHESIS),
         "reproduced": sum(1 for f in canon if f.finding_state == STATE_DYNAMIC_CONFIRMED),
     }
 
@@ -1433,12 +1526,10 @@ def assessment_totals(findings: List[Finding]) -> Dict[str, int]:
 def apply_validation(findings: List[Finding], meta: Dict[str, Any]) -> None:
     """Set harness-owned validation state on each finding.
 
-    The authoritative test status comes from a fact the engine owns — whether
-    code execution was enabled — never from the model's "PASS"/"Confirmed"
-    prose. With no shell tool nothing ran, so every finding is
-    ``not_run`` / ``static_reasoning`` / ``statically_supported`` regardless of
-    what the model wrote. The model's claim survives verbatim in ``status`` /
-    ``exploit_test`` for transparency, but it is not a verdict.
+    Model PASS/Confirmed prose is not a verdict. Unsubstantiated claims remain
+    unresolved; reviewed source evidence can establish static support. Runtime
+    confirmation additionally requires an executor-owned impact observation
+    bound to this candidate and revision, not merely a successful process exit.
 
     The dynamic branch is intentionally inert: even with ``bash_enabled`` we only
     report ``passed`` when an execution record proves it. There is no executor in
@@ -1452,14 +1543,17 @@ def apply_validation(findings: List[Finding], meta: Dict[str, Any]) -> None:
         f.poc_status = POC_AUTHORED if (_clean(f.poc) or _clean(f.exploit_test)) else POC_NONE
         # A candidate that failed the evidence gate is never promoted to
         # "supported" — it stays unresolved regardless of what the model wrote.
-        if not f.duplicate_of and f.assessment == ASSESS_UNRESOLVED:
+        if f.assessment != ASSESS_SUPPORTED:
             f.test_status = TEST_NOT_RUN
             f.validation_method = VALIDATION_STATIC
             f.finding_state = STATE_UNRESOLVED
             continue
         rec = records.get(f.id) if isinstance(records, dict) else None
         if dynamic and isinstance(rec, dict) and rec.get("exit_code") is not None:
-            passed = rec.get("exit_code") == 0
+            passed = (rec.get("exit_code") == 0
+                      and rec.get("security_property_violated") is True
+                      and rec.get("candidate_key") == f.candidate_key
+                      and rec.get("revision") == meta.get("git_commit"))
             f.test_status = TEST_PASSED if passed else TEST_FAILED
             f.validation_method = VALIDATION_DYNAMIC
             f.finding_state = STATE_DYNAMIC_CONFIRMED if passed else STATE_STATIC_SUPPORTED
@@ -1632,7 +1726,15 @@ def load_meta(results_dir: Path) -> Dict[str, Any]:
     if not p.exists():
         return {}
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        meta = json.loads(p.read_text(encoding="utf-8"))
+        reviews = results_dir / "verification_records.json"
+        if reviews.exists():
+            try:
+                records = json.loads(reviews.read_text(encoding="utf-8"))
+                meta["verification_records"] = records if isinstance(records, dict) else {}
+            except (OSError, ValueError):
+                meta["verification_records"] = {}
+        return meta
     except Exception:
         return {}
 
@@ -1728,7 +1830,7 @@ def _build_chains_safe(findings):
     """Deterministic exploit-chain analysis; never fails the report."""
     try:
         from .chains import build_chains
-        return build_chains([f.to_dict() for f in findings])
+        return build_chains([f.to_dict() for f in findings if _is_substantiated(f.classification)])
     except Exception:  # pragma: no cover - defensive
         return []
 
@@ -1953,10 +2055,10 @@ def render(results_dir: Path) -> str:
         A("")
 
     # ---------------- 3. Findings by severity ----------------
-    A("## 3. Findings by severity")
+    A("## 3. Hypotheses and substantiated vulnerabilities")
     A("")
     if not unique:
-        A("**No findings were reported.**")
+        A("**No hypotheses or substantiated vulnerabilities were reported.**")
         A("")
         if not (results_dir / "README.md").exists():
             A("> The final report (`README.md`) is absent, so this may reflect an "
@@ -1964,16 +2066,17 @@ def render(results_dir: Path) -> str:
             A("")
     else:
         total = len(unique)
-        # Harness assessment split — kept honest and separate from severity so a
-        # candidate pool that includes unsupported rows can't read as verified
-        # yield. Only shown when there is something unresolved to distinguish.
+        # Keep evidence status visible independently of potential severity.
         at = assessment_totals(unique)
-        if at["unresolved"]:
-            A("**{0} candidate(s)** — **{1} supported** by the evidence gate, "
-              "**{2} unresolved** (insufficient evidence; kept for accounting, "
-              "not counted as findings).".format(
-                  at["candidates"], at["supported"], at["unresolved"]))
-            A("")
+        A("**{0} substantiated findings** ({1} reviewed, {2} statically-supported) · "
+          "**{3} hypotheses worth investigating**.".format(
+              at["supported"], at["reviewed"], at["statically_supported"], at["unresolved"]))
+        A("")
+        A("*Substantiated* means a finding cleared the harness's static gate (weakness "
+          "class + concrete claim + a source location that resolves); *reviewed* adds a "
+          "source-grounded review record. Severity below describes potential impact; it "
+          "does not establish that a hypothesis is a vulnerability.")
+        A("")
         A("| Severity | Count | Distribution |")
         A("|---|---|---|")
         for _k, label in SEVERITY_ORDER:
@@ -1987,9 +2090,9 @@ def render(results_dir: Path) -> str:
         A("| | **{0} total** | |".format(total))
         A("")
 
-        A("## 4. Findings ranked by priority")
+        A("## 4. Investigation priorities")
         A("")
-        A("| # | ID | Severity | CWE | Title | Location |")
+        A("| # | ID | Potential severity | CWE | Title | Location |")
         A("|---|---|---|---|---|---|")
         for i, f in enumerate(unique, start=1):
             A("| {0} | {1} | **{2}** | {3} | {4} | {5} |".format(
@@ -1998,14 +2101,18 @@ def render(results_dir: Path) -> str:
                 "`{0}`".format(_clean(f.location)) if f.location else "—"))
         A("")
 
-        A("## 5. Finding detail")
+        A("## 5. Evidence and assessment")
         A("")
         for i, f in enumerate(unique, start=1):
             A("### {0}. [{1}] {2}".format(i, f.severity.upper(), f.title or f.id))
             A("")
             A("| Field | Value |")
             A("|---|---|")
-            A("| Finding ID | {0} |".format(f.id))
+            A("| Candidate ID | {0} |".format(f.id))
+            A("| Assessment | {0} |".format(_assessment_label(f.classification)))
+            A("| Why the scanner flagged this | {0} |".format(
+                _clean(f.hypothesis_reason or f.data_flow or "No candidate-specific explanation was provided.").replace("|", "\\|")))
+            A("| Evidence assessment | {0} |".format(_clean(f.assessment_reason).replace("|", "\\|")))
             # Severity is the deterministic family baseline (stable across runs);
             # the model's own tier is preserved beside it when it differed.
             if f.reported_severity and f.reported_severity != f.severity:
@@ -2023,7 +2130,7 @@ def render(results_dir: Path) -> str:
                 A("| Family | {0} |".format(f.canonical_name))
             if f.description:
                 A("| Description | {0} |".format(f.description))
-            if f.exploitability:
+            if f.exploitability and _is_substantiated(f.classification):
                 # Class-level exploitability paired with this finding's own
                 # static-confirmation basis, so nothing overstates what was proven.
                 basis = ("statically confirmed (source→sink); not runtime-tested"
@@ -2059,7 +2166,7 @@ def render(results_dir: Path) -> str:
                 "dynamic execution" if f.validation_method == VALIDATION_DYNAMIC
                 else "static reasoning"))
             A("| Finding state | {0} |".format(
-                f.finding_state.replace("_", " ") or "statically supported"))
+                f.finding_state.replace("_", " ") or "hypothesis"))
             if f.finding_lifecycle:
                 A("| Lifecycle | {0} |".format({
                     "new": "🆕 new this scan",
@@ -2164,13 +2271,7 @@ def render(results_dir: Path) -> str:
     # ---------------- Limitations ----------------
     A("## Scope and limitations")
     A("")
-    A("- **Static analysis only.** This harness has no shell tool: exploit tests "
-      "were written but never executed, and the target's dependencies were never "
-      "installed. Every finding is *statically supported* — confirmed by "
-      "reasoning, not by running code. Any `PASS` / `Confirmed` text carried "
-      "over from the scan model is the model's own claim, shown as "
-      "*Scanner-reported (unverified)*; the harness never ran the tests, so no "
-      "finding is marked as an executed pass.")
+    A("- **Evidence levels are separate from severity.** Hypotheses are potential vulnerabilities requiring further investigation. A substantiated vulnerability requires an explicit review with matching source evidence. Authored tests and model-written PASS claims do not prove execution or security impact.")
     A("- **Excluded from analysis by design:** test code, build scripts, vendored "
       "and third-party directories, generated code, and documentation.")
     if not meta.get("verify_model") and meta.get("model"):
@@ -2386,7 +2487,7 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     unique_dicts = [d for d in finding_dicts if not d.get("duplicate_of")]
     try:
         from .chains import build_chains
-        chains = build_chains(unique_dicts)
+        chains = build_chains([d for d in unique_dicts if _is_substantiated(d.get("classification", ""))])
     except Exception:  # pragma: no cover - defensive
         chains = []
 
@@ -2424,6 +2525,8 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
         # reproduced — kept distinct from the severity counts so a larger
         # candidate pool never reads as improved verified yield (proposal §7).
         "assessment": assessment_totals(findings),
+        "vulnerability_counts": _counts([f for f in findings if _is_substantiated(f.classification)]),
+        "hypothesis_counts": _counts([f for f in findings if f.classification == CLASS_HYPOTHESIS]),
         # Mode A cross-run lifecycle: new/persisting/regressed vs the prior
         # report, the now-fixed findings, and the fixed keys the next run reads
         # back to detect regressions.
@@ -2455,7 +2558,8 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
         from .manifest import write_manifest
         redaction = {"enabled": bool(meta.get("redact")), "masked": red_count} \
             if meta.get("redact") else None
-        write_manifest(results_dir, meta, run_status, counts, redaction)
+        write_manifest(results_dir, meta, run_status,
+                       _counts([f for f in findings if _is_substantiated(f.classification)]), redaction)
     except Exception as exc:  # pragma: no cover - defensive
         import logging
         logging.getLogger(__name__).warning("run_manifest failed: %s", exc)

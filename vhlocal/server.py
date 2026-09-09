@@ -710,7 +710,7 @@ class Handler(BaseHTTPRequestHandler):
         summary = self._app_summary(slug, reg, by_slug, ledgers)
         scans = [{
             "id": r.id, "created": r.created, "model": r.model,
-            "findings": r.findings, "severities": r.severities,
+            "findings": r.findings, "hypotheses": r.hypotheses, "severities": r.severities,
             "coverage_status": r.coverage_status, "coverage_degraded": r.coverage_degraded,
             "has_report": r.has_report, "has_threat_model": r.has_threat_model,
             "has_sbom": r.has_sbom, "recall_pct": r.recall_pct, "chains": r.chains,
