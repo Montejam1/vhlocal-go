@@ -133,8 +133,20 @@ VALIDATION_STATIC = "static_reasoning"
 VALIDATION_DYNAMIC = "dynamic_execution"
 STATE_STATIC_SUPPORTED = "statically_supported"
 STATE_DYNAMIC_CONFIRMED = "dynamically_confirmed"
+# A candidate the harness could NOT support on the evidence present — never
+# silently promoted to a finding, never silently dropped. It stays accounted for
+# so "candidates" and "supported findings" are distinct, and reported confidence
+# never exceeds the evidence collected.
+STATE_UNRESOLVED = "unresolved"
 POC_AUTHORED = "authored"
 POC_NONE = "none"
+
+# Candidate assessment — the harness's own disposition, distinct from the model's
+# verbatim claim. A candidate is `supported` only when it clears an evidence gate
+# (a weakness class, a real security claim, and a source location that resolves
+# against the scanned tree); otherwise `unresolved`.
+ASSESS_SUPPORTED = "supported"
+ASSESS_UNRESOLVED = "unresolved"
 
 
 @dataclass
@@ -163,6 +175,10 @@ class Finding:
     test_status: str = ""
     validation_method: str = ""
     finding_state: str = ""
+    # Harness assessment disposition (set by assess_candidates): "supported" once
+    # the evidence gate passes, else "unresolved". Separate from finding_state so
+    # a candidate absent the evidence to support it is never counted as a finding.
+    assessment: str = ""
     # Deterministic CWE knowledge (set by knowledge.apply_knowledge). `cve` is
     # deliberately "N/A" for first-party code findings — see knowledge.py.
     description: str = ""
@@ -435,16 +451,47 @@ _PLACEHOLDER_TITLE = re.compile(
     re.IGNORECASE)
 
 
+# Input-inventory rows the model emits in its recon/verify tables — a bare
+# parameter, path variable, or DTO field, NOT a vulnerability. They carry no
+# weakness class and no security claim; a location (where the input is read) is
+# not a finding. The harness must keep inventories separate from candidates: an
+# inventory row must never implicitly become a vulnerability. Examples seen in
+# real runs: "payload.name (RegionCreate)", "Path parameter region_id (PUT)",
+# "Query param q", "region_id path".
+_INVENTORY_TITLE = re.compile(
+    r"^(?:"
+    r"payload\.[\w.]+"                                  # payload.name, payload.code
+    r"|(?:path|query|body|header|cookie|form)\s+param(?:eter)?\b.*"
+    r"|[\w.]+\s+(?:path|query|body|header)\s+param.*"
+    r"|(?:path|query|body)\s+parameter\s+[\w.]+.*"
+    r"|[\w.]+\s*\((?:Region|User|Customer|Order|[A-Z]\w*(?:Create|Update|Request|DTO|Body|Payload))[^)]*\)"
+    r")\s*$",
+    re.IGNORECASE)
+
+
+def _is_inventory_row(f: "Finding") -> bool:
+    """A leaked input-inventory row, not a candidate: no weakness class and a
+    title that is just a parameter / path / DTO-field reference (an HTTP verb in
+    parentheses is the tell). Dropped so it never inflates the finding list."""
+    if f.cwe or f.normalized_cwe:
+        return False
+    title = _clean(f.title or "").strip()
+    return bool(title) and bool(_INVENTORY_TITLE.match(title))
+
+
 def _is_placeholder(f: "Finding") -> bool:
     """True for a padding/empty row that is not a real finding.
 
-    Either the title is a known placeholder phrase, or the finding is entirely
+    Either the title is a known placeholder phrase, the finding is entirely
     contentless (no CWE, no location, and a title that is empty or just echoes
-    its own id) — nothing an analyst could act on."""
+    its own id), or it is a leaked input-inventory row (a bare parameter/DTO
+    reference with no weakness class) — none of which an analyst could act on."""
     title = _clean(f.title or "").strip()
     if title and _PLACEHOLDER_TITLE.search(title):
         return True
     if not f.cwe and not f.location and (not title or title.upper() == f.id.upper()):
+        return True
+    if _is_inventory_row(f):
         return True
     return False
 
@@ -1310,6 +1357,79 @@ def apply_normalized_severity(findings: List[Finding]) -> None:
             f.severity_rank, f.severity = _sev_key(ns)
 
 
+def _location_resolves(location: str, repo: Optional[Path]) -> bool:
+    """Whether a finding's cited ``file:line`` names a file that actually exists
+    in the scanned tree. A citation against a file that is not present is a red
+    flag (a fabricated or stale reference), so it does not clear the gate. When no
+    repo is available (an old report re-render), we cannot check — treat as OK so
+    we never invent an unresolved verdict from missing context."""
+    if not repo or not location:
+        return True
+    fp = _loc_file(location)
+    if not fp:
+        return True
+    fp = fp.strip()
+    cand = (repo / fp)
+    if cand.exists():
+        return True
+    # The model often cites a repo-relative path that omits a leading package
+    # dir (e.g. "regions.py" for "backend/app/routers/regions.py"). Accept a
+    # basename match anywhere in the tree before declaring it unresolved.
+    name = Path(fp).name
+    try:
+        for p in repo.rglob(name):
+            if p.is_file():
+                return True
+    except OSError:
+        pass
+    return False
+
+
+def assess_candidates(findings: List[Finding], meta: Dict[str, Any]) -> None:
+    """Set each candidate's harness assessment — ``supported`` or ``unresolved``.
+
+    The evidence gate (proposal §3, adapted to a static-only harness): a candidate
+    is ``supported`` only when it carries
+      * a weakness class (a raw or normalized CWE),
+      * a real security claim (a title that is not a weak/inventory reference), and
+      * a source location that resolves against the scanned tree.
+    Anything missing an essential piece is ``unresolved`` — kept and counted as a
+    candidate, but never presented as a supported finding. Duplicates inherit the
+    assessment question from their canonical finding, so only canonical rows are
+    gated here. Never raises; missing context degrades to ``supported`` rather
+    than inventing an unresolved verdict."""
+    repo = None
+    r = meta.get("repo")
+    if r:
+        try:
+            rp = Path(r)
+            repo = rp if rp.is_dir() else None
+        except (OSError, ValueError):
+            repo = None
+    for f in findings:
+        if f.duplicate_of:
+            f.assessment = ASSESS_SUPPORTED  # judged via its canonical row
+            continue
+        has_cwe = bool(_clean(f.cwe) or _clean(f.normalized_cwe))
+        has_claim = bool(_clean(f.title)) and not _is_weak_title(f.title, f.id)
+        loc_ok = _location_resolves(f.location, repo)
+        f.assessment = (ASSESS_SUPPORTED if (has_cwe and has_claim and loc_ok)
+                        else ASSESS_UNRESOLVED)
+
+
+def assessment_totals(findings: List[Finding]) -> Dict[str, int]:
+    """Separate totals so a larger candidate pool never reads as verified yield:
+    candidates (canonical, non-duplicate), supported, unresolved, reproduced."""
+    canon = [f for f in findings if not f.duplicate_of]
+    supported = [f for f in canon if f.assessment == ASSESS_SUPPORTED]
+    return {
+        "candidates": len(canon),
+        "supported": len(supported),
+        "unresolved": sum(1 for f in canon if f.assessment == ASSESS_UNRESOLVED),
+        "reproduced": sum(1 for f in canon if f.finding_state == STATE_DYNAMIC_CONFIRMED),
+    }
+
+
 def apply_validation(findings: List[Finding], meta: Dict[str, Any]) -> None:
     """Set harness-owned validation state on each finding.
 
@@ -1330,6 +1450,13 @@ def apply_validation(findings: List[Finding], meta: Dict[str, Any]) -> None:
     records = meta.get("execution_records") or {}
     for f in findings:
         f.poc_status = POC_AUTHORED if (_clean(f.poc) or _clean(f.exploit_test)) else POC_NONE
+        # A candidate that failed the evidence gate is never promoted to
+        # "supported" — it stays unresolved regardless of what the model wrote.
+        if not f.duplicate_of and f.assessment == ASSESS_UNRESOLVED:
+            f.test_status = TEST_NOT_RUN
+            f.validation_method = VALIDATION_STATIC
+            f.finding_state = STATE_UNRESOLVED
+            continue
         rec = records.get(f.id) if isinstance(records, dict) else None
         if dynamic and isinstance(rec, dict) and rec.get("exit_code") is not None:
             passed = rec.get("exit_code") == 0
@@ -1613,6 +1740,7 @@ def render(results_dir: Path) -> str:
     # family:file:func).
     backfill_locations(findings, results_dir, meta.get("repo", ""))
     flag_duplicates(findings)
+    assess_candidates(findings, meta)
     apply_validation(findings, meta)
     apply_knowledge(findings)
     apply_normalized_severity(findings)
@@ -1836,6 +1964,16 @@ def render(results_dir: Path) -> str:
             A("")
     else:
         total = len(unique)
+        # Harness assessment split — kept honest and separate from severity so a
+        # candidate pool that includes unsupported rows can't read as verified
+        # yield. Only shown when there is something unresolved to distinguish.
+        at = assessment_totals(unique)
+        if at["unresolved"]:
+            A("**{0} candidate(s)** — **{1} supported** by the evidence gate, "
+              "**{2} unresolved** (insufficient evidence; kept for accounting, "
+              "not counted as findings).".format(
+                  at["candidates"], at["supported"], at["unresolved"]))
+            A("")
         A("| Severity | Count | Distribution |")
         A("|---|---|---|")
         for _k, label in SEVERITY_ORDER:
@@ -2173,6 +2311,7 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     # family:file:func).
     backfill_locations(findings, results_dir, meta.get("repo", ""))
     flag_duplicates(findings)
+    assess_candidates(findings, meta)
     apply_validation(findings, meta)
     apply_knowledge(findings)
     apply_normalized_severity(findings)
@@ -2281,6 +2420,10 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
             "complete": ledger.complete,
         } if ledger is not None else None,
         "counts": counts,
+        # Harness assessment totals — candidates vs supported vs unresolved vs
+        # reproduced — kept distinct from the severity counts so a larger
+        # candidate pool never reads as improved verified yield (proposal §7).
+        "assessment": assessment_totals(findings),
         # Mode A cross-run lifecycle: new/persisting/regressed vs the prior
         # report, the now-fixed findings, and the fixed keys the next run reads
         # back to detect regressions.
