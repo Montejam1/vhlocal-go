@@ -714,13 +714,25 @@ def _parse_hunt_table(text: str) -> Dict[str, Dict[str, str]]:
     return out
 
 
-def _parse_hunt_blocks(text: str) -> Dict[str, Dict[str, str]]:
-    """Per-finding write-up blocks → {norm_id: {title, cwe, severity, location}},
-    from the heading title + ``**Class**``/``**Severity**``/``**Location**`` lines."""
-    out: Dict[str, Dict[str, str]] = {}
+def _parse_hunt_blocks(text: str) -> List[Dict[str, str]]:
+    """Per-finding write-up blocks → a LIST of complete, self-consistent
+    observations ``{id, title, cwe, severity, location, hypothesis_reason,
+    data_flow, entry_point}``, each field taken from the SAME block.
+
+    Identity integrity: records are never assembled field-by-field across blocks
+    that happen to reuse a local id. A partition's file is frequently rewritten by
+    the model with shuffled/reused ``VULN-NNN`` ids (the same file can carry three
+    numbering passes over the same candidates), and the old merge-by-id — which
+    took title/cwe/location from the *first* occurrence but overwrote data_flow
+    from the *last* — welded one candidate's title to another candidate's data
+    flow and location. Each block is now emitted whole; de-duplication of blocks
+    that genuinely describe the same candidate happens in ``_parse_hunt_file``."""
+    obs: List[Dict[str, str]] = []
     heads = list(_HUNT_HDR.finditer(text))
     for i, h in enumerate(heads):
         fid = _norm_hunt_fid(h.group("id"))
+        if not fid:
+            continue
         end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
         block = text[h.start():end]
         title = (h.group("title") or "").strip().strip("–-:. ")
@@ -738,21 +750,14 @@ def _parse_hunt_blocks(text: str) -> Dict[str, Dict[str, str]]:
         sev = _sev_word(sm.group("v")) if sm else head_sev
         lm = _HUNT_LOC.search(block)
         loc = _first_file_line(lm.group("v")) if lm else ""
-        rec = out.setdefault(fid, {})
-        if title and not rec.get("title"):
-            rec["title"] = title
-        if cwe and not rec.get("cwe"):
-            rec["cwe"] = cwe
-        if sev and not rec.get("severity"):
-            rec["severity"] = sev
-        if loc and not rec.get("location"):
-            rec["location"] = loc
+        rec = {"id": fid, "title": title, "cwe": cwe, "severity": sev, "location": loc}
         for label, key in (("Root Cause", "hypothesis_reason"),
                            ("Data Flow", "data_flow"), ("Entry Point", "entry_point")):
             match = re.search(r"(?im)^[-*]?\s*\*\*" + label + r"\*\*\s*:\s*(.+)$", block)
             if match:
                 rec[key] = match[1].strip()
-    return out
+        obs.append(rec)
+    return obs
 
 
 def _parse_hunt_file(path: Path) -> List[Finding]:
@@ -762,17 +767,35 @@ def _parse_hunt_file(path: Path) -> List[Finding]:
         return []
     blocks = _parse_hunt_blocks(text)
     table = _parse_hunt_table(text)
-    # Block ids are the real write-ups; table-only ids (a Summary row with no
-    # block) are kept too — the block is preferred field-by-field, the table fills.
-    ids = list(blocks.keys()) + [k for k in table if k not in blocks]
+
+    # Collapse only blocks that genuinely describe the SAME candidate — same id
+    # AND same (cwe, location). A reused id pointing at a DIFFERENT candidate (a
+    # different cwe or location) is kept as its own observation, never merged, so
+    # one candidate's title can't inherit another's evidence. When the same
+    # observation recurs we fill only fields the first copy left empty.
+    kept: List[Dict[str, str]] = []
+    index: Dict[tuple, Dict[str, str]] = {}
+    for b in blocks:
+        key = (b["id"], (b.get("cwe") or "").upper(), b.get("location") or "")
+        cur = index.get(key)
+        if cur is None:
+            index[key] = b
+            kept.append(b)
+        else:
+            for k, v in b.items():
+                if v and not cur.get(k):
+                    cur[k] = v
+    block_ids = {b["id"] for b in kept}
+
     findings: List[Finding] = []
-    for fid in ids:
-        b = blocks.get(fid, {})
-        t = table.get(fid, {})
+    for b in kept:
+        # The Summary table only FILLS fields the write-up block lacks (typically
+        # severity); it never overrides the block's own, self-consistent evidence.
+        t = table.get(b["id"], {})
         sev = b.get("severity") or t.get("severity") or ""
         rank, label = _sev_key(sev)
         findings.append(Finding(
-            id=fid,
+            id=b["id"],
             title=_strip_lead_meta(b.get("title") or t.get("title") or ""),
             severity=label, severity_rank=rank,
             cwe=b.get("cwe") or t.get("cwe") or "",
@@ -781,6 +804,19 @@ def _parse_hunt_file(path: Path) -> List[Finding]:
             hypothesis_reason=b.get("hypothesis_reason", ""),
             entry_point=b.get("entry_point", ""),
             data_flow=b.get("data_flow", ""),
+        ))
+    # Table-only ids (a Summary row with no write-up block) are kept as their own
+    # findings — with no block evidence to (mis)attribute to them.
+    for fid, t in table.items():
+        if fid in block_ids:
+            continue
+        sev = t.get("severity") or ""
+        rank, label = _sev_key(sev)
+        findings.append(Finding(
+            id=fid, title=_strip_lead_meta(t.get("title") or ""),
+            severity=label, severity_rank=rank,
+            cwe=t.get("cwe") or "", location=t.get("location") or "",
+            source=path.name,
         ))
     return findings
 

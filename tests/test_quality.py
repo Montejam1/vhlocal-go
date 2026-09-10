@@ -133,6 +133,50 @@ class StructuralFloor(unittest.TestCase):
         self.assertFalse(quality.evaluate(f, self.repo, quality.BALANCED).substantiated)
 
 
+class EvidenceProvenance(unittest.TestCase):
+    """A sink pattern for corroboration must come from the authoritative CWE table,
+    never from call tokens the model wrote into its own data flow — otherwise a
+    Mongo call can 'corroborate' an SSRF label (regression: strict run 2026-09-10,
+    VULN-027)."""
+
+    def setUp(self):
+        self.repo = _repo({"backend/app/ops.py":
+                           "def r(payload):\n" + "\n" * 130 +
+                           "    q = payload.get('filter', payload)\n"
+                           "    return MongoClient().ops.records.find_one(q)\n"})
+
+    def test_mongo_source_does_not_corroborate_an_ssrf_label(self):
+        # SSRF (CWE-918) cited at a line whose only call is a Mongo find_one, with
+        # the model's flow naming find_one. Authoritative SSRF sinks are HTTP
+        # clients, so this must NOT corroborate — at any strictness.
+        f = Finding(id="V1", title="SSRF via webhook url", cwe="CWE-918",
+                    location="backend/app/ops.py:131",
+                    data_flow="payload -> find_one(query)", from_confirmed=True)
+        c = {x.name: x for x in quality.evaluate(f, self.repo, quality.STRICT).checks}
+        self.assertEqual(c["source_corroborated"].status, quality.FAIL)
+        self.assertFalse(quality.evaluate(f, self.repo, quality.BALANCED).substantiated)
+
+    def test_genuine_nosql_at_the_same_line_is_corroborated(self):
+        f = Finding(id="V1", title="NoSQL injection via Mongo query", cwe="CWE-943",
+                    location="backend/app/ops.py:132", data_flow="payload -> find_one(q)")
+        c = {x.name: x for x in quality.evaluate(f, self.repo, quality.BALANCED).checks}
+        self.assertEqual(c["source_corroborated"].status, quality.PASS)
+
+
+class FlowIsTraced(unittest.TestCase):
+    def test_prose_without_a_connective_is_not_a_flow(self):
+        f = Finding(id="V1", cwe="CWE-918",
+                    data_flow="This endpoint appears vulnerable to request forgery in some cases")
+        self.assertEqual(quality.check_flow_described(f).status, quality.FAIL)
+
+    def test_traced_flow_passes(self):
+        for df in ("hook.url reaches urllib.request.urlopen",
+                   "payload -> find_one(query)",
+                   "user input is passed to cursor.execute"):
+            f = Finding(id="V1", cwe="CWE-918", data_flow=df)
+            self.assertEqual(quality.check_flow_described(f).status, quality.PASS, df)
+
+
 class LevelAndRepoRobustness(unittest.TestCase):
     def test_unknown_level_defaults_to_balanced(self):
         self.assertEqual(quality.normalize_level("whatever"), quality.BALANCED)

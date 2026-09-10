@@ -135,7 +135,13 @@ def _extract_call_patterns(*texts: str) -> List[str]:
 
 
 def patterns_for(cwe: str, data_flow: str, title: str) -> Tuple[List[str], str]:
-    """Sweep patterns for a finding + a note when none apply."""
+    """Sweep patterns for a finding + a note when none apply.
+
+    Includes call tokens pulled from the model's narrative (data flow / title) —
+    appropriate ONLY for the sweep, whose job is to surface *leads* (other places
+    a named call appears). It must NOT be used to decide whether a claim is
+    corroborated: a narrative that says ``find_one`` would make a Mongo call count
+    as evidence for an SSRF label. Use ``sink_patterns`` for that."""
     num = (cwe or "").upper().replace("CWE-", "").strip()
     if num in _LOGIC_CWES:
         return [], ("authorization/logic finding — no syntactic sink to sweep "
@@ -145,6 +151,21 @@ def patterns_for(cwe: str, data_flow: str, title: str) -> Tuple[List[str], str]:
     if not pats:
         return [], "no sink pattern derivable for {0}".format(cwe or "unknown CWE")
     return sorted(pats), ""
+
+
+def sink_patterns(cwe: str) -> Tuple[List[str], str]:
+    """The AUTHORITATIVE CWE→sink patterns (the curated table only — never the
+    model's narrative). Corroboration must use this: a pattern here constitutes
+    evidence that the cited source performs the operation the CWE describes, not a
+    lead extracted from prose the model wrote. Returns ``([], note)`` for logic
+    classes (no syntactic sink) and for classes absent from the table."""
+    num = (cwe or "").upper().replace("CWE-", "").strip()
+    if num in _LOGIC_CWES:
+        return [], "authorization/logic class — no syntactic sink to corroborate"
+    pats = CWE_SINK_PATTERNS.get(num, [])
+    if not pats:
+        return [], "no authoritative sink pattern for {0}".format(cwe or "unknown CWE")
+    return list(pats), ""
 
 
 def _grep(repo: Path, pattern: str, glob: Optional[str]) -> List[Instance]:

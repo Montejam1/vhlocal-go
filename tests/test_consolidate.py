@@ -170,6 +170,41 @@ PHASE2B_VERDICT = """# Phase 2b Verification
 """
 
 
+class TestHuntIdentityIntegrity(unittest.TestCase):
+    """A hunt file frequently reuses local VULN-NNN ids across rewrite passes for
+    DIFFERENT candidates. Each observation must keep its own title/cwe/location/
+    data_flow — never take a title from one block and a data flow from another
+    (regression: strict run 2026-09-10, VULN-023/025/026/027)."""
+
+    def _parse(self, body):
+        d = Path(tempfile.mkdtemp())
+        (d / "results").mkdir()
+        (d / "results" / "sg-1_inj.md").write_text(body, encoding="utf-8")
+        from vhlocal.consolidate import _hunt_evidence_findings
+        return _hunt_evidence_findings(d)
+
+    def test_reused_id_does_not_weld_title_to_a_foreign_flow(self):
+        # The same file writes VULN-001 twice: once an open redirect, once a path
+        # traversal. The old merge-by-id took the title from the first and the
+        # data flow from the last, producing a path-traversal titled record with
+        # an open-redirect flow. Each must stay whole.
+        body = (
+            "#### [VULN-001] Open Redirect via `lane`\n"
+            "- **Class**: CWE-601\n- **Location**: `app/ops.py:39`\n"
+            "- **Data Flow**: `lane` -> `RedirectResponse(lane)` line 39\n\n"
+            "#### [VULN-001] Path Traversal via `ref`\n"
+            "- **Class**: CWE-22\n- **Location**: `app/ops.py:69`\n"
+            "- **Data Flow**: `ref` -> `open(target)` line 69\n")
+        fs = self._parse(body)
+        by_cwe = {f.cwe: f for f in fs}
+        self.assertIn("CWE-601", by_cwe)
+        self.assertIn("CWE-22", by_cwe)
+        # Each observation's flow belongs to its own CWE — no welding.
+        self.assertIn("RedirectResponse", by_cwe["CWE-601"].data_flow)
+        self.assertIn("open(target)", by_cwe["CWE-22"].data_flow)
+        self.assertNotIn("RedirectResponse", by_cwe["CWE-22"].data_flow)
+
+
 class TestPhase4StubFallback(unittest.TestCase):
     def _dir(self, **files):
         d = Path(tempfile.mkdtemp())

@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
-from .sweep import _LOGIC_CWES, patterns_for
+from .sweep import _LOGIC_CWES, sink_patterns
 
 LENIENT = "lenient"
 BALANCED = "balanced"
@@ -175,10 +175,14 @@ def check_source_corroborated(finding, repo: Optional[Path]) -> Check:
         return Check("source_corroborated", NA,
                      "authorization/logic class — no syntactic sink to corroborate")
     cwe = getattr(finding, "cwe", "") or getattr(finding, "normalized_cwe", "")
-    pats, note = patterns_for(cwe, getattr(finding, "data_flow", ""), getattr(finding, "title", ""))
+    # AUTHORITATIVE patterns only — never call tokens pulled from the model's own
+    # data-flow prose. Otherwise a narrative naming ``find_one`` lets a Mongo call
+    # corroborate an SSRF label; corroboration must test the operation the CWE
+    # actually describes.
+    pats, note = sink_patterns(cwe)
     if not pats:
         return Check("source_corroborated", NA,
-                     note or "no sink pattern derivable for this class")
+                     note or "no authoritative sink pattern for this class")
     if repo is None:
         return Check("source_corroborated", NA, "source unavailable (no checkout) to corroborate")
     src = _resolve_source(getattr(finding, "location", ""), repo)
@@ -208,13 +212,24 @@ def check_source_corroborated(finding, repo: Optional[Path]) -> Check:
                  "no sink pattern for {0} near the cited location".format(cwe or "this class"))
 
 
+_FLOW_CONNECTIVE = re.compile(
+    r"->|→|(?i)\b(reach(es|ed)?|flows?\s+to|passed?\s+(to|unchanged|into)|"
+    r"propagat\w*|concatenat\w*|interpolat\w*|used\s+(in|as)|into\s+the?)\b")
+
+
 def check_flow_described(finding) -> Check:
+    """A data flow corroborates only if it actually *traces* attacker input to an
+    operation — a causal connective linking two parts. Length/word-count is not
+    evidence (a long paragraph of prose describing a maybe-bug is not a flow), so
+    it no longer passes on its own."""
     df = _clean(getattr(finding, "data_flow", ""))
     if not df or len(df) < 12:
         return Check("flow_described", FAIL, "no data flow described")
-    if "->" in df or "→" in df or " to " in df.lower() or len(df.split()) >= 6:
-        return Check("flow_described", PASS, "a source→sink data flow is described")
-    return Check("flow_described", FAIL, "data flow is too thin to corroborate")
+    if _FLOW_CONNECTIVE.search(df):
+        return Check("flow_described", PASS,
+                     "the data flow traces attacker input through to an operation")
+    return Check("flow_described", FAIL,
+                 "the data flow does not trace input to an operation (prose, not a flow)")
 
 
 def check_agreement(finding) -> Check:
