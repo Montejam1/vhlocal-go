@@ -238,14 +238,21 @@ class TestPhase4StubFallback(unittest.TestCase):
         self.assertIn("Consolidated Scan Report", rd)
         self.assertIn("VULN-001", rd)
 
-    def test_real_phase4_readme_not_clobbered(self):
-        real = ("# Security Audit\n\n## Summary\n"
-                "| ID | Title | CWE | Severity |\n|---|---|---|---|\n"
-                "| VULN-001 | Hand-written finding | CWE-89 | High |\n") * 2
+    def test_model_readme_is_replaced_with_canonical(self):
+        # The published README must be canonical (harness-rendered), never the
+        # model's own file — a model README has been observed inventing a commit,
+        # the wrong model name, and PASS tests the harness never ran. Even a
+        # plausible-looking Phase-4 README is overwritten.
+        real = ("# Security Audit\n\n**Branch**: main [abcdef1]\n**Model**: made-up\n\n"
+                "| ID | Title | CWE | Severity | Exploit Test |\n|---|---|---|---|---|\n"
+                "| VULN-001 | Hand-written finding | CWE-89 | High | PASS |\n") * 2
         d = self._dir(**{"README__md": real, "phase3_output__md": PHASE3_TABLE,
                          "scan_meta__json": json.dumps(META)})
         write_consolidated(d)
-        self.assertEqual((d / "README.md").read_text(encoding="utf-8"), real)
+        rd = (d / "README.md").read_text(encoding="utf-8")
+        self.assertIn("Consolidated Scan Report", rd)     # canonical, not the model file
+        self.assertNotIn("# Security Audit", rd)
+        self.assertNotIn("[abcdef1]", rd)                 # invented commit gone
 
     def test_stub_word_vulnerability_not_mistaken_for_findings(self):
         """The stub's own heading says 'Vulnerability' — must still be a stub."""
@@ -632,6 +639,24 @@ class TestRunStatusAxes(unittest.TestCase):
         meta = dict(META)
         meta["aborted"] = "endpoint unreachable"
         self.assertEqual(compute_run_status(meta)["execution_status"], "aborted")
+
+    def test_empty_deliverable_is_not_complete(self):
+        # A phase the engine recorded as completed but which left an empty (0-byte)
+        # deliverable does not count as complete — publication depends on valid
+        # content (regression: strict run 2026-09-10, 0-byte phase3_output.md while
+        # execution read "complete").
+        d = Path(tempfile.mkdtemp())
+        (d / "phase1_output.md").write_text("recon\n", encoding="utf-8")
+        (d / "phase2b_output.md").write_text("verify\n", encoding="utf-8")
+        (d / "phase3_output.md").write_text("", encoding="utf-8")   # empty
+        (d / "README.md").write_text("report\n", encoding="utf-8")
+        meta = dict(META, phases_requested=["1", "2b", "3", "4"],
+                    phases_completed=["1", "2b", "3", "4"])
+        rs = compute_run_status(meta, results_dir=d)
+        self.assertEqual(rs["execution_status"], "partial")
+        self.assertTrue(any("empty or missing" in r for r in rs["coverage_degraded_reasons"]))
+        # Without a results_dir (pure metadata) the check is inert.
+        self.assertEqual(compute_run_status(meta)["execution_status"], "complete")
 
 
 class TestRender(unittest.TestCase):

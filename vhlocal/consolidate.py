@@ -1679,10 +1679,51 @@ def _repo_source_file_count(repo, cap: int = 5000) -> int:
     return n
 
 
-def compute_run_status(meta: Dict[str, Any], ledger=None) -> Dict[str, Any]:
+# A requested phase's primary deliverable — the file (or results dir) it must
+# produce. A phase the engine marked "completed" that left an empty/missing
+# deliverable did NOT run to completion: publication depends on valid content, so
+# such a phase is not counted toward execution completeness.
+_PHASE_DELIVERABLE = {
+    "1": ("phase1_output.md", "file"),
+    "2": ("results", "dir"),
+    "2b": ("phase2b_output.md", "file"),
+    "3": ("phase3_output.md", "file"),
+    "3d": ("phase3d_output.md", "file"),
+    "4": ("README.md", "file"),
+}
+
+
+def _empty_deliverables(results_dir, req) -> List[str]:
+    """Requested phases whose deliverable is missing or empty (0 bytes / a results
+    dir with no non-empty ``sg-*.md``). Used to keep a phase that wrote nothing
+    from reading as complete."""
+    out: List[str] = []
+    root = Path(results_dir)
+    for ph in req:
+        spec = _PHASE_DELIVERABLE.get(ph)
+        if not spec:
+            continue
+        rel, kind = spec
+        p = root / rel
+        try:
+            if kind == "dir":
+                ok = p.is_dir() and any(
+                    c.is_file() and c.stat().st_size > 0 for c in p.glob("*.md"))
+            else:
+                ok = p.is_file() and p.stat().st_size > 0
+        except OSError:
+            ok = False
+        if not ok:
+            out.append(ph)
+    return out
+
+
+def compute_run_status(meta: Dict[str, Any], ledger=None,
+                       results_dir=None) -> Dict[str, Any]:
     """Three orthogonal status axes, deliberately not collapsed into one field.
 
-    * ``execution_status`` — did the requested phases run to completion?
+    * ``execution_status`` — did the requested phases run to completion *and
+      produce valid (non-empty) deliverables*?
     * ``coverage_status`` — did the run actually reach the whole attack surface,
       or was it degraded (single-partition fallback, unfinished agents, skipped
       phases)?
@@ -1699,13 +1740,18 @@ def compute_run_status(meta: Dict[str, Any], ledger=None) -> Dict[str, Any]:
     incomplete = [a for a in agents
                   if a.get("stopped_reason") not in ("complete", None, "")]
 
+    # A phase that wrote an empty/missing deliverable did not really complete, even
+    # if the engine recorded it as done — publication depends on valid content.
+    empties = _empty_deliverables(results_dir, req) if results_dir is not None else []
+    effective_done = done - set(empties)
+
     if meta.get("aborted"):
         execution = "aborted"
     elif meta.get("cancelled"):
         execution = "cancelled"
-    elif req and done >= set(req):
+    elif req and effective_done >= set(req):
         execution = "complete"
-    elif done:
+    elif effective_done:
         execution = "partial"
     elif req:
         execution = "incomplete"
@@ -1713,6 +1759,10 @@ def compute_run_status(meta: Dict[str, Any], ledger=None) -> Dict[str, Any]:
         execution = "unknown"
 
     reasons: List[str] = []
+    if empties:
+        reasons.append(
+            "phase(s) {0} produced an empty or missing deliverable — recorded as "
+            "run but not counted as complete".format(", ".join(empties)))
     parts = meta.get("partitions") or []
     if meta.get("partition_fallback"):
         if meta.get("partition_collapsed"):
@@ -1911,7 +1961,7 @@ def render(results_dir: Path) -> str:
     # Vulnerability ledger (opt-in memory bank): merge + recall vs all prior runs.
     bank = _update_bank(findings, results_dir, meta)
     ledger = coverage_ledger(results_dir, meta, findings)
-    rs = compute_run_status(meta, ledger=ledger)
+    rs = compute_run_status(meta, ledger=ledger, results_dir=results_dir)
 
     unique = [f for f in findings if not f.duplicate_of]
     dupes = [f for f in findings if f.duplicate_of]
@@ -2506,26 +2556,20 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     md = results_dir / SCAN_REPORT_FILE
     md.write_text(report_md, encoding="utf-8")
 
-    # Phase 4 is model-authored and sometimes leaves README.md as the boilerplate
-    # stub (findings confirmed upstream but never written to the final report).
-    # Backfill it with the deterministic consolidated report so the primary
-    # human artifact is never a misleading empty page. Only when README lacks a
-    # real findings table — never clobber a genuine Phase-4 report.
+    # The published README must be CANONICAL — rendered from harness records and
+    # metadata, never trusted from the model. A model-authored Phase-4 README has
+    # been observed inventing a git commit, naming the wrong model, and reporting
+    # PASS exploit tests the harness never ran (no executor exists). The consolidated
+    # report is derived entirely from findings.json + scan_meta, so it always
+    # overwrites the model's README. parse_findings skips a README carrying the
+    # "Consolidated Scan Report" marker, so the phase sources — not this file —
+    # remain the finding inputs on any re-render. (findings were already parsed
+    # above, so overwriting here never affects this run's own extraction.)
     readme = results_dir / "README.md"
     try:
-        rd = readme.read_text(encoding="utf-8", errors="replace") if readme.exists() else ""
+        readme.write_text(report_md, encoding="utf-8")
     except OSError:
-        rd = ""
-    # A real Phase-4 report has a findings table (VULN-NNN ids); the boilerplate
-    # stub does not. Keying on the id pattern avoids a false "not a stub" from the
-    # word "Vulnerability" in the stub's own heading.
-    readme_is_stub = (not rd.strip()) or (
-        len(rd) < 1500 and not re.search(r"VULN-\d", rd, re.IGNORECASE))
-    if findings and readme_is_stub:
-        try:
-            readme.write_text(report_md, encoding="utf-8")
-        except OSError:
-            pass
+        pass
 
     # Machine-readable coverage ledger for external scoring/aggregation.
     ledger = coverage_ledger(results_dir, meta, findings)
@@ -2542,7 +2586,7 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
         import logging
         logging.getLogger(__name__).warning("HTML report failed: %s", exc)
 
-    run_status = compute_run_status(meta, ledger=ledger)
+    run_status = compute_run_status(meta, ledger=ledger, results_dir=results_dir)
     counts = _counts(findings)
     finding_dicts = [f.to_dict() for f in findings]
     unique_dicts = [d for d in finding_dicts if not d.get("duplicate_of")]

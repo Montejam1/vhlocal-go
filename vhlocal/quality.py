@@ -213,8 +213,8 @@ def check_source_corroborated(finding, repo: Optional[Path]) -> Check:
 
 
 _FLOW_CONNECTIVE = re.compile(
-    r"->|→|(?i)\b(reach(es|ed)?|flows?\s+to|passed?\s+(to|unchanged|into)|"
-    r"propagat\w*|concatenat\w*|interpolat\w*|used\s+(in|as)|into\s+the?)\b")
+    r"->|→|\b(reach(es|ed)?|flows?\s+to|passed?\s+(to|unchanged|into)|"
+    r"propagat\w*|concatenat\w*|interpolat\w*|used\s+(in|as)|into\s+the?)\b", re.I)
 
 
 def check_flow_described(finding) -> Check:
