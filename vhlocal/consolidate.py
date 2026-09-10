@@ -2084,14 +2084,18 @@ def render(results_dir: Path) -> str:
         A("|---|---|")
         A("| 🆕 New this scan | {0} |".format(lifecycle["new"]))
         A("| ➡️ Persisting | {0} |".format(lifecycle["persisting"]))
-        A("| 🔁 Regressed (returned after being fixed) | {0} |".format(
+        A("| 🔁 Reappeared (not observed last scan, present now) | {0} |".format(
             lifecycle["regressed"]))
-        A("| ✅ Fixed since last scan | {0} |".format(lifecycle["fixed"]))
+        A("| ◽ No longer observed | {0} |".format(lifecycle["fixed"]))
+        A("")
+        A("*“No longer observed” is not evidence of a fix — run-to-run hunt "
+          "detection varies, so a finding can disappear without the code changing. "
+          "A fix is only established by re-review against the current source.*")
         A("")
     else:
         A("> **Baseline scan** — no prior report of this target was found, so "
           "there is nothing to compare against yet. The next scan will track "
-          "new / persisting / fixed findings against this one.")
+          "new / persisting / no-longer-observed findings against this one.")
         A("")
     if meta.get("seeded_from_prior"):
         A("> **Seeded run (Mode B).** Phase 1 was seeded with the findings of "
@@ -2340,7 +2344,7 @@ def render(results_dir: Path) -> str:
                 A("| Lifecycle | {0} |".format({
                     "new": "🆕 new this scan",
                     "persisting": "➡️ persisting since last scan",
-                    "regressed": "🔁 regressed (returned after being fixed)",
+                    "regressed": "🔁 reappeared (not observed last scan, present now)",
                 }.get(f.finding_lifecycle, f.finding_lifecycle)))
             reported = " / ".join(
                 x for x in (_clean(f.status), _clean(f.exploit_test))
@@ -2354,15 +2358,18 @@ def render(results_dir: Path) -> str:
             A("| CVE | {0} |".format(f.cve or "—"))
             A("")
 
-    # Findings present in the prior report and absent now — resolved or no longer
-    # detected. Listed so a fix (or a detection regression) is visible, not silent.
+    # Findings present in the prior report and absent now. Disappearance is NOT a
+    # fix — hunt detection varies run to run — so these are reported as "no longer
+    # observed", not "fixed", and a fix requires re-review against current source.
     fixed = lifecycle.get("fixed_findings") or []
     if fixed:
-        A("## 5a. Fixed since previous scan")
+        A("## 5a. No longer observed since previous scan")
         A("")
-        A("These were reported in `{0}` and are not present in this scan — "
-          "resolved, or no longer detected. If one reappears later it will be "
-          "flagged **regressed**.".format(lifecycle.get("prior_report", "the prior report")))
+        A("These were reported in `{0}` and are not present in this scan. This is "
+          "**not** evidence of a fix — a finding can disappear through run-to-run "
+          "detection variance without the code changing; confirm against the "
+          "current source. If one reappears later it is flagged **reappeared**.".format(
+              lifecycle.get("prior_report", "the prior report")))
         A("")
         A("| Prior ID | Title | CWE | Location |")
         A("|---|---|---|---|")

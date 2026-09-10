@@ -643,7 +643,8 @@ def render_html(results_dir: Path) -> str:
         fixed = lifecycle.get("fixed_findings") or []
         if fixed:
             A('<details class="finding"><summary><span class="ftitle">'
-              'Fixed since previous scan ({0})</span></summary>'
+              'No longer observed since previous scan ({0}) — not evidence of a fix'
+              '</span></summary>'
               '<div class="fbody"><dl>'.format(len(fixed)))
             for ff in fixed:
                 A('<dt class="mono">{0}</dt><dd>{1} <span style="color:'
@@ -756,7 +757,7 @@ def render_html(results_dir: Path) -> str:
                 A('<dt>Lifecycle</dt><dd>{0}</dd>'.format(_e({
                     "new": "new this scan",
                     "persisting": "persisting since last scan",
-                    "regressed": "regressed (returned after being fixed)",
+                    "regressed": "reappeared (not observed last scan, present now)",
                 }.get(f.finding_lifecycle, f.finding_lifecycle))))
             reported = " / ".join(
                 x for x in (_clean(f.status), _clean(f.exploit_test))

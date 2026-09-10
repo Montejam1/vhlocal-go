@@ -226,11 +226,13 @@ def sweep_findings(repo: Path, findings) -> List[CauseSweep]:
 def render_sweep(sweeps: List[CauseSweep]) -> str:
     L = ["# Phase 3d: Root-cause instance sweep (deterministic)",
          "",
-         "For each confirmed finding, every location matching its root-cause "
-         "sink pattern(s), enumerated directly by the harness (test/vendor/"
-         "generated code excluded). Instances beyond the one the finding already "
-         "reported are flagged **NEW** — additional places the same defect "
-         "appears, to review and fix together.",
+         "For each confirmed finding, every location whose text matches its "
+         "root-cause sink pattern(s), enumerated directly by the harness (test/"
+         "vendor/generated code excluded). Matches beyond the one the finding "
+         "already reported are flagged **LEAD** — a syntactic pattern match is a "
+         "*candidate* place the same defect may appear, to **review**, not a "
+         "confirmed additional vulnerability (the value may be constant, validated, "
+         "or unreachable here).",
          ""]
     total_new = 0
     for s in sweeps:
@@ -247,18 +249,19 @@ def render_sweep(sweeps: List[CauseSweep]) -> str:
             L.append("")
             continue
         origin = _norm_loc(s.origin)
-        L.append("| File:line | New? | Match |")
+        L.append("| File:line | Lead? | Match |")
         L.append("|---|---|---|")
         for i in s.instances:
             loc = "{0}:{1}".format(i.file, i.line)
             is_origin = origin and (origin in loc or loc in origin)
-            new = "" if is_origin else "**NEW**"
+            new = "" if is_origin else "**LEAD**"
             if not is_origin:
                 total_new += 1
             L.append("| `{0}` | {1} | `{2}` |".format(loc, new, i.text.replace("|", "\\|")))
         L.append("")
-    L.insert(4, "**{0} additional instance(s)** of confirmed root causes found "
-             "across {1} finding(s).\n".format(total_new, len(sweeps)))
+    L.insert(4, "**{0} candidate instance(s)** (pattern-matched leads to review — "
+             "not confirmed vulnerabilities) across {1} finding(s).\n".format(
+                 total_new, len(sweeps)))
     return "\n".join(L) + "\n"
 
 
