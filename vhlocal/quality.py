@@ -60,7 +60,10 @@ PASS = "pass"
 FAIL = "fail"
 NA = "na"
 
-_LOC = re.compile(r"([\w./+\-]+\.[A-Za-z0-9]{1,6}):(\d+)")
+# Captures a file and its cited line — or line RANGE (``file:50-62``). The range
+# end matters: a sink can sit anywhere in the range the finding cites, so
+# corroboration must scan the whole span, not just around the start line.
+_LOC = re.compile(r"([\w./+\-]+\.[A-Za-z0-9]{1,6}):(\d+)(?:\s*[-–—]\s*(\d+))?")
 _FILE = re.compile(r"([\w./+\-]+\.[A-Za-z0-9]{1,6})")
 
 
@@ -138,15 +141,28 @@ def check_weakness_class(finding) -> Check:
     return Check("weakness_class", FAIL, "no weakness class (CWE) assigned")
 
 
+# A title that is a verdict fragment or a bare id-echo carries no claim on its own.
+# (A precise endpoint slug like ``dispatch-fan-304`` is SPECIFIC, not generic, so
+# it is deliberately NOT treated as weak here — claim completeness is judged by the
+# structured fields, per the audit, not by title wording.)
+_NON_CLAIM_TITLE = re.compile(r"^(yes|no|n/?a|true|false|confirmed|pass|fail|"
+                              r"unverified|unknown)\b|^[-–—\s]*$", re.I)
+
+
 def check_concrete_claim(finding) -> Check:
-    from .consolidate import _is_placeholder, _is_weak_title
+    from .consolidate import _is_placeholder
     if _is_placeholder(finding):
         return Check("concrete_claim", FAIL,
                      "reads as an input-inventory / placeholder row, not a weakness claim")
-    if _is_weak_title(getattr(finding, "title", "") or "", getattr(finding, "id", "")):
+    title = _clean(getattr(finding, "title", ""))
+    fid = getattr(finding, "id", "") or ""
+    # The claim is carried by a real title OR by structured evidence (a described
+    # data flow). Only a bare verdict/id-echo with no flow fails to name a weakness.
+    if (not title or title.upper() == fid.upper() or _NON_CLAIM_TITLE.match(title)) \
+            and not _clean(getattr(finding, "data_flow", "")):
         return Check("concrete_claim", FAIL,
-                     "title is too generic to name a specific weakness")
-    return Check("concrete_claim", PASS, "title names a specific weakness")
+                     "no specific weakness claim (a verdict/placeholder title and no data flow)")
+    return Check("concrete_claim", PASS, "names a specific weakness (title or structured evidence)")
 
 
 def check_location_resolves(finding, repo: Optional[Path]) -> Check:
@@ -194,9 +210,14 @@ def check_source_corroborated(finding, repo: Optional[Path]) -> Check:
         return Check("source_corroborated", NA, "cited source could not be read")
     m = _LOC.search(getattr(finding, "location", "") or "")
     if m:
-        n = int(m.group(2))
-        lo = max(0, n - 1 - _SOURCE_WINDOW)
-        hi = min(len(lines), n + _SOURCE_WINDOW)
+        # Scan the WHOLE cited range (start..end), padded by a small window — the
+        # sink can be anywhere the finding pointed at, not just the first line.
+        start = int(m.group(2))
+        end = int(m.group(3)) if m.group(3) else start
+        if end < start:
+            start, end = end, start
+        lo = max(0, start - 1 - _SOURCE_WINDOW)
+        hi = min(len(lines), end + _SOURCE_WINDOW)
         window = "\n".join(lines[lo:hi])
     else:
         window = "\n".join(lines)   # no line: scan the whole cited file

@@ -640,6 +640,32 @@ class TestRunStatusAxes(unittest.TestCase):
         meta["aborted"] = "endpoint unreachable"
         self.assertEqual(compute_run_status(meta)["execution_status"], "aborted")
 
+    def test_phase2b_hand_waved_disposition_is_flagged(self):
+        # 2b claims 148 reviewed but supplies a few verdict rows and an "…"
+        # hand-wave (regression: strict run 2026-09-10).
+        d = Path(tempfile.mkdtemp())
+        (d / "phase2b_output.md").write_text(
+            "# Phase 2b\n\n**Total candidate findings:** 148\n\nAll 148 confirmed.\n\n"
+            "| # | VULN-ID | CWE | Verdict |\n|---|---|---|---|\n"
+            "| 1 | VULN-001 | CWE-89 | CONFIRMED |\n"
+            "| 2 | VULN-002 | CWE-22 | CONFIRMED |\n"
+            "| … | … | … | … |\n", encoding="utf-8")
+        gap = compute_run_status(dict(META), results_dir=d)
+        self.assertTrue(any("Phase 2b claimed 148" in r
+                            for r in gap["coverage_degraded_reasons"]))
+
+    def test_phase2b_full_disposition_not_flagged(self):
+        # Every claimed candidate has a row — no hand-wave, no flag.
+        d = Path(tempfile.mkdtemp())
+        (d / "phase2b_output.md").write_text(
+            "**Total candidate findings:** 2\n\n"
+            "| # | VULN-ID | Verdict |\n|---|---|---|\n"
+            "| 1 | VULN-001 | CONFIRMED |\n| 2 | VULN-002 | ELIMINATED |\n",
+            encoding="utf-8")
+        rs = compute_run_status(dict(META), results_dir=d)
+        self.assertFalse(any("Phase 2b claimed" in r
+                             for r in rs["coverage_degraded_reasons"]))
+
     def test_empty_deliverable_is_not_complete(self):
         # A phase the engine recorded as completed but which left an empty (0-byte)
         # deliverable does not count as complete — publication depends on valid

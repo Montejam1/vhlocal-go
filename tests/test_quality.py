@@ -177,6 +177,32 @@ class FlowIsTraced(unittest.TestCase):
             self.assertEqual(quality.check_flow_described(f).status, quality.PASS, df)
 
 
+class BrittleChecks(unittest.TestCase):
+    """Checks must not suppress real findings (audit P1 #6)."""
+
+    def test_source_window_scans_the_whole_cited_range(self):
+        # pickle.loads sits at ~line 61 but the finding cites the range 50-62. A
+        # window around the START line alone misses it; the full range must scan.
+        repo = _repo({"ops.py": "\n" * 49 + "def load(b):\n" + "    x = 1\n" * 10 +
+                      "    return pickle.loads(b)\n"})
+        f = Finding(id="V1", title="Insecure deserialization", cwe="CWE-502",
+                    location="ops.py:50-62", data_flow="body -> pickle.loads(b)")
+        c = {x.name: x for x in quality.evaluate(f, repo, quality.BALANCED).checks}
+        self.assertEqual(c["source_corroborated"].status, quality.PASS)
+
+    def test_precise_endpoint_title_is_not_too_generic(self):
+        # A precise endpoint slug (dispatch-fan-304) is SPECIFIC; a concrete claim
+        # with a CWE + a data flow must not be demoted on title wording.
+        f = Finding(id="V1", cwe="CWE-400", location="ops.py:60",
+                    title="Unbounded allocation in POST /ops/spool/dispatch-fan-304",
+                    data_flow="size param -> bytearray(n) allocates unboundedly")
+        self.assertEqual(quality.check_concrete_claim(f).status, quality.PASS)
+
+    def test_verdict_fragment_without_a_flow_is_not_a_claim(self):
+        f = Finding(id="V3", title="Yes", cwe="CWE-89", location="ops.py:1")
+        self.assertEqual(quality.check_concrete_claim(f).status, quality.FAIL)
+
+
 class LevelAndRepoRobustness(unittest.TestCase):
     def test_unknown_level_defaults_to_balanced(self):
         self.assertEqual(quality.normalize_level("whatever"), quality.BALANCED)
