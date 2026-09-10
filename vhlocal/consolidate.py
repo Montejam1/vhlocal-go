@@ -246,6 +246,11 @@ class Finding:
     # True when this candidate came through the Phase-2b verification pass (the
     # confirmed spine) — a corroboration signal the quality battery reads.
     from_confirmed: bool = False
+    # True when this record's assessment was INHERITED from its cluster canonical
+    # rather than earned by its own checks — so a duplicate reading "supported"
+    # while its own quality_checks failed is never mistaken for independent
+    # substantiation.
+    assessment_inherited: bool = False
     # Per-check results from the pre-report quality battery (quality.evaluate),
     # each {name, status, reason}. Explains why the candidate did or didn't clear
     # the statically-supported bar. Empty on old reports.
@@ -1066,6 +1071,16 @@ def _loc_file(text: str) -> str:
     return m.group(1) if m else ""
 
 
+def _norm_file(text: str) -> str:
+    """The file IDENTITY for dedup/ledger keys: the basename, so inconsistent path
+    spellings of ONE file (``dispatch_operations.py`` vs
+    ``backend/app/dispatch_operations.py``) collapse to a single root cause instead
+    of publishing as separate findings. (The full path is kept for display and
+    location resolution; only the grouping key is normalized.)"""
+    f = _loc_file(text)
+    return f.rsplit("/", 1)[-1] if f else ""
+
+
 _FUNC = re.compile(r"([A-Za-z_]\w*)\s*\(")
 
 
@@ -1175,7 +1190,7 @@ def _root_cause_key(f: "Finding") -> str:
     two distinct inputs reaching one sink stay separate (the ``q`` vs ``status``
     case)."""
     fam = _family(f)
-    fil = _loc_file(f.location) or _loc_file(f.data_flow)
+    fil = _norm_file(f.location) or _norm_file(f.data_flow)
     if fam and fil:
         return "{0}:{1}:{2}:{3}".format(fam, fil, _func_hint(f), _flow_signature(f))
     # Degraded fallback: the model reported findings by function name with no
@@ -1447,7 +1462,7 @@ def _merge_near_duplicates(findings: List[Finding]) -> None:
     groups: Dict[tuple, List[Finding]] = {}
     for f in canon:
         fam = _family(f)
-        fil = _loc_file(f.location) or _loc_file(f.data_flow)
+        fil = _norm_file(f.location) or _norm_file(f.data_flow)
         if fam and fil:
             groups.setdefault((fam, fil), []).append(f)
     for grp in groups.values():
@@ -1556,7 +1571,12 @@ def assess_candidates(findings: List[Finding], meta: Dict[str, Any]) -> None:
         if canonical and not canonical.duplicate_of:
             f.assessment = canonical.assessment
             f.classification = canonical.classification
-            f.assessment_reason = canonical.assessment_reason
+            # Make the inheritance explicit: a duplicate's tier is the canonical's,
+            # NOT a verdict on its own (often weaker) evidence. Its own
+            # quality_checks are preserved so the difference stays visible.
+            f.assessment_inherited = True
+            f.assessment_reason = "Assessment inherited from canonical {0}: {1}".format(
+                canonical.id, canonical.assessment_reason)
 
 
 def assessment_totals(findings: List[Finding]) -> Dict[str, int]:

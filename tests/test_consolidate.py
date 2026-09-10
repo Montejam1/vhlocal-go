@@ -514,6 +514,34 @@ class TestDuplicates(unittest.TestCase):
         self.assertIsNone(f["VULN-004"].duplicate_of)
         self.assertIsNone(f["VULN-005"].duplicate_of)
 
+    def test_path_spelling_variants_collapse(self):
+        # One defect cited with and without its package dir must be a single root
+        # cause, not two findings (audit P1 #4: balanced published separate pickle
+        # findings for dispatch_operations.py vs backend/app/dispatch_operations.py).
+        a = Finding(id="V1", title="Insecure pickle deserialization", cwe="CWE-502",
+                    location="dispatch_operations.py:61", data_flow="body -> pickle.loads(b)")
+        b = Finding(id="V2", title="Pickle RCE", cwe="CWE-502",
+                    location="backend/app/dispatch_operations.py:61",
+                    data_flow="body -> pickle.loads(b)")
+        flag_duplicates([a, b])
+        self.assertEqual(b.duplicate_of, "V1")
+
+    def test_duplicate_assessment_is_marked_inherited(self):
+        from vhlocal.consolidate import assess_candidates
+        d = Path(tempfile.mkdtemp())
+        (d / "app").mkdir()
+        (d / "app" / "db.py").write_text(
+            "def q(u):\n    cur.execute('SELECT ' + u)\n", encoding="utf-8")
+        canon = Finding(id="V1", title="SQL injection", cwe="CWE-89",
+                        location="app/db.py:2", data_flow="u -> execute(sql)")
+        dup = Finding(id="V2", title="SQLi dup", cwe="CWE-89",
+                      location="app/db.py:2", data_flow="u -> execute(sql)",
+                      duplicate_of="V1")
+        assess_candidates([canon, dup], {"repo": str(d)})
+        self.assertFalse(canon.assessment_inherited)
+        self.assertTrue(dup.assessment_inherited)
+        self.assertIn("inherited from canonical V1", dup.assessment_reason)
+
     def test_findings_without_location_or_title_never_flagged(self):
         # No location AND no title signature -> nothing to key on -> never merged.
         a = Finding(id="VULN-100", cwe="CWE-89")
