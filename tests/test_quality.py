@@ -177,6 +177,38 @@ class FlowIsTraced(unittest.TestCase):
             self.assertEqual(quality.check_flow_described(f).status, quality.PASS, df)
 
 
+class ClassSpecificEvidence(unittest.TestCase):
+    """Agreement is not proof — class-specific evidence can veto (audit P1 #5)."""
+
+    def setUp(self):
+        self.repo = _repo({
+            "models.py": "class User(Base):\n    email = Column(String, unique=True)\n",
+            "tok.py": "import random\ndef make_token():\n    return str(random.random())\n",
+            "color.py": "import random\ndef pick():\n    return random.choice(['a','b'])\n",
+        })
+
+    def test_weak_random_needs_a_security_sensitive_consumer(self):
+        col = Finding(id="V1", title="Weak PRNG in color picker", cwe="CWE-330",
+                      location="color.py:3", data_flow="random.choice picks a UI color")
+        self.assertFalse(quality.evaluate(col, self.repo, quality.BALANCED).substantiated)
+
+    def test_weak_random_for_a_token_is_substantiated(self):
+        tok = Finding(id="V1", title="Weak PRNG for token", cwe="CWE-330",
+                      location="tok.py:3", data_flow="random.random() -> auth token returned")
+        self.assertTrue(quality.evaluate(tok, self.repo, quality.BALANCED).substantiated)
+
+    def test_declared_unique_constraint_vetoes_a_uniqueness_race(self):
+        # 3/3 agreement must NOT override a declared uniqueness constraint (VULN-164).
+        race = Finding(id="V1", title="Race: missing uniqueness on User.email",
+                       cwe="CWE-362", location="models.py:2",
+                       data_flow="two requests -> duplicate User.email insert",
+                       from_confirmed=True, votes=3, vote_samples=3)
+        q = quality.evaluate(race, self.repo, quality.BALANCED)
+        self.assertFalse(q.substantiated)
+        ce = {c.name: c for c in q.checks}["class_evidence"]
+        self.assertEqual(ce.status, quality.FAIL)
+
+
 class BrittleChecks(unittest.TestCase):
     """Checks must not suppress real findings (audit P1 #6)."""
 

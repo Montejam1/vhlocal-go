@@ -185,6 +185,30 @@ def check_location_precise(finding) -> Check:
     return Check("location_precise", FAIL, "location names a file but no line")
 
 
+def _source_window(finding, repo: Optional[Path]) -> Optional[str]:
+    """The cited source text — the whole cited line range padded by a small window,
+    or the whole file when no line is given. None when it can't be read."""
+    if repo is None:
+        return None
+    src = _resolve_source(getattr(finding, "location", ""), repo)
+    if src is None:
+        return None
+    try:
+        lines = src.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    m = _LOC.search(getattr(finding, "location", "") or "")
+    if not m:
+        return "\n".join(lines)
+    start = int(m.group(2))
+    end = int(m.group(3)) if m.group(3) else start
+    if end < start:
+        start, end = end, start
+    lo = max(0, start - 1 - _SOURCE_WINDOW)
+    hi = min(len(lines), end + _SOURCE_WINDOW)
+    return "\n".join(lines[lo:hi])
+
+
 def check_source_corroborated(finding, repo: Optional[Path]) -> Check:
     """Does the real source at the cited location contain a sink for this CWE?"""
     if _is_logic_cwe(finding):
@@ -201,26 +225,9 @@ def check_source_corroborated(finding, repo: Optional[Path]) -> Check:
                      note or "no authoritative sink pattern for this class")
     if repo is None:
         return Check("source_corroborated", NA, "source unavailable (no checkout) to corroborate")
-    src = _resolve_source(getattr(finding, "location", ""), repo)
-    if src is None:
-        return Check("source_corroborated", NA, "cited source file not found to corroborate")
-    try:
-        lines = src.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return Check("source_corroborated", NA, "cited source could not be read")
-    m = _LOC.search(getattr(finding, "location", "") or "")
-    if m:
-        # Scan the WHOLE cited range (start..end), padded by a small window — the
-        # sink can be anywhere the finding pointed at, not just the first line.
-        start = int(m.group(2))
-        end = int(m.group(3)) if m.group(3) else start
-        if end < start:
-            start, end = end, start
-        lo = max(0, start - 1 - _SOURCE_WINDOW)
-        hi = min(len(lines), end + _SOURCE_WINDOW)
-        window = "\n".join(lines[lo:hi])
-    else:
-        window = "\n".join(lines)   # no line: scan the whole cited file
+    window = _source_window(finding, repo)
+    if window is None:
+        return Check("source_corroborated", NA, "cited source file not found or unreadable")
     for p in pats:
         try:
             if re.search(p, window):
@@ -231,6 +238,86 @@ def check_source_corroborated(finding, repo: Optional[Path]) -> Check:
             continue
     return Check("source_corroborated", FAIL,
                  "no sink pattern for {0} near the cited location".format(cwe or "this class"))
+
+
+# --- class-specific evidence (agreement is not proof) -----------------------
+# Some weakness classes need more than "a sink is present": the value must reach a
+# security-sensitive consumer, or a declared defense must be absent. Model
+# agreement (votes / Phase-2b) never substitutes for this.
+
+_RANDOM_CWES = {"330", "338"}
+_RACE_UNIQUE_CWES = {"362", "367"}
+
+# A weak-random value only matters where it is used security-sensitively.
+_SECURITY_SENSITIVE = re.compile(
+    r"(?i)\b(token|secret|password|passwd|api[_-]?key|apikey|private[_-]?key|"
+    r"nonce|csrf|xsrf|session|cookie|otp|mfa|2fa|salt|reset|verif\w*|"
+    r"signature|hmac|jwt|credential|auth[_-]?code|access[_-]?code)\b")
+
+# A declared uniqueness/atomicity defense that refutes a "missing uniqueness /
+# duplicate-insert race" claim.
+_UNIQUE_DEFENSE = re.compile(
+    r"(?i)unique\s*=\s*true|UniqueConstraint|@unique\b|unique\s+index|"
+    r"primary_key\s*=\s*true|select_for_update|with_for_update|for\s+update")
+# A field reference the claim is about (e.g. User.email, `email`), used to scope
+# the repo search for its uniqueness declaration.
+_FIELD_REF = re.compile(r"\b([A-Za-z_]\w{2,})\.([A-Za-z_]\w{2,})\b")
+
+
+def _repo_declares_unique(repo: Optional[Path], field: str) -> bool:
+    """Whether the repo declares a uniqueness/atomicity defense on ``field``
+    (best-effort, conservative — only a same-line unique declaration counts)."""
+    if repo is None or not field:
+        return False
+    pat = re.compile(re.escape(field) + r".{0,80}(unique\s*=\s*true|UniqueConstraint)"
+                     r"|(UniqueConstraint|unique\s*=\s*true).{0,80}" + re.escape(field),
+                     re.I)
+    try:
+        for p in repo.rglob("*.py"):
+            if not p.is_file():
+                continue
+            try:
+                if pat.search(p.read_text(encoding="utf-8", errors="replace")):
+                    return True
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return False
+
+
+def check_class_evidence(finding, repo: Optional[Path]) -> Check:
+    """Class-specific evidence for classes where a sink alone (or agreement) does
+    not establish a vulnerability. Returns NA for classes without a rule."""
+    num = _cwe_num(getattr(finding, "cwe", "") or getattr(finding, "normalized_cwe", ""))
+    ctx = "{0} {1}".format(getattr(finding, "data_flow", "") or "",
+                           getattr(finding, "title", "") or "")
+
+    if num in _RANDOM_CWES:
+        window = _source_window(finding, repo) or ""
+        if _SECURITY_SENSITIVE.search(window) or _SECURITY_SENSITIVE.search(ctx):
+            return Check("class_evidence", PASS,
+                         "the weak-random value feeds a security-sensitive consumer")
+        if repo is None:
+            return Check("class_evidence", NA,
+                         "cannot check the consumer without the checkout")
+        return Check("class_evidence", FAIL,
+                     "no security-sensitive consumer for the weak-random value — "
+                     "weak randomness in a non-security context is not a vulnerability")
+
+    if num in _RACE_UNIQUE_CWES and re.search(r"(?i)uniqu|duplicat", ctx):
+        for m in _FIELD_REF.finditer(ctx):
+            field = m.group(2)
+            if field.lower() in ("get", "post", "json", "body", "data", "query"):
+                continue
+            if _repo_declares_unique(repo, field):
+                return Check("class_evidence", FAIL,
+                             "the cited codebase declares a uniqueness constraint on "
+                             "`{0}` — the claimed missing-uniqueness gap is enforced".format(field))
+        return Check("class_evidence", PASS,
+                     "no declared uniqueness/atomicity defense refutes the claim")
+
+    return Check("class_evidence", NA, "no class-specific rule for this weakness class")
 
 
 _FLOW_CONNECTIVE = re.compile(
@@ -329,6 +416,7 @@ def evaluate(finding, repo: Optional[Path], level: Optional[str]) -> QualityResu
         check_source_corroborated(finding, repo),
         check_flow_described(finding),
         check_agreement(finding),
+        check_class_evidence(finding, repo),
     ]
     by_name = {c.name: c for c in checks}
 
@@ -338,6 +426,14 @@ def evaluate(finding, repo: Optional[Path], level: Optional[str]) -> QualityResu
         if by_name[name].status == FAIL:
             return QualityResult(False, level,
                                  "Hypothesis — " + by_name[name].reason, checks)
+
+    # Class-specific evidence is a VETO — a class whose specific requirement is
+    # contradicted (a weak-random value with no security-sensitive consumer; a
+    # declared uniqueness constraint) is not substantiated, regardless of how many
+    # runs agreed. Agreement prioritises review; it does not replace evidence.
+    if by_name["class_evidence"].status == FAIL:
+        return QualityResult(False, level,
+                             "Hypothesis — " + by_name["class_evidence"].reason, checks)
 
     is_logic = _is_logic_cwe(finding)
     src = by_name["source_corroborated"].status
