@@ -1012,31 +1012,42 @@ def _merge_hunt_samples(texts, ident: str, code: str, n: int):
                 .format(ident, code, n), [])
     if len(real) == 1:
         return real[0], []
-    seen = {}   # normalized-hash -> [order, votes, block_text]
+    # Group candidate blocks by a STABLE identity — the cited location bucket plus
+    # weakness class — NOT by a hash of the whole block text. Two samples describe
+    # the same candidate in different prose, so a text hash made every candidate
+    # look unique and pinned every vote at 1/N. Votes are then the number of
+    # DISTINCT samples that reported the group (counted after grouping), which is
+    # the agreement signal multi-sampling exists to produce.
+    seen = {}   # ident -> {order, samples:set, text}
     order = 0
-    for t in real:
+    for si, t in enumerate(real):
         for blk in re.split(r"(?m)(?=^#)", t):
             b = blk.strip()
             if not b:
                 continue
-            key = hashlib.sha1(
-                re.sub(r"\s+", " ", b).lower().encode("utf-8")).hexdigest()
-            if key in seen:
-                seen[key][1] += 1
-            else:
-                seen[key] = [order, 1, b]
+            ident_key = _block_identity(b)
+            grp = seen.get(ident_key)
+            if grp is None:
+                seen[ident_key] = {"order": order, "samples": {si}, "text": b}
                 order += 1
-    blocks = sorted(seen.values(), key=lambda x: x[0])
+            else:
+                grp["samples"].add(si)
+                if len(b) > len(grp["text"]):   # keep the most complete write-up
+                    grp["text"] = b
+    blocks = sorted(seen.values(), key=lambda x: x["order"])
     out = [
         "# {0} / {1} — union of {2} hunt samples".format(ident, code, len(real)),
         "",
         "_Candidates below are the UNION across {0} independent samples of this "
-        "partition; `votes` is how many samples reported each. Phase 2b remains the "
-        "false-positive filter._".format(len(real)),
+        "partition; `votes` is how many DISTINCT samples reported each (grouped by "
+        "location + class, not by wording). Phase 2b remains the false-positive "
+        "filter._".format(len(real)),
         "",
     ]
     entries = []
-    for _o, votes, b in blocks:
+    for grp in blocks:
+        votes = len(grp["samples"])
+        b = grp["text"]
         out.append("<!-- votes: {0}/{1} -->".format(votes, len(real)))
         out.append(b)
         out.append("")
@@ -1044,6 +1055,24 @@ def _merge_hunt_samples(texts, ident: str, code: str, n: int):
         if keys:
             entries.append({"keys": keys, "votes": votes, "samples": len(real)})
     return "\n".join(out) + "\n", entries
+
+
+_BLOCK_CWE = re.compile(r"CWE[-\s‑]?(\d+)", re.I)
+
+
+def _block_identity(block: str) -> str:
+    """A stable identity for one hunt candidate block: its primary cited location
+    bucket + weakness class, so the same candidate matches across samples despite
+    different prose. Falls back to a normalized full-text hash for a block with no
+    location/CWE (so exact repeats still collapse)."""
+    from .votes import location_keys
+    keys = sorted(location_keys(block))
+    m = _BLOCK_CWE.search(block)
+    cwe = m.group(1) if m else ""
+    if keys or cwe:
+        return "id:{0}:{1}".format(keys[0] if keys else "", cwe)
+    return "h:" + hashlib.sha1(
+        re.sub(r"\s+", " ", block).lower().encode("utf-8")).hexdigest()
 
 
 def _run_fan_out(

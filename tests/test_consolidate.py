@@ -526,6 +526,47 @@ class TestDuplicates(unittest.TestCase):
         flag_duplicates([a, b])
         self.assertEqual(b.duplicate_of, "V1")
 
+    def test_prose_variant_reports_merge(self):
+        # Two reports of one traversal that differ only in narrative wording — the
+        # fingerprint is the source operation, not prose (audit-2 #5: "target" vs
+        # "in" assignment names split VULN-034/061).
+        a = Finding(id="V1", title="Path traversal via ref", cwe="CWE-22",
+                    location="ops.py:68",
+                    data_flow="ref -> target = BASE / f'{ref}.json' -> write_text")
+        b = Finding(id="V2", title="Arbitrary file write", cwe="CWE-22",
+                    location="ops.py:69",
+                    data_flow="request.query_params.get('ref') -> BASE / ... -> write_text")
+        flag_duplicates([a, b])
+        self.assertEqual(b.duplicate_of, "V1")
+
+    def test_sibling_cwe_labels_merge(self):
+        # CWE-94 and CWE-95 (code-injection siblings) for one eval must cluster
+        # (audit-2 #5: VULN-040/219 split on the raw CWE number).
+        a = Finding(id="V1", title="Code injection", cwe="CWE-94", location="ops.py:76",
+                    data_flow="expr -> eval(expr)")
+        b = Finding(id="V2", title="Eval RCE", cwe="CWE-95", location="ops.py:77",
+                    data_flow="expr -> eval(expr)")
+        flag_duplicates([a, b])
+        self.assertEqual(b.duplicate_of, "V1")
+
+    def test_distinct_inputs_still_separate_after_fix(self):
+        # q and status are distinct inputs to one execute() — must NOT merge.
+        a = Finding(id="V1", title="SQLi via q", cwe="CWE-89", location="db.py:10",
+                    data_flow="args['q'] -> execute")
+        b = Finding(id="V2", title="SQLi via status", cwe="CWE-89", location="db.py:11",
+                    data_flow="args['status'] -> execute")
+        flag_duplicates([a, b])
+        self.assertIsNone(b.duplicate_of)
+
+    def test_votes_count_distinct_samples_across_prose(self):
+        from vhlocal.engine import _merge_hunt_samples
+        s = ["#### [VULN-001] SQLi\n- **Class**: CWE-89\n- **Location**: db.py:42\n- q -> execute\n",
+             "#### [VULN-007] SQL injection in search\n- **Class**: CWE-89\n- **Location**: db.py:44\n- totally different prose\n",
+             "#### [VULN-003] SQLi via q\n- **Class**: CWE-89\n- **Location**: db.py:43\n- yet more wording\n"]
+        _merged, entries = _merge_hunt_samples(s, "sg-1", "injection", 3)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["votes"], 3)   # was 1 per block under text-hash
+
     def test_duplicate_assessment_is_marked_inherited(self):
         from vhlocal.consolidate import assess_candidates
         d = Path(tempfile.mkdtemp())

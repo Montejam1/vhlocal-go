@@ -1094,7 +1094,18 @@ def _func_hint(f: "Finding") -> str:
     return ""
 
 
-_PARAM = re.compile(r"[?&]?\b([A-Za-z_]\w*)\s*=|\b(?:param|parameter)\s+[`\"']?(\w+)")
+# Actual ATTACKER-INPUT parameter names — the discriminating part of a flow. This
+# reads the real source operation (a request accessor, a query-string key, or an
+# explicit "param X"), NOT arbitrary ``word =`` assignments: keying on assignment
+# targets made two reports of one defect look distinct because the model happened
+# to name intermediate variables differently ("target" vs "in"), which split root
+# causes and inflated the finding count (audit-2 #5).
+_PARAM = re.compile(
+    r"""(?:query_params|args|form|params|payload|body|json|cookies|headers|request|data)"""
+    r"""\s*(?:\.\s*get\s*\(|\[)\s*['"]([A-Za-z_]\w*)['"]"""   # accessor("x") / accessor["x"]
+    r"""|[?&]([A-Za-z_]\w*)="""                               # ?x= / &x=
+    r"""|\b(?:query[-\s]?)?param(?:eter)?s?\s+[`"']?([A-Za-z_]\w+)""",  # "param x"
+    re.I)
 
 
 def _flow_signature(f: "Finding") -> str:
@@ -1114,12 +1125,13 @@ def _flow_params(f: "Finding") -> set:
     part of _flow_signature). Two findings whose param sets are non-empty and
     disjoint are distinct inputs to one sink (q vs status); overlapping/empty sets
     are the same defect."""
-    blob = " ".join([_clean(f.entry_point), _clean(f.data_flow), _clean(f.title)]).lower()
+    blob = " ".join([_clean(f.entry_point), _clean(f.data_flow), _clean(f.title)])
     names = set()
     for m in _PARAM.finditer(blob):
-        names.add((m.group(1) or m.group(2) or "").lower())
+        names.add((m.group(1) or m.group(2) or m.group(3) or "").lower())
     names.discard("")
-    names -= {"path", "url", "get", "post", "http", "https", "args", "request"}
+    names -= {"path", "url", "get", "post", "http", "https", "args", "request",
+              "filter", "data", "body", "json", "payload"}
     return names
 
 
@@ -1142,13 +1154,17 @@ _FAMILY_WORDS = [
 def _family(f: "Finding") -> str:
     """A coarse vulnerability family for clustering.
 
-    Prefer the CWE; fall back to a keyword from the title so a missing or
-    slightly-different CWE does not prevent two reports of one defect from
-    clustering. This is deliberately coarse — precision comes from the location
-    and flow signature, not from the family.
+    Prefer the CWE, NORMALIZED to its weakness family, so sibling labels for one
+    defect cluster (CWE-94 vs CWE-95 eval; CWE-330 vs CWE-338 randomness) instead
+    of splitting on the exact number the model happened to pick. Fall back to a
+    keyword from the title when there is no CWE. Deliberately coarse — precision
+    comes from the location and (real-input) flow signature, not the family.
     """
-    if f.cwe:
-        return f.cwe.upper()
+    if f.cwe or getattr(f, "normalized_cwe", ""):
+        from .knowledge import family_of, normalized_cwe
+        cwe = f.cwe or f.normalized_cwe
+        fam = family_of(cwe)
+        return fam.key if fam is not None else (normalized_cwe(cwe) or cwe).upper()
     blob = (f.title or "").lower()
     for needle, fam in _FAMILY_WORDS:
         if needle in blob:
