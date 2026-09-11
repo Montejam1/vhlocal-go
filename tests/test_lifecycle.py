@@ -106,6 +106,12 @@ class TestReconcile(_Harness):
         self.assertEqual(by["V1"], "persisting")   # survived a 5-line drift
         self.assertEqual(by["V3"], "new")
         self.assertEqual([f["id"] for f in lc["fixed_findings"]], ["V2"])
+        # Canonical fields mirror the deprecated ones (audit-2 integration): a
+        # disappearance is "not observed", not proven "fixed".
+        self.assertEqual(lc["not_observed"], lc["fixed"])
+        self.assertEqual(lc["reappeared"], lc["regressed"])
+        self.assertEqual([f["id"] for f in lc["not_observed_findings"]], ["V2"])
+        self.assertIn("DEPRECATED", lc["terminology"])
 
     def test_sibling_cwe_relabel_still_persists(self):
         # Same access-control defect, relabelled CWE-863 -> CWE-284 next run.

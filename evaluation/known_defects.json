@@ -1,0 +1,20 @@
+[
+  {
+    "id": "KD-1",
+    "name": "Worker-status restriction bypass via /api/v1",
+    "cwe": "CWE-862",
+    "file": "backend/app/routers/workers.py",
+    "line": 0,
+    "tests": "cross-endpoint authorization consistency",
+    "note": "A restriction enforced on one endpoint is bypassable through the /api/v1 path for the same resource. CONFIRM the exact router file + line against the target; matching is by file basename + CWE."
+  },
+  {
+    "id": "KD-2",
+    "name": "Reset tokens survive password change",
+    "cwe": "CWE-640",
+    "file": "backend/app/routers/auth.py",
+    "line": 0,
+    "tests": "credential/token invalidation on state change",
+    "note": "A password-reset token remains valid after the password is changed. CONFIRM the exact file + line; CWE could be CWE-613 (insufficient token expiration) depending on labeling."
+  }
+]

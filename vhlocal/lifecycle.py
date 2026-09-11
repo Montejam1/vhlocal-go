@@ -214,8 +214,14 @@ def reconcile(
         return {
             "has_prior": False,
             "current_commit": meta.get("git_commit", "") or "",
-            "new": 0, "persisting": 0, "regressed": 0, "fixed": 0,
-            "fixed_findings": [],
+            "new": 0, "persisting": 0,
+            # Canonical fields. "not_observed" supersedes "fixed" (a finding absent
+            # this run is NOT proven fixed — hunt detection varies); "reappeared"
+            # supersedes "regressed". The old keys are kept as deprecated mirrors.
+            "not_observed": 0, "not_observed_findings": [], "reappeared": 0,
+            "terminology": ("'fixed'/'regressed' are DEPRECATED aliases of "
+                            "'not_observed'/'reappeared'; disappearance is not a fix"),
+            "regressed": 0, "fixed": 0, "fixed_findings": [],
             "fixed_keys": [_key(f) for f in unique if _key(f)],
         }
 
@@ -268,6 +274,16 @@ def reconcile(
         "current_commit": meta.get("git_commit", "") or "",
         "new": counts[NEW],
         "persisting": counts[PERSISTING],
+        # Canonical fields. "not_observed" supersedes "fixed": a finding present
+        # before and absent now is NOT proven fixed (hunt detection varies run to
+        # run); confirm against current source. "reappeared" supersedes
+        # "regressed". The old keys remain as DEPRECATED aliases so existing
+        # consumers keep working — but they should migrate.
+        "not_observed": len(fixed_findings),
+        "not_observed_findings": fixed_findings,
+        "reappeared": counts[REGRESSED],
+        "terminology": ("'fixed'/'regressed' are DEPRECATED aliases of "
+                        "'not_observed'/'reappeared'; disappearance is not a fix"),
         "regressed": counts[REGRESSED],
         "fixed": len(fixed_findings),
         "fixed_findings": fixed_findings,
