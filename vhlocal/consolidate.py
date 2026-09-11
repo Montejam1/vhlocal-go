@@ -1739,16 +1739,25 @@ def _empty_deliverables(results_dir, req) -> List[str]:
 
 
 _P2B_CLAIM = re.compile(
-    r"(?:total\s+candidate\s+findings?|all)\s*[:\s]\s*\*{0,2}\s*(\d+)", re.I)
-_P2B_ROW = re.compile(r"^\|.*VULN[\-‑‐]?\s*\d+.*\|", re.M)
+    r"(?:total\s+candidates?(?:\s+findings?)?|all)\s*[:\s]\s*\*{0,2}\s*(\d+)", re.I)
+# A CONCRETE per-candidate disposition row: a table row citing a numbered VULN id
+# anywhere in it (an aggregate "All VULN-*" row has no VULN-<digits> and is also
+# excluded by _P2B_AGGREGATE below).
+_P2B_ROW = re.compile(r"^\|.*\bVULN[\-‑‐_ ]?0*\d+\b", re.I)
 _ELLIPSIS = re.compile(r"[…]|\.\.\.")
+# Explicit aggregate/hand-wave phrasing — "All VULN-*", "no individual rows", etc.
+_P2B_AGGREGATE = re.compile(
+    r"all\s+vuln|no\s+individual\s+(rows|findings)|due\s+to\s+the\s+large\s+number|"
+    r"each\s+of\s+the\s+\d+", re.I)
 
 
 def _phase2b_disposition_gap(results_dir):
     """Detect a Phase-2b review that CLAIMS more dispositions than it supplies —
-    e.g. "Total candidate findings: 148 / all confirmed" backed by 11 verdict rows
-    and an "… remaining findings" hand-wave. Returns ``(claimed, actual)`` when the
-    shortfall is material, else None. A hand-waved disposition is not a review."""
+    a hand-waved "all 215 confirmed" with one aggregate row and no per-candidate
+    verdicts, or N claimed backed by a handful of rows plus an "… remaining"
+    ellipsis. Returns ``(claimed, actual)`` when the shortfall is material, else
+    None. An aggregate statement is not a review — every candidate needs its own
+    disposition and evidence."""
     p = Path(results_dir) / "phase2b_output.md"
     try:
         text = p.read_text(encoding="utf-8", errors="replace") if p.exists() else ""
@@ -1758,15 +1767,17 @@ def _phase2b_disposition_gap(results_dir):
         return None
     claims = [int(m.group(1)) for m in _P2B_CLAIM.finditer(text)]
     claimed = max(claims) if claims else 0
-    rows = _P2B_ROW.findall(text)
-    concrete = [r for r in rows if not _ELLIPSIS.search(r)]
-    actual = len(concrete)
-    if not claimed or not actual or actual >= claimed:
+    # Count concrete per-candidate rows, excluding an aggregate "All VULN-*" row.
+    actual = sum(1 for line in text.splitlines()
+                 if _P2B_ROW.match(line) and not _P2B_AGGREGATE.search(line))
+    if not claimed:
         return None
-    # Material shortfall only: an ellipsis/"remaining" hand-wave, or fewer than
-    # half the claimed rows actually dispositioned.
-    if _ELLIPSIS.search(text) or actual * 2 < claimed:
-        return claimed, actual
+    aggregate = bool(_P2B_AGGREGATE.search(text))
+    # Material shortfall: an aggregate/ellipsis hand-wave, or fewer than half the
+    # claimed candidates actually dispositioned (0 rows counts — the worst case).
+    if aggregate or _ELLIPSIS.search(text) or actual * 2 < claimed:
+        if actual < claimed:
+            return claimed, actual
     return None
 
 
@@ -1795,7 +1806,14 @@ def compute_run_status(meta: Dict[str, Any], ledger=None,
     # A phase that wrote an empty/missing deliverable did not really complete, even
     # if the engine recorded it as done — publication depends on valid content.
     empties = _empty_deliverables(results_dir, req) if results_dir is not None else []
-    effective_done = done - set(empties)
+    # An aggregate Phase-2b ("all confirmed", no per-candidate dispositions) is not
+    # a valid verification: it cannot count toward completion, so dependent work is
+    # explicitly partial rather than reading as fully verified.
+    disp_gap = _phase2b_disposition_gap(results_dir) if results_dir is not None else None
+    invalid = set(empties)
+    if disp_gap:
+        invalid.add("2b")
+    effective_done = done - invalid
 
     if meta.get("aborted"):
         execution = "aborted"
@@ -1815,13 +1833,12 @@ def compute_run_status(meta: Dict[str, Any], ledger=None,
         reasons.append(
             "phase(s) {0} produced an empty or missing deliverable — recorded as "
             "run but not counted as complete".format(", ".join(empties)))
-    if results_dir is not None:
-        gap = _phase2b_disposition_gap(results_dir)
-        if gap:
-            reasons.append(
-                "Phase 2b claimed {0} candidates reviewed but supplied only {1} "
-                "verdict rows — the disposition is incomplete (hand-waved), so its "
-                "confirmations are not a substitute for review".format(gap[0], gap[1]))
+    if disp_gap:
+        reasons.append(
+            "Phase 2b claimed {0} candidates reviewed but supplied only {1} "
+            "per-candidate verdict rows — an aggregate/hand-waved disposition is "
+            "not a review; execution is partial and its confirmations do not "
+            "substitute for per-candidate evidence".format(disp_gap[0], disp_gap[1]))
     parts = meta.get("partitions") or []
     if meta.get("partition_fallback"):
         if meta.get("partition_collapsed"):

@@ -682,6 +682,26 @@ class TestRunStatusAxes(unittest.TestCase):
         self.assertTrue(any("Phase 2b claimed 148" in r
                             for r in gap["coverage_degraded_reasons"]))
 
+    def test_phase2b_aggregate_claim_is_partial(self):
+        # "All 215 confirmed" with one aggregate row and zero per-candidate
+        # dispositions must fail validation: execution is partial, not complete
+        # (regression: run 2026-09-10-165124).
+        d = Path(tempfile.mkdtemp())
+        (d / "phase1_output.md").write_text("recon\n", encoding="utf-8")
+        (d / "phase2b_output.md").write_text(
+            "# Phase 2b\n\n**Total candidates:** 215\n\n"
+            "All candidates confirmed.\n\n"
+            "| Finding | Verdict |\n|---|---|\n"
+            "| All VULN-* (215) | CONFIRMED |\n\n"
+            "*No individual rows are listed due to the large number of findings.*\n",
+            encoding="utf-8")
+        meta = dict(META, phases_requested=["1", "2b"],
+                    phases_completed=["1", "2b"])
+        rs = compute_run_status(meta, results_dir=d)
+        self.assertEqual(rs["execution_status"], "partial")
+        self.assertTrue(any("aggregate" in r.lower()
+                            for r in rs["coverage_degraded_reasons"]))
+
     def test_phase2b_full_disposition_not_flagged(self):
         # Every claimed candidate has a row — no hand-wave, no flag.
         d = Path(tempfile.mkdtemp())
