@@ -118,5 +118,21 @@ class IdorRefutation(unittest.TestCase):
         self.assertTrue(q.substantiated)               # real IDOR stands (logic path)
 
 
+class Discovery(unittest.TestCase):
+    def test_inconsistency_becomes_a_statically_supported_finding(self):
+        repo = _repo(_APP)
+        meta = {"repo": str(repo)}
+        fs = C.authz_findings(meta)
+        self.assertEqual(len(fs), 1)
+        self.assertEqual(fs[0].cwe, "CWE-862")
+        self.assertIn("/api/v1/workers", fs[0].location + fs[0].entry_point)
+        C.assess_candidates(fs, meta)
+        self.assertEqual(fs[0].classification, "statically_supported")
+        self.assertIn("Cross-endpoint authorization", fs[0].assessment_reason)
+
+    def test_no_findings_when_repo_absent(self):
+        self.assertEqual(C.authz_findings({"repo": ""}), [])
+
+
 if __name__ == "__main__":
     unittest.main()

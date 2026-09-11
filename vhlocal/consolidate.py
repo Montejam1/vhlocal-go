@@ -946,6 +946,43 @@ def _mark_confirmed(findings: List[Finding], spine: List[Finding]) -> List[Findi
     return findings
 
 
+def authz_findings(meta: Dict[str, Any]) -> List[Finding]:
+    """Harness-DERIVED findings from the authorization map: each cross-endpoint
+    inconsistency (a resource guarded on one route, open on a sibling) is a
+    broken-access-control bypass candidate the partitioned hunt cannot see. These
+    are deterministic structural facts, not model claims, so they carry a
+    ``source='authz-map'`` marker and assess_candidates substantiates them directly
+    from the map rather than the model-claim quality battery."""
+    repo = meta.get("repo")
+    if not repo or not Path(repo).is_dir():
+        return []
+    try:
+        from . import authz
+        amap = authz.build_authz_map(repo)
+    except Exception:  # pragma: no cover - defensive; never fail the report
+        return []
+    out: List[Finding] = []
+    for inc in amap.get("inconsistencies") or []:
+        guarded = inc["guarded"][0]
+        gname = ", ".join(guarded.get("guards") or [])[:40] or "a guard"
+        for u in inc["unguarded"]:
+            rank, label = _sev_key("High")
+            out.append(Finding(
+                id="AUTHZ-{0:03d}".format(len(out) + 1),
+                title="Cross-endpoint authorization gap: {0} {1} enforces no "
+                      "guard while a sibling route enforces {2}".format(
+                          inc["method"], u["path"], gname),
+                cwe="CWE-862", severity=label, severity_rank=rank,
+                location="{0}:{1}".format(u["file"], u["line"]),
+                entry_point="{0} {1}".format(inc["method"], u["path"]),
+                data_flow="{0} {1} reaches the same resource (`{2}`) as the guarded "
+                          "route `{3}` but enforces no authorization guard".format(
+                              inc["method"], u["path"], inc["resource_key"], guarded["path"]),
+                source="authz-map",
+            ))
+    return out
+
+
 def _parse_report_tables(results_dir: Path) -> List[Finding]:
     """Findings from the Phase-4 README (or phase3/2b fallback) summary tables."""
     readme = results_dir / "README.md"
@@ -1558,6 +1595,21 @@ def assess_candidates(findings: List[Finding], meta: Dict[str, Any]) -> None:
     level = quality.normalize_level(meta.get("quality_strictness"))
     for f in findings:
         f.candidate_key = candidate_key(f, meta.get("git_commit", ""))
+        # Harness-derived authorization-map findings are deterministic structural
+        # facts (a guarded sibling proves the resource is meant to be protected),
+        # not model claims — the inconsistency IS the evidence, so they are
+        # statically supported directly rather than through the model-claim battery.
+        if getattr(f, "source", "") == "authz-map":
+            f.classification = CLASS_STATICALLY_SUPPORTED
+            f.assessment = ASSESS_SUPPORTED
+            f.assessment_reason = (
+                "Cross-endpoint authorization inconsistency established "
+                "deterministically from the route map — a sibling route guards this "
+                "resource while the cited route does not. A bypass candidate to "
+                "confirm (the open route may be intentionally public).")
+            f.quality_checks = [{"name": "authz_map", "status": "pass",
+                                 "reason": "guarded sibling route exists for this resource"}]
+            continue
         reviewed, review_reason = review_support(f, meta)
         if reviewed:
             f.classification = CLASS_REVIEWED
@@ -2035,6 +2087,7 @@ def _build_chains_safe(findings):
 def render(results_dir: Path) -> str:
     meta = load_meta(results_dir)
     findings = parse_findings(results_dir)
+    findings += authz_findings(meta)  # harness-derived cross-endpoint authz findings
     # Restore CWE + file:line the model dropped, then dedup (which keys on
     # family:file:func).
     backfill_locations(findings, results_dir, meta.get("repo", ""))
@@ -2617,6 +2670,7 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     results_dir = Path(results_dir)
     meta = load_meta(results_dir)
     findings = parse_findings(results_dir)
+    findings += authz_findings(meta)  # harness-derived cross-endpoint authz findings
     # Restore CWE + file:line the model dropped, then dedup (which keys on
     # family:file:func).
     backfill_locations(findings, results_dir, meta.get("repo", ""))
@@ -2675,6 +2729,17 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     if ledger is not None:
         (results_dir / "coverage_ledger.json").write_text(
             json.dumps(ledger.to_dict(), indent=2), encoding="utf-8")
+
+    # Authorization map (deterministic, cross-endpoint) for inspection/aggregation.
+    try:
+        from . import authz
+        repo = meta.get("repo")
+        if repo and Path(repo).is_dir():
+            (results_dir / "authz_map.json").write_text(
+                json.dumps(authz.build_authz_map(repo), indent=2), encoding="utf-8")
+    except Exception as exc:  # pragma: no cover - defensive
+        import logging
+        logging.getLogger(__name__).warning("authz map failed: %s", exc)
 
     # HTML is the presentation layer; failure to render it must not lose the
     # markdown + JSON that already succeeded.
