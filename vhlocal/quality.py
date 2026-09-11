@@ -259,6 +259,11 @@ def check_source_corroborated(finding, repo: Optional[Path]) -> Check:
 
 _RANDOM_CWES = {"330", "338"}
 _RACE_UNIQUE_CWES = {"362", "367"}
+# Broken-access-control classes — an IDOR / missing-authz claim can be REFUTED when
+# the accused handler demonstrably enforces an authorization guard (authz.py). We
+# refute on present evidence only; absence of a guard does not prove the intended
+# permission (that stays model-bound), so a missing guard is NA, not a pass.
+_ACCESS_CONTROL_CWES = {"639", "862", "863", "284", "285", "638", "1220", "807", "566", "668"}
 
 # A weak-random value only matters where a security DECISION depends on it. This
 # requires an actual use site — the value STORED INTO a security-sensitive name, or
@@ -334,6 +339,25 @@ def check_class_evidence(finding, repo: Optional[Path]) -> Check:
                      "no security-sensitive USE SITE for the weak-random value (a "
                      "security word in a route/variable name is not a consumer) — "
                      "weak randomness with no security decision is not a vulnerability")
+
+    if num in _ACCESS_CONTROL_CWES:
+        if repo is None:
+            return Check("class_evidence", NA,
+                         "cannot check for an authorization guard without the checkout")
+        from . import authz
+        route = authz.guard_for_location(
+            authz.authz_routes_cached(repo), getattr(finding, "location", ""))
+        if route is not None and route.has_authz:
+            return Check("class_evidence", FAIL,
+                         "the cited handler enforces an authorization guard ({0}) — "
+                         "the claimed missing access check is present".format(
+                             ", ".join(route.authz_guards)[:50]))
+        # No authz guard found — a missing guard does not PROVE the intended
+        # permission, so this does not substantiate on its own; it proceeds through
+        # the logic-class path (flow + precise location + agreement) for review.
+        return Check("class_evidence", NA,
+                     "no authorization guard found on the handler — the intended "
+                     "permission cannot be established statically (needs review)")
 
     if num in _RACE_UNIQUE_CWES and re.search(r"(?i)uniqu|duplicat", ctx):
         for m in _FIELD_REF.finditer(ctx):
