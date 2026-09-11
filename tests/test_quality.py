@@ -273,6 +273,53 @@ class DetectorCoverage(unittest.TestCase):
         self.assertEqual(c.status, quality.FAIL)
 
 
+class XssContext(unittest.TestCase):
+    """XSS needs an HTML context; a value reflected into JSON is not XSS."""
+
+    def setUp(self):
+        self.repo = _repo({"app.py":
+            "from fastapi.responses import HTMLResponse\n"
+            "def html(q):\n    return HTMLResponse(f'<div>{q}</div>')\n"
+            "def js(q):\n    return {'echo': q}\n"})
+
+    def test_reflected_into_html_is_xss(self):
+        f = Finding(id="V", title="Reflected XSS", cwe="CWE-79", location="app.py:3",
+                    data_flow="q -> HTMLResponse")
+        self.assertTrue(quality.evaluate(f, self.repo, quality.BALANCED).substantiated)
+
+    def test_reflected_into_json_is_not_xss(self):
+        # The window must not bleed into the neighbouring HTML handler.
+        f = Finding(id="V", title="Reflected XSS", cwe="CWE-79", location="app.py:5",
+                    data_flow="q -> response")
+        q = quality.evaluate(f, self.repo, quality.BALANCED)
+        self.assertFalse(q.substantiated)
+        self.assertEqual({c.name: c for c in q.checks}["class_evidence"].status, quality.FAIL)
+
+
+class CorsConfig(unittest.TestCase):
+    """CORS is exploitable only with credentials + a wildcard/reflected origin."""
+
+    def test_credentialed_wildcard_is_substantiated(self):
+        repo = _repo({"main.py":
+            "app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True)\n"})
+        f = Finding(id="V", title="CORS misconfig", cwe="CWE-942", location="main.py:1",
+                    data_flow="CORS reflects any origin with credentials")
+        self.assertTrue(quality.evaluate(f, repo, quality.BALANCED).substantiated)
+
+    def test_restrictive_cors_is_hypothesis(self):
+        repo = _repo({"main.py":
+            "app.add_middleware(CORSMiddleware, allow_origins=['https://ok'], allow_credentials=True)\n"})
+        f = Finding(id="V", title="CORS misconfig", cwe="CWE-942", location="main.py:1",
+                    data_flow="CORS config")
+        self.assertFalse(quality.evaluate(f, repo, quality.BALANCED).substantiated)
+
+    def test_no_cors_config_is_hypothesis(self):
+        repo = _repo({"main.py": "x = 1\n"})
+        f = Finding(id="V", title="CORS misconfig", cwe="CWE-942", location="main.py:1",
+                    data_flow="claimed CORS issue")
+        self.assertFalse(quality.evaluate(f, repo, quality.BALANCED).substantiated)
+
+
 class BrittleChecks(unittest.TestCase):
     """Checks must not suppress real findings (audit P1 #6)."""
 

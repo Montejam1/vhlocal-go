@@ -37,6 +37,7 @@ All checks are deterministic and side-effect free, so the result is reproducible
 and unit-testable.
 """
 
+import ast
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -214,6 +215,39 @@ def _source_window(finding, repo: Optional[Path]) -> Optional[str]:
     return "\n".join(lines[lo:hi])
 
 
+def _enclosing_function_source(finding, repo: Optional[Path]) -> Optional[str]:
+    """Just the source of the function CONTAINING the cited line — so a
+    context check (e.g. HTML vs JSON response) can't bleed into a neighbouring
+    handler the way a fixed line window can. None when unavailable / not in a
+    function."""
+    if repo is None:
+        return None
+    src = _resolve_source(getattr(finding, "location", ""), repo)
+    if src is None:
+        return None
+    m = _LOC.search(getattr(finding, "location", "") or "")
+    if not m:
+        return None
+    line = int(m.group(2))
+    try:
+        text = src.read_text(encoding="utf-8", errors="replace")
+        tree = ast.parse(text)
+    except (OSError, SyntaxError, ValueError):
+        return None
+    best = None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            end = getattr(node, "end_lineno", None) or node.lineno
+            if node.lineno <= line <= end and (best is None or node.lineno > best.lineno):
+                best = node
+    if best is None:
+        return None
+    try:
+        return ast.get_source_segment(text, best)
+    except (ValueError, TypeError):
+        return None
+
+
 def check_source_corroborated(finding, repo: Optional[Path]) -> Check:
     """Does the real source at the cited location contain a sink for this CWE?
 
@@ -264,6 +298,67 @@ _RACE_UNIQUE_CWES = {"362", "367"}
 # refute on present evidence only; absence of a guard does not prove the intended
 # permission (that stays model-bound), so a missing guard is NA, not a pass.
 _ACCESS_CONTROL_CWES = {"639", "862", "863", "284", "285", "638", "1220", "807", "566", "668"}
+_XSS_CWES = {"79", "80", "83", "116"}
+_CORS_CWES = {"942", "346"}
+# Classes where class_evidence is the PRIMARY evidence (there is no syntactic sink
+# to corroborate): a PASS establishes the security consequence and substantiates on
+# its own; anything else is a hypothesis. (Contrast the VETO classes, where
+# class_evidence only demotes on contradicting evidence.)
+_PRIMARY_EVIDENCE_CWES = _CORS_CWES
+
+# XSS: an HTML/unescaped sink vs a JSON response (which auto-escapes → not XSS).
+_HTML_SINK = re.compile(
+    r"(?i)HTMLResponse\s*\(|render_template_string|mark_safe|\bMarkup\s*\(|"
+    r"\|\s*safe\b|text/html|\.write\s*\(\s*['\"]?<")
+_JSON_RESPONSE = re.compile(
+    r"(?i)JSONResponse|\bjsonify\s*\(|application/json|return\s+[\{\[]|"
+    r"response_model\s*=|media_type\s*=\s*['\"]application/json")
+
+# CORS: credentialed + wildcard/reflected origin is the exploitable shape.
+_CORS_MW = re.compile(r"CORSMiddleware|add_middleware|CORS\s*\(", re.I)
+_CORS_CREDS = re.compile(r"allow_credentials\s*=\s*True|supports_credentials\s*=\s*True", re.I)
+_CORS_WILDCARD = re.compile(
+    r"allow_origins\s*=\s*\[?\s*['\"]\*['\"]|origins\s*=\s*\[?\s*['\"]\*['\"]|"
+    r"allow_origin_regex\s*=\s*['\"]\.?\*|Access-Control-Allow-Origin['\"]?\s*[:,]\s*['\"]\*", re.I)
+
+
+_CORS_CACHE: dict = {}
+
+
+def _cors_danger(repo: Optional[Path]):
+    """Scan the repo for a CORS middleware config and classify it. Returns
+    ``(dangerous, detail)`` or ``None`` when no CORS config is found. Dangerous =
+    credentials allowed AND a wildcard/reflected origin (credentialed cross-origin
+    data theft); a restrictive or credential-less CORS is not exploitable that way.
+    Cached per repo (scanned once per assess pass)."""
+    if repo is None:
+        return None
+    key = str(repo)
+    if key in _CORS_CACHE:
+        return _CORS_CACHE[key]
+    result = None
+    try:
+        for p in Path(repo).rglob("*.py"):
+            if not p.is_file():
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if not _CORS_MW.search(text):
+                continue
+            creds = bool(_CORS_CREDS.search(text))
+            wild = bool(_CORS_WILDCARD.search(text))
+            if creds and wild:
+                result = (True, "allow_credentials=True with a wildcard/reflected origin")
+                break
+            # Remember a found-but-safe config; keep scanning for a dangerous one.
+            if result is None:
+                result = (False, "CORS configured without credentialed wildcard access")
+    except OSError:
+        pass
+    _CORS_CACHE[key] = result
+    return result
 
 # A weak-random value only matters where a security DECISION depends on it. This
 # requires an actual use site — the value STORED INTO a security-sensitive name, or
@@ -358,6 +453,42 @@ def check_class_evidence(finding, repo: Optional[Path]) -> Check:
         return Check("class_evidence", NA,
                      "no authorization guard found on the handler — the intended "
                      "permission cannot be established statically (needs review)")
+
+    if num in _XSS_CWES:
+        # XSS needs an HTML context. A value reflected into a JSON response is
+        # auto-escaped by the serializer — not XSS in a browser. Scope to the
+        # CONTAINING function (not a line window) so a neighbouring handler's
+        # HTMLResponse can't be mistaken for this one's response.
+        window = _enclosing_function_source(finding, repo)
+        if window is None:
+            return Check("class_evidence", NA,
+                         "cannot determine the response context (not inside a "
+                         "readable function)")
+        if _HTML_SINK.search(window):
+            return Check("class_evidence", PASS,
+                         "the value reaches an HTML/unescaped response context")
+        if _JSON_RESPONSE.search(window):
+            return Check("class_evidence", FAIL,
+                         "the value is reflected into a JSON response (auto-escaped) "
+                         "with no HTML sink — not XSS in a browser context")
+        return Check("class_evidence", NA,
+                     "response context undeterminable (no clear HTML or JSON sink)")
+
+    if num in _CORS_CWES:
+        # Primary evidence: a CORS misconfig is only exploitable for credentialed
+        # cross-origin theft when credentials are allowed AND the origin is
+        # wildcard/reflected. Establish that from the middleware config.
+        cors = _cors_danger(repo)
+        if cors is None:
+            return Check("class_evidence", NA,
+                         "no CORS middleware configuration found to assess"
+                         if repo is not None else
+                         "cannot check the CORS configuration without the checkout")
+        dangerous, detail = cors
+        if dangerous:
+            return Check("class_evidence", PASS, detail)
+        return Check("class_evidence", FAIL,
+                     detail + " — not exploitable for credentialed cross-origin theft")
 
     if num in _RACE_UNIQUE_CWES and re.search(r"(?i)uniqu|duplicat", ctx):
         for m in _FIELD_REF.finditer(ctx):
@@ -498,11 +629,28 @@ def evaluate(finding, repo: Optional[Path], level: Optional[str]) -> QualityResu
 
     # Class-specific evidence is a VETO — a class whose specific requirement is
     # contradicted (a weak-random value with no security-sensitive consumer; a
-    # declared uniqueness constraint) is not substantiated, regardless of how many
-    # runs agreed. Agreement prioritises review; it does not replace evidence.
-    if by_name["class_evidence"].status == FAIL:
+    # declared uniqueness constraint; an IDOR handler that in fact enforces authz;
+    # a reflected value returned as JSON) is not substantiated, regardless of how
+    # many runs agreed. Agreement prioritises review; it does not replace evidence.
+    class_ev = by_name["class_evidence"]
+    if class_ev.status == FAIL:
         return QualityResult(False, level,
-                             "Hypothesis — " + by_name["class_evidence"].reason, checks)
+                             "Hypothesis — " + class_ev.reason, checks)
+
+    # Primary-evidence classes have no syntactic sink to corroborate — the
+    # class-specific check IS the evidence (a credentialed wildcard CORS config).
+    # A PASS establishes the consequence and substantiates; anything else stays a
+    # hypothesis, never promoted on prose.
+    num = _cwe_num(getattr(finding, "cwe", "") or getattr(finding, "normalized_cwe", ""))
+    if num in _PRIMARY_EVIDENCE_CWES:
+        if class_ev.status == PASS:
+            return QualityResult(True, level,
+                                 "Statically supported ({0} checks): {1}.".format(
+                                     level, class_ev.reason), checks)
+        return QualityResult(False, level,
+                             "Hypothesis ({0} checks): the security consequence for "
+                             "this class was not established ({1}).".format(
+                                 level, class_ev.reason), checks)
 
     is_logic = _is_logic_cwe(finding)
     src_check = by_name["source_corroborated"]

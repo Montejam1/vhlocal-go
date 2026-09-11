@@ -38,8 +38,11 @@ CWE_SINK_PATTERNS: Dict[str, List[str]] = {
             r"marshal\.loads?", r"jsonpickle", r"dill\.loads?"],
     "611": [r"etree\.parse", r"etree\.fromstring", r"XMLParser",
             r"lxml\b", r"parseString", r"minidom\.parse"],
+    # XSS sinks: template autoescape-off / raw-HTML markers AND a raw HTML
+    # response (HTMLResponse / text-html media type). A value returned as JSON is
+    # NOT an HTML sink — the class-evidence check refutes that case explicitly.
     "79":  [r"\|\s*safe\b", r"render_template_string", r"mark_safe",
-            r"\bMarkup\s*\("],
+            r"\bMarkup\s*\(", r"\bHTMLResponse\s*\(", r"text/html"],
     "1336": [r"render_template_string", r"\bTemplate\s*\(", r"from_string"],
     # Path traversal covers reads AND writes; write_bytes (binary upload) is as
     # much a traversal sink as write_text, so both are covered.
