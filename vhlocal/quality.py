@@ -260,11 +260,20 @@ def check_source_corroborated(finding, repo: Optional[Path]) -> Check:
 _RANDOM_CWES = {"330", "338"}
 _RACE_UNIQUE_CWES = {"362", "367"}
 
-# A weak-random value only matters where it is used security-sensitively.
-_SECURITY_SENSITIVE = re.compile(
-    r"(?i)\b(token|secret|password|passwd|api[_-]?key|apikey|private[_-]?key|"
-    r"nonce|csrf|xsrf|session|cookie|otp|mfa|2fa|salt|reset|verif\w*|"
-    r"signature|hmac|jwt|credential|auth[_-]?code|access[_-]?code)\b")
+# A weak-random value only matters where a security DECISION depends on it. This
+# requires an actual use site — the value STORED INTO a security-sensitive name, or
+# reaching a security sink — not a security word appearing in a route/variable name
+# or a comment. Names (`nonce`, `token`, `secret`) alone cannot establish it.
+_SEC_NAME = (r"token|secret|password|passwd|api[_-]?key|apikey|private[_-]?key|"
+             r"nonce|csrf|xsrf|session[_-]?id|otp|mfa|2fa|salt|reset[_-]?token|"
+             r"signature|hmac|jwt|credential|auth[_-]?code|access[_-]?code")
+_SECURITY_CONSUMER = re.compile(
+    # stored into a security-sensitive name: `token =`, `self.reset_token =`, `otp:`
+    r"(?:\b|\.)(?:" + _SEC_NAME + r")\w*\s*[=:]"
+    # or reaching a security sink
+    r"|set_cookie|session\[|\.session\b|jwt\.(encode|decode)|hmac\.|"
+    r"hashlib\.\w+\(|secrets\.compare_digest|check_password|verify_password|"
+    r"set_password|headers\[['\"]?authorization|Authorization\s*:", re.I)
 
 # A declared uniqueness/atomicity defense that refutes a "missing uniqueness /
 # duplicate-insert race" claim.
@@ -306,16 +315,25 @@ def check_class_evidence(finding, repo: Optional[Path]) -> Check:
                            getattr(finding, "title", "") or "")
 
     if num in _RANDOM_CWES:
-        window = _source_window(finding, repo) or ""
-        if _SECURITY_SENSITIVE.search(window) or _SECURITY_SENSITIVE.search(ctx):
+        # A security word appearing SOMEWHERE (a route name, a comment) does not
+        # establish that a security decision depends on the value. Require a real
+        # USE SITE: the value stored into a security-sensitive name, or reaching a
+        # security sink (cookie/session/jwt/hmac/…). If the source can't be read,
+        # the required relationship cannot be established → not supported.
+        window = _source_window(finding, repo)
+        if window is None:
+            return Check("class_evidence", FAIL,
+                         "cannot establish a security-sensitive consumer for the "
+                         "weak-random value without the source")
+        m = _SECURITY_CONSUMER.search(window)
+        if m:
             return Check("class_evidence", PASS,
-                         "the weak-random value feeds a security-sensitive consumer")
-        if repo is None:
-            return Check("class_evidence", NA,
-                         "cannot check the consumer without the checkout")
+                         "the weak-random value reaches a security-sensitive consumer "
+                         "(`{0}`)".format(m.group(0).strip()[:40]))
         return Check("class_evidence", FAIL,
-                     "no security-sensitive consumer for the weak-random value — "
-                     "weak randomness in a non-security context is not a vulnerability")
+                     "no security-sensitive USE SITE for the weak-random value (a "
+                     "security word in a route/variable name is not a consumer) — "
+                     "weak randomness with no security decision is not a vulnerability")
 
     if num in _RACE_UNIQUE_CWES and re.search(r"(?i)uniqu|duplicat", ctx):
         for m in _FIELD_REF.finditer(ctx):

@@ -183,18 +183,24 @@ class ClassSpecificEvidence(unittest.TestCase):
     def setUp(self):
         self.repo = _repo({
             "models.py": "class User(Base):\n    email = Column(String, unique=True)\n",
-            "tok.py": "import random\ndef make_token():\n    return str(random.random())\n",
-            "color.py": "import random\ndef pick():\n    return random.choice(['a','b'])\n",
+            # A real security consumer: the random value is stored into reset_token.
+            "tok.py": "import random\ndef reset(u):\n"
+                      "    u.reset_token = ''.join(random.choice(A) for _ in range(6))\n",
+            # No consumer — the random value is just returned; 'nonce' is only in the
+            # route name (audit-2 #3: a name is not a consumer).
+            "code.py": "import random\n@app.get('/ops/nonce/dispatch-fan-304')\n"
+                       "def gen(length):\n"
+                       "    return ''.join(random.choice(A) for _ in range(length))\n",
         })
 
-    def test_weak_random_needs_a_security_sensitive_consumer(self):
-        col = Finding(id="V1", title="Weak PRNG in color picker", cwe="CWE-330",
-                      location="color.py:3", data_flow="random.choice picks a UI color")
-        self.assertFalse(quality.evaluate(col, self.repo, quality.BALANCED).substantiated)
+    def test_route_name_keyword_is_not_a_consumer(self):
+        f = Finding(id="V1", title="Weak PRNG in nonce endpoint", cwe="CWE-330",
+                    location="code.py:4", data_flow="length -> random.choice -> returned code")
+        self.assertFalse(quality.evaluate(f, self.repo, quality.BALANCED).substantiated)
 
-    def test_weak_random_for_a_token_is_substantiated(self):
-        tok = Finding(id="V1", title="Weak PRNG for token", cwe="CWE-330",
-                      location="tok.py:3", data_flow="random.random() -> auth token returned")
+    def test_weak_random_reaching_a_real_consumer_is_substantiated(self):
+        tok = Finding(id="V1", title="Weak PRNG for reset token", cwe="CWE-330",
+                      location="tok.py:3", data_flow="random.choice -> u.reset_token")
         self.assertTrue(quality.evaluate(tok, self.repo, quality.BALANCED).substantiated)
 
     def test_declared_unique_constraint_vetoes_a_uniqueness_race(self):
