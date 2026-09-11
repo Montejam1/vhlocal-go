@@ -209,6 +209,64 @@ class ClassSpecificEvidence(unittest.TestCase):
         self.assertEqual(ce.status, quality.FAIL)
 
 
+class DetectorCoverage(unittest.TestCase):
+    """Cover the operations actually used; a missing rule = 'cannot assess', not
+    'no vulnerability' (audit-2 #2, #4)."""
+
+    def test_ssti_labeled_code_injection_corroborates(self):
+        # SSTI via Template().render(), the model labels it CWE-94 (code injection).
+        repo = _repo({"app.py": "def r(frag):\n    return Template('R:'+frag).render()\n"})
+        f = Finding(id="V1", title="SSTI", cwe="CWE-94", location="app.py:2",
+                    data_flow="frag -> Template(...).render()")
+        c = {x.name: x for x in quality.evaluate(f, repo, quality.BALANCED).checks}
+        self.assertEqual(c["source_corroborated"].status, quality.PASS)
+
+    def test_binary_file_traversal_corroborates(self):
+        repo = _repo({"app.py": "def w(name, body):\n    (BASE/name).write_bytes(body)\n"})
+        f = Finding(id="V1", title="Path traversal (binary)", cwe="CWE-22",
+                    location="app.py:2", data_flow="name -> write_bytes(body)")
+        c = {x.name: x for x in quality.evaluate(f, repo, quality.BALANCED).checks}
+        self.assertEqual(c["source_corroborated"].status, quality.PASS)
+
+    def test_sibling_cwe_label_shares_the_family_detector(self):
+        # CWE-95 (a code-injection sibling of 94) must pick the eval detector.
+        repo = _repo({"app.py": "def r(e):\n    return eval(e)\n"})
+        f = Finding(id="V1", title="eval", cwe="CWE-95", location="app.py:2",
+                    data_flow="e -> eval(e)")
+        c = {x.name: x for x in quality.evaluate(f, repo, quality.BALANCED).checks}
+        self.assertEqual(c["source_corroborated"].status, quality.PASS)
+
+    def test_uncovered_class_is_not_substantiated_by_prose(self):
+        # CWE-20 (no authoritative sink rule) with a described flow must NOT be
+        # promoted on prose — the checker cannot assess it (VULN-091).
+        repo = _repo({"app.py": "def h(payload):\n    q = payload.get('filter')\n"})
+        f = Finding(id="V1", title="Improper input validation", cwe="CWE-20",
+                    location="app.py:2", data_flow="request JSON -> query = payload.get(filter)",
+                    from_confirmed=True)
+        for level in quality.LEVELS:
+            q = quality.evaluate(f, repo, level)
+            self.assertFalse(q.substantiated, level)
+            c = {x.name: x for x in q.checks}["source_corroborated"]
+            self.assertEqual((c.status, c.kind), (quality.NA, "uncovered"))
+
+    def test_hardcoded_secret_forgery_claim_not_supported_on_prose(self):
+        # CWE-798 has no syntactic sink; a "token forgery / auth bypass" narrative
+        # cannot substantiate it (VULN-082).
+        repo = _repo({"config.py": "secret_key = 'dev-default'\n"})
+        f = Finding(id="V1", title="Hardcoded secret enables token forgery",
+                    cwe="CWE-798", location="config.py:1",
+                    data_flow="config.secret_key -> injected into settings")
+        self.assertFalse(quality.evaluate(f, repo, quality.BALANCED).substantiated)
+
+    def test_uncovered_with_a_real_sink_still_fails_not_uncovered(self):
+        # Sanity: a covered class whose sink is genuinely absent stays FAIL (checked
+        # and absent), distinct from uncovered.
+        repo = _repo({"app.py": "def h():\n    return 1\n"})
+        f = Finding(id="V1", title="SQLi", cwe="CWE-89", location="app.py:2")
+        c = {x.name: x for x in quality.evaluate(f, repo, quality.BALANCED).checks}["source_corroborated"]
+        self.assertEqual(c.status, quality.FAIL)
+
+
 class BrittleChecks(unittest.TestCase):
     """Checks must not suppress real findings (audit P1 #6)."""
 

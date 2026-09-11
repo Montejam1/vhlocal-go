@@ -300,10 +300,15 @@ class _Family:
 
 
 _CWE_TO_FAMILY: Dict[str, _Family] = {}
+# Every CWE number → the full member list of its family, so a check can be chosen
+# for the normalized family rather than the exact (often imperfect) CWE the model
+# assigned — sibling labels in one family share sink operations.
+_FAMILY_MEMBERS: Dict[str, List[str]] = {}
 for _key, _name, _ccwe, _sev, _members in _FAMILIES:
     _fam = _Family(_key, _name, _ccwe, _sev)
     for _m in _members:
         _CWE_TO_FAMILY.setdefault(_m, _fam)   # first family wins
+        _FAMILY_MEMBERS.setdefault(_m, list(_members))
 
 # Tiers ordered most→least severe, for the precondition adjustment.
 _SEV_TIERS = ["Critical", "High+", "High", "Medium", "Low", "Informational"]
@@ -321,6 +326,14 @@ _GATED = re.compile(
 
 def family_of(cwe: str):
     return _CWE_TO_FAMILY.get(_cwe_num(cwe))
+
+
+def family_members(cwe: str) -> List[str]:
+    """Every CWE number in ``cwe``'s family (including itself), or just ``[cwe]``
+    when it belongs to no known family. Used to normalize a claim to its family
+    before picking a detector."""
+    num = _cwe_num(cwe)
+    return _FAMILY_MEMBERS.get(num, [num] if num else [])
 
 
 def normalized_cwe(cwe: str) -> str:

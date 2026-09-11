@@ -77,6 +77,11 @@ class Check:
     name: str
     status: str          # PASS | FAIL | NA
     reason: str
+    # Sub-kind for an NA source result, so the decision can tell "the checker has
+    # no rule for this class" (uncovered — retain uncertainty, do not substantiate
+    # on prose) apart from "the checkout wasn't available to look" (unavailable —
+    # a re-render, keep the tier via other signals). "" for non-source checks.
+    kind: str = ""
 
     def to_dict(self) -> dict:
         return {"name": self.name, "status": self.status, "reason": self.reason}
@@ -210,24 +215,31 @@ def _source_window(finding, repo: Optional[Path]) -> Optional[str]:
 
 
 def check_source_corroborated(finding, repo: Optional[Path]) -> Check:
-    """Does the real source at the cited location contain a sink for this CWE?"""
+    """Does the real source at the cited location contain a sink for this CWE?
+
+    The NA ``kind`` matters downstream: ``logic`` (no syntactic sink — the logic
+    path handles it), ``uncovered`` (the checker has no rule for this class — it
+    CANNOT assess, so prose must not substantiate it), or ``unavailable`` (the
+    checkout could not be read — a re-render; keep the tier via other signals)."""
     if _is_logic_cwe(finding):
         return Check("source_corroborated", NA,
-                     "authorization/logic class — no syntactic sink to corroborate")
+                     "authorization/logic class — no syntactic sink to corroborate",
+                     kind="logic")
     cwe = getattr(finding, "cwe", "") or getattr(finding, "normalized_cwe", "")
-    # AUTHORITATIVE patterns only — never call tokens pulled from the model's own
-    # data-flow prose. Otherwise a narrative naming ``find_one`` lets a Mongo call
-    # corroborate an SSRF label; corroboration must test the operation the CWE
-    # actually describes.
+    # AUTHORITATIVE, family-normalized patterns only — never call tokens pulled
+    # from the model's own data-flow prose. Otherwise a narrative naming
+    # ``find_one`` lets a Mongo call corroborate an SSRF label.
     pats, note = sink_patterns(cwe)
     if not pats:
         return Check("source_corroborated", NA,
-                     note or "no authoritative sink pattern for this class")
+                     note or "the checker has no rule for this class", kind="uncovered")
     if repo is None:
-        return Check("source_corroborated", NA, "source unavailable (no checkout) to corroborate")
+        return Check("source_corroborated", NA,
+                     "source unavailable (no checkout) to corroborate", kind="unavailable")
     window = _source_window(finding, repo)
     if window is None:
-        return Check("source_corroborated", NA, "cited source file not found or unreadable")
+        return Check("source_corroborated", NA,
+                     "cited source file not found or unreadable", kind="unavailable")
     for p in pats:
         try:
             if re.search(p, window):
@@ -354,17 +366,25 @@ def check_agreement(finding) -> Check:
 
 # --- tier decision ----------------------------------------------------------
 
-def _decide(level: str, is_logic: bool, src: str, flow: bool, agree: bool,
-            precise: bool) -> Tuple[bool, str]:
+def _decide(level: str, is_logic: bool, src: str, src_kind: str, flow: bool,
+            agree: bool, precise: bool) -> Tuple[bool, str]:
     """Return (substantiated, why) from the check outcomes for a strictness level.
 
-    ``src`` is the source_corroborated status (PASS/FAIL/NA). PASS = a sink was
-    found; FAIL = checked and absent (the discriminating demotion); NA = could not
-    check (no checkout, no derivable pattern, or a logic class)."""
+    ``src`` is the source_corroborated status; ``src_kind`` distinguishes the NA
+    cases. PASS = a sink was found; FAIL = checked and absent; NA/uncovered = the
+    checker has no rule for this class (CANNOT assess — prose must not substantiate
+    it, retain uncertainty / review); NA/unavailable = the checkout couldn't be
+    read (a re-render — keep the tier via other signals)."""
     src_pass = src == PASS
     src_fail = src == FAIL
+    uncovered = src == NA and src_kind == "uncovered"
 
     if level == LENIENT:
+        # Even lenient does not let prose substantiate a class the checker cannot
+        # assess — that is "unknown", not "supported".
+        if uncovered and not src_pass:
+            return False, ("the checker has no rule for this class — cannot assess; "
+                           "retained as a hypothesis for review")
         ok = src_pass or flow or agree
         return ok, ("a corroborating signal is present" if ok
                     else "no corroborating signal (source, data flow, or agreement)")
@@ -382,15 +402,22 @@ def _decide(level: str, is_logic: bool, src: str, flow: bool, agree: bool,
             missing.append("independent agreement (votes or Phase-2b)")
         return False, "logic finding lacks " + ", ".join(missing)
 
-    # Sink class.
+    # Sink class. An uncovered class can never be substantiated statically — the
+    # checker cannot confirm the operation matches the claim, so prose/agreement do
+    # not promote it; it is a hypothesis pending review or a new detector rule.
+    if uncovered:
+        return False, ("the checker has no rule for this weakness class — it cannot "
+                       "assess whether the source performs the claimed operation; "
+                       "retained as a hypothesis for review, not supported on prose")
+
     if level == BALANCED:
         if src_pass:
             return True, "the cited source contains a matching sink"
         if src_fail:
             return False, "the cited source contains no matching sink for this class"
-        ok = flow or agree           # couldn't check the source → other signals
-        return ok, ("source uncheckable; carried by a data flow or agreement" if ok
-                    else "source uncheckable and no data flow or agreement to corroborate")
+        ok = flow or agree           # source unavailable (re-render) → other signals
+        return ok, ("source unavailable to check; carried by a data flow or agreement" if ok
+                    else "source unavailable and no data flow or agreement to corroborate")
 
     # STRICT sink class.
     if src_pass:
@@ -399,7 +426,7 @@ def _decide(level: str, is_logic: bool, src: str, flow: bool, agree: bool,
                     else "a matching sink but no second corroborating signal")
     if src_fail:
         return False, "the cited source contains no matching sink for this class"
-    ok = flow and agree              # couldn't check the source → require both
+    ok = flow and agree              # source unavailable (re-render) → require both
     return ok, ("source uncheckable; carried by a data flow and agreement" if ok
                 else "source uncheckable without both a data flow and agreement")
 
@@ -436,12 +463,13 @@ def evaluate(finding, repo: Optional[Path], level: Optional[str]) -> QualityResu
                              "Hypothesis — " + by_name["class_evidence"].reason, checks)
 
     is_logic = _is_logic_cwe(finding)
-    src = by_name["source_corroborated"].status
+    src_check = by_name["source_corroborated"]
+    src = src_check.status
     flow = by_name["flow_described"].status == PASS
     agree = by_name["agreement"].status == PASS
     precise = by_name["location_precise"].status == PASS
 
-    ok, why = _decide(level, is_logic, src, flow, agree, precise)
+    ok, why = _decide(level, is_logic, src, src_check.kind, flow, agree, precise)
     if ok:
         reason = "Statically supported ({0} checks): {1}.".format(level, why)
     else:

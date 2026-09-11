@@ -27,7 +27,11 @@ from typing import Dict, List, Optional, Tuple
 # CWE number -> regex sink patterns that constitute the SAME root cause. Kept
 # deliberately specific; a coincidental-match filter runs on the results.
 CWE_SINK_PATTERNS: Dict[str, List[str]] = {
-    "94":  [r"\beval\s*\(", r"\bexec\s*\(", r"\bcompile\s*\("],
+    # Code injection includes expression eval AND server-side template rendering
+    # (models routinely label SSTI as CWE-94); both are covered so a template sink
+    # is not missed for a code-injection label.
+    "94":  [r"\beval\s*\(", r"\bexec\s*\(", r"\bcompile\s*\(",
+            r"render_template_string", r"\bTemplate\s*\(", r"from_string"],
     "95":  [r"\beval\s*\("],
     "96":  [r"\bexec\s*\(", r"\beval\s*\("],
     "502": [r"pickle\.loads?\b", r"cPickle\.loads?", r"yaml\.load\s*\(",
@@ -37,9 +41,13 @@ CWE_SINK_PATTERNS: Dict[str, List[str]] = {
     "79":  [r"\|\s*safe\b", r"render_template_string", r"mark_safe",
             r"\bMarkup\s*\("],
     "1336": [r"render_template_string", r"\bTemplate\s*\(", r"from_string"],
+    # Path traversal covers reads AND writes; write_bytes (binary upload) is as
+    # much a traversal sink as write_text, so both are covered.
     "22":  [r"send_file", r"send_from_directory", r"os\.path\.join",
-            r"FileResponse", r"\.write_text\s*\(", r"\bopen\s*\("],
-    "23":  [r"\bopen\s*\(", r"os\.path\.join"],
+            r"FileResponse", r"\.write_text\s*\(", r"\.write_bytes\s*\(",
+            r"\bopen\s*\(", r"shutil\.copy"],
+    "23":  [r"\bopen\s*\(", r"os\.path\.join", r"\.write_bytes\s*\(",
+            r"\.write_text\s*\("],
     "601": [r"RedirectResponse", r"\bredirect\s*\(", r"HttpResponseRedirect"],
     "918": [r"requests\.(get|post|put|delete|head)\s*\(", r"\burlopen\s*\(",
             r"httpx\.", r"urllib\.request"],
@@ -155,17 +163,28 @@ def patterns_for(cwe: str, data_flow: str, title: str) -> Tuple[List[str], str]:
 
 def sink_patterns(cwe: str) -> Tuple[List[str], str]:
     """The AUTHORITATIVE CWE→sink patterns (the curated table only — never the
-    model's narrative). Corroboration must use this: a pattern here constitutes
-    evidence that the cited source performs the operation the CWE describes, not a
-    lead extracted from prose the model wrote. Returns ``([], note)`` for logic
-    classes (no syntactic sink) and for classes absent from the table."""
+    model's narrative), **normalized to the weakness family**: the union of every
+    family member's patterns, so a sibling label (CWE-95 vs 94, CWE-73 vs 22)
+    picks the same detector and one member's operation is not missed for another's
+    label. A pattern here constitutes evidence that the cited source performs the
+    operation the class describes. Returns ``([], note)`` for logic classes (no
+    syntactic sink) and for classes the checker has NO rule for — the caller must
+    treat the latter as "cannot assess", not "no vulnerability"."""
+    from .knowledge import family_members
     num = (cwe or "").upper().replace("CWE-", "").strip()
     if num in _LOGIC_CWES:
         return [], "authorization/logic class — no syntactic sink to corroborate"
-    pats = CWE_SINK_PATTERNS.get(num, [])
+    pats: List[str] = []
+    seen = set()
+    for member in family_members(cwe):
+        for p in CWE_SINK_PATTERNS.get(member, []):
+            if p not in seen:
+                seen.add(p)
+                pats.append(p)
     if not pats:
-        return [], "no authoritative sink pattern for {0}".format(cwe or "unknown CWE")
-    return list(pats), ""
+        return [], ("no authoritative sink pattern for {0} — the checker has no "
+                    "rule for this class".format(cwe or "unknown CWE"))
+    return pats, ""
 
 
 def _grep(repo: Path, pattern: str, glob: Optional[str]) -> List[Instance]:
