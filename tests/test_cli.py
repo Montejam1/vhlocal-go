@@ -27,6 +27,7 @@ class _FakeResult:
 class CLI(unittest.TestCase):
     def setUp(self):
         self.repo = tempfile.mkdtemp()
+        self.reports = tempfile.mkdtemp()
         self._orig = run.execute_scan
         self._spec = {}
 
@@ -40,7 +41,9 @@ class CLI(unittest.TestCase):
 
     def _run(self, *extra):
         self._spec.clear()
-        rc = run.main(["--repo", self.repo, "--skill-dir", _SKILL, *extra])
+        rc = run.main(["--repo", self.repo, "--skill-dir", _SKILL,
+                       "--reports-dir", self.reports,
+                       "--log-file", str(Path(self.reports) / "test.log"), *extra])
         return self._spec.get("spec"), rc
 
     def test_defaults(self):

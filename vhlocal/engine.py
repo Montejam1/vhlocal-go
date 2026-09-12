@@ -49,6 +49,7 @@ from .phases import (
     resolve_partitions,
 )
 from .handoff import HANDOFF_FILE, write_handoff
+from . import verification
 from .tools import Sandbox
 
 log = logging.getLogger(__name__)
@@ -638,7 +639,13 @@ def execute_scan(
                       "cap_usd": budget.cap, "message": record.budget_halted_reason})
                 break
 
-            if spec.resume and spec_phase.key in state.get("completed", []):
+            resumable = spec_phase.key in state.get("completed", [])
+            if resumable and spec_phase.key in ("2b", "3"):
+                checked = verification.refresh(results_dir)
+                resumable = bool(checked and checked["complete"])
+                if spec_phase.key == "3" and resumable:
+                    resumable = not verification.validate_artifacts(results_dir)
+            if spec.resume and resumable:
                 record.phases_skipped.append(spec_phase.key)
                 emit({"type": "phase_skip", "key": spec_phase.key, "reason": "resume"})
                 continue
@@ -662,7 +669,47 @@ def execute_scan(
             # location matching each confirmed finding's sink pattern. The model
             # did this by grepping iteratively (redundantly, sometimes giving up);
             # the harness does it directly, completely, in a fraction of a second.
-            if spec_phase.key == "3d" and spec.sweep_mode == "deterministic":
+            if spec_phase.key == "4" and not (results_dir / verification.MANIFEST).exists():
+                verification.build_manifest(results_dir, repo, prov["git_commit"])
+                verification.write_json(results_dir / verification.DECISIONS, [])
+                verification.render(results_dir)
+            verified = verification.load_findings(results_dir) if spec_phase.key in ("3", "3d") else None
+            if spec_phase.key in ("3", "3d") and (verified is None or not any(
+                    f.verification_status == "supported" for f in verified)):
+                # No legacy Markdown fallback may trigger reproduction.
+                (results_dir / spec_phase.output_file).write_text(
+                    "# Phase " + spec_phase.key + "\n\nSkipped: no structurally validated supported candidates.\n")
+                if spec_phase.key == "3":
+                    verification.write_json(results_dir / "artifact_manifest.json", [])
+                emit({"type": "phase_skip", "key": spec_phase.key, "reason": "zero_verified_candidates"})
+            elif spec_phase.key == "4" and (results_dir / verification.MANIFEST).exists():
+                # Full Markdown/JSON/HTML rendering runs after final scan metadata
+                # is saved below. No model may independently change the finding list.
+                (results_dir / "README.md").write_text(
+                    "# Consolidated Scan Report\n\nCanonical rendering follows scan finalization.\n")
+                record.agents.append({"label": "p4", "phase": "4", "model": "deterministic",
+                                      "turns": 0, "stopped_reason": "complete"})
+            elif spec_phase.key == "2b":
+                manifest = verification.build_manifest(results_dir, repo, prov["git_commit"])
+                def run_verification_batch(task, path, batch):
+                    nonlocal aborted
+                    label = "p2b:batch-{}".format(batch)
+                    task += "\n\n" + _threat_model_note(results_dir)
+                    _capture_prompt(results_dir, "2b", label, task)
+                    emit({"type": "agent_start", "label": label, "model": client_for("2b").model})
+                    res = run_agent(client_for("2b"), sandbox, system, task,
+                                    max_turns=spec_phase.max_turns, expect_files=[path],
+                                    label=label, should_cancel=cancelled)
+                    total.merge(res.usage)
+                    record.agents.append({"label": label, "phase": "2b", "model": client_for("2b").model,
+                                          "turns": res.turns, "stopped_reason": res.stopped_reason})
+                    emit({"type": "agent_done", "label": label, "turns": res.turns,
+                          "stopped_reason": res.stopped_reason})
+                    if res.systemic:
+                        aborted = res.error
+                verification.run_batches(results_dir, manifest, run_verification_batch,
+                                         lambda: cancelled() or bool(aborted) or budget.exceeded())
+            elif spec_phase.key == "3d" and spec.sweep_mode == "deterministic":
                 from .sweep import run_phase3d_sweep
                 emit({"type": "agent_start", "label": "p3d",
                       "model": "deterministic", "index": 1, "total": 1})
@@ -685,6 +732,9 @@ def execute_scan(
             else:
                 prompt_text = prompt_path.read_text(encoding="utf-8")
                 out_path = results_dir / spec_phase.output_file
+                if spec_phase.key == "3":
+                    prompt_text = verification.ARTIFACT_CONTRACT
+                    out_path = results_dir / "artifact_manifest.json"
                 extra = ""
                 if spec_phase.reads:
                     reads = _resolve_reads(spec_phase.reads, results_dir)
@@ -743,7 +793,11 @@ def execute_scan(
                     tm_note = _threat_model_note(results_dir)
                     if tm_note:
                         extra = (extra + "\n\n" + tm_note) if extra else tm_note
-                task = build_task(spec_phase, prompt_text, repo, results_dir, extra=extra)
+                task_phase = spec_phase
+                if spec_phase.key == "3":
+                    from dataclasses import replace
+                    task_phase = replace(spec_phase, output_file="artifact_manifest.json")
+                task = build_task(task_phase, prompt_text, repo, results_dir, extra=extra)
                 active = client_for(spec_phase.key)
                 _capture_prompt(results_dir, spec_phase.key,
                                 "p{0}".format(spec_phase.key), task)
@@ -776,13 +830,26 @@ def execute_scan(
                 })
                 if res.systemic:
                     aborted = res.error
+                if spec_phase.key == "3":
+                    verification.render_assignments(results_dir)
 
             if spec_phase.fan_out:
                 produced = any((results_dir / "results").glob("*.md"))
             else:
                 produced = (results_dir / spec_phase.output_file).exists()
 
+            if spec_phase.key == "2" and produced:
+                verification.build_manifest(results_dir, repo, prov["git_commit"])
+                verification.write_json(results_dir / verification.DECISIONS, [])
+                verification.render(results_dir)
+            if spec_phase.key == "2b" and produced:
+                checked = verification.refresh(results_dir)
+                produced = bool(checked and checked["complete"])
+            if spec_phase.key == "3" and produced and verified is not None:
+                produced = not verification.validate_artifacts(results_dir)
             state.setdefault("completed", [])
+            if not produced and spec_phase.key in state["completed"]:
+                state["completed"].remove(spec_phase.key)
             if produced and spec_phase.key not in state["completed"]:
                 state["completed"].append(spec_phase.key)
             save_state(results_dir, state)
@@ -791,9 +858,8 @@ def execute_scan(
             if produced and spec_phase.key not in record.phases_completed:
                 record.phases_completed.append(spec_phase.key)
 
-            # Distil 2b's verdict table into a compact handoff so Phase 3 starts
-            # from ~1-2KB instead of the whole transcript.
-            if spec_phase.key == "2b" and produced:
+            # Publish the canonical handoff, including partial/zero-supported results.
+            if spec_phase.key == "2b" and (results_dir / verification.MANIFEST).exists():
                 try:
                     hp = write_handoff(results_dir)
                     emit({"type": "handoff",
@@ -921,18 +987,8 @@ def _threat_model_note(results_dir) -> str:
 
 
 def _resolve_reads(reads, results_dir):
-    """Map declared read files to what actually exists.
-
-    Phase 3 declares the compact handoff; if it wasn't produced (2b failed or
-    was unparseable), fall back to the raw 2b output so Phase 3 still has input.
-    """
-    out = []
-    for r in reads:
-        if r == HANDOFF_FILE and not (Path(results_dir) / HANDOFF_FILE).exists():
-            out.append("phase2b_output.md")
-        else:
-            out.append(r)
-    return out
+    """Required inputs never fall back to unverified model Markdown."""
+    return list(reads)
 
 
 # Transport error kinds the hunt breaker/canary treat as "the endpoint/transport

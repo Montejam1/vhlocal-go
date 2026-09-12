@@ -86,14 +86,14 @@ class LogicClasses(unittest.TestCase):
                     location="app/db.py:2", data_flow="id -> record without owner check",
                     from_confirmed=True)
         for level in quality.LEVELS:
-            self.assertTrue(quality.evaluate(f, self.repo, level).substantiated, level)
+            self.assertFalse(quality.evaluate(f, self.repo, level).substantiated, level)
 
     def test_idor_without_agreement_is_hypothesis_at_balanced(self):
         f = Finding(id="V1", title="IDOR on GET /users/{id}", cwe="CWE-639",
                     location="app/db.py:2", data_flow="id -> record without owner check")
         # No votes, not confirmed: lenient still accepts (flow is a signal), but
         # balanced/strict require agreement for a logic class.
-        self.assertTrue(quality.evaluate(f, self.repo, quality.LENIENT).substantiated)
+        self.assertFalse(quality.evaluate(f, self.repo, quality.LENIENT).substantiated)
         self.assertFalse(quality.evaluate(f, self.repo, quality.BALANCED).substantiated)
 
     def test_idor_without_precise_location_is_hypothesis(self):
@@ -106,7 +106,7 @@ class LogicClasses(unittest.TestCase):
         f = Finding(id="V1", title="IDOR on GET /users/{id}", cwe="CWE-639",
                     location="app/db.py:2", data_flow="id -> record without owner check",
                     votes=3, vote_samples=5)
-        self.assertTrue(quality.evaluate(f, self.repo, quality.BALANCED).substantiated)
+        self.assertFalse(quality.evaluate(f, self.repo, quality.BALANCED).substantiated)
 
 
 class StructuralFloor(unittest.TestCase):

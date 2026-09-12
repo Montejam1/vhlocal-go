@@ -109,13 +109,13 @@ class IdorRefutation(unittest.TestCase):
         q = self._cls("h.py:8")    # authz_ok enforces require_owner
         self.assertFalse(q.substantiated)
         ce = {c.name: c for c in q.checks}["class_evidence"]
-        self.assertEqual(ce.status, quality.FAIL)
+        self.assertEqual(ce.status, quality.NA)
 
     def test_idor_survives_when_handler_is_only_authenticated(self):
         q = self._cls("h.py:5")    # authn_only: authenticated, no ownership check
         ce = {c.name: c for c in q.checks}["class_evidence"]
         self.assertNotEqual(ce.status, quality.FAIL)   # not refuted
-        self.assertTrue(q.substantiated)               # real IDOR stands (logic path)
+        self.assertFalse(q.substantiated)  # requires permission-specific evidence
 
 
 class Discovery(unittest.TestCase):
@@ -127,8 +127,8 @@ class Discovery(unittest.TestCase):
         self.assertEqual(fs[0].cwe, "CWE-862")
         self.assertIn("/api/v1/workers", fs[0].location + fs[0].entry_point)
         C.assess_candidates(fs, meta)
-        self.assertEqual(fs[0].classification, "statically_supported")
-        self.assertIn("Cross-endpoint authorization", fs[0].assessment_reason)
+        self.assertEqual(fs[0].classification, "hypothesis")
+        self.assertIn("source-grounded review", fs[0].assessment_reason)
 
     def test_no_findings_when_repo_absent(self):
         self.assertEqual(C.authz_findings({"repo": ""}), [])

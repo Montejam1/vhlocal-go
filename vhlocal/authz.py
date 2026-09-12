@@ -1,23 +1,10 @@
-"""Authorization map — a cross-endpoint view the partitioned, sink-driven hunt
-can't assemble.
+"""AST inventory of declared route dependencies and possible protection differences.
 
-Two things depend on one fact: *does a route enforce an authorization guard on its
-resource?*
-
-* **Discovery** (the hunt-coverage gap): a restriction enforced on one route but
-  missing on a sibling that reaches the SAME resource — e.g. ``/workers/{id}/status``
-  guarded while ``/api/v1/workers/{id}/status`` is open. That inconsistency is a
-  broken-access-control bypass, found deterministically from the route inventory,
-  not by reading one fragment at a time.
-* **Evidence** (the IDOR/authz class check): an access-control finding whose cited
-  handler DEMONSTRABLY performs the ownership/role check it is accused of missing
-  can be refuted. We refute on present evidence — never assert the *intended*
-  permission, which stays model-bound.
-
-Guard detection is AST-based (stdlib only) and deliberately PRECISE — only a
-declared guard counts (a FastAPI ``Depends``/``Security`` dependency whose name
-reads as auth, a router-level dependency, or an auth decorator). A false "guarded"
-would wrongly refute a real finding, so we err toward "unguarded" when unsure.
+Guard names describe declarations only. They do not establish intended policy,
+prove object-level authorization, or prove a route is public. Custom helpers,
+router inclusion, and checks in function bodies require source-grounded review.
+Route ownership uses exact function spans including decorators; path matching
+rejects ambiguous shortened paths.
 """
 
 import ast
@@ -75,6 +62,9 @@ class RouteAuthz:
     resource_key: str
     guards: List[str] = field(default_factory=list)   # names of declared guards
 
+    start_line: int = 0
+    end_line: int = 0
+
     @property
     def guarded(self) -> bool:
         return bool(self.guards)
@@ -91,7 +81,8 @@ class RouteAuthz:
 
     def to_dict(self) -> Dict[str, object]:
         return {"method": self.method, "path": self.path, "file": self.file,
-                "line": self.line, "function": self.function,
+                "line": self.line, "start_line": self.start_line, "end_line": self.end_line,
+                "function": self.function,
                 "resource_key": self.resource_key, "guards": self.guards,
                 "guarded": self.guarded, "authz_guards": self.authz_guards}
 
@@ -229,7 +220,9 @@ def authz_routes(repo) -> List[RouteAuthz]:
                 for method in _methods_from_decorator(dec, attr):
                     ra = RouteAuthz(method=method, path=path, file=rel, line=node.lineno,
                                     function=node.name, resource_key=resource_key(path),
-                                    guards=guards)
+                                    guards=guards,
+                                    start_line=min([node.lineno] + [d.lineno for d in node.decorator_list]),
+                                    end_line=node.end_lineno)
                     k = (ra.method, ra.path, ra.file, ra.line)
                     if k in seen:
                         continue
@@ -264,23 +257,19 @@ def inconsistencies(routes: List[RouteAuthz]) -> List[AuthzInconsistency]:
 
 
 def guard_for_location(routes: List[RouteAuthz], location: str):
-    """The RouteAuthz whose handler body contains ``file:line``, or None. The
-    owning handler is the one whose def line is the greatest at-or-above the cited
-    line AND before the next handler in the file — so a cited body line maps to its
-    own handler, never a later one. Used by the evidence check."""
-    m = re.search(r"([\w./+\-]+\.py):(\d+)", location or "")
+    """Resolve an exact handler span, including decorators; reject ambiguous paths."""
+    m = re.fullmatch(r"([\w./+\-]+\.py):(\d+)(?:[-–](\d+))?", location.strip())
     if not m:
         return None
-    want_file = m.group(1).rsplit("/", 1)[-1]
-    line = int(m.group(2))
-    in_file = sorted((r for r in routes if r.file.rsplit("/", 1)[-1] == want_file),
-                     key=lambda r: r.line)
-    owner = None
-    for idx, r in enumerate(in_file):
-        nxt = in_file[idx + 1].line if idx + 1 < len(in_file) else 10 ** 9
-        if r.line <= line < nxt:
-            owner = r
-    return owner
+    path, start, end = m[1], int(m[2]), int(m[3] or m[2])
+    files = {r.file for r in routes if r.file == path}
+    if not files:
+        files = {r.file for r in routes if r.file.endswith("/" + path)}
+    if len(files) != 1:
+        return None
+    matches = [r for r in routes if r.file in files
+               and (r.start_line or r.line) <= start <= end <= (r.end_line or r.line)]
+    return matches[0] if matches else None
 
 
 def build_authz_map(repo) -> Dict[str, object]:

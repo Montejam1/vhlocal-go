@@ -204,6 +204,11 @@ class Finding:
     exploit_test: str = ""    # raw model claim, verbatim (e.g. "PASS")
     fix: str = ""
     source: str = ""
+    source_id: str = ""
+    verification_status: str = ""
+    verification_reason: str = ""
+    verification_record: Dict[str, Any] = field(default_factory=dict)
+    stable_identity: str = ""
     duplicate_of: Optional[str] = None
     # Canonical-root-cause clustering. `root_cause_key` is a stable fingerprint;
     # `cluster_id` is the canonical (kept) finding all members map to.
@@ -852,6 +857,7 @@ def _hunt_evidence_findings(results_dir: Path) -> List[Finding]:
         found.extend(_parse_hunt_file(f))
     found = [f for f in _drop_placeholders(found) if not _is_hunt_noise(f)]
     for i, fn in enumerate(found, 1):
+        fn.source_id = fn.id
         fn.id = "VULN-{0:03d}".format(i)
     return found
 
@@ -879,6 +885,11 @@ def parse_findings(results_dir: Path) -> List[Finding]:
     the report.
     """
     results_dir = Path(results_dir)
+
+    from .verification import load_findings
+    canonical = load_findings(results_dir)
+    if canonical is not None:
+        return canonical
 
     # Phase-4 report path (what a good Phase 4 produces: distinct, well-titled
     # findings with locations and detail).
@@ -1545,7 +1556,9 @@ def apply_normalized_severity(findings: List[Finding]) -> None:
     ``knowledge.apply_knowledge`` (which sets ``normalized_severity``) and before
     ``rank``."""
     for f in findings:
-        if not _is_substantiated(f.classification):
+        if _is_substantiated(f.classification):
+            f.exploitability = "Runtime exploitability has not been established; see the finding-specific evidence and preconditions."
+        else:
             f.exploitability = "Not established; this hypothesis requires further investigation."
         ns = getattr(f, "normalized_severity", "")
         if ns and ns != f.severity:
@@ -1561,24 +1574,8 @@ def _location_resolves(location: str, repo: Optional[Path]) -> bool:
     we never invent an unresolved verdict from missing context."""
     if not repo or not location:
         return True
-    fp = _loc_file(location)
-    if not fp:
-        return True
-    fp = fp.strip()
-    cand = (repo / fp)
-    if cand.exists():
-        return True
-    # The model often cites a repo-relative path that omits a leading package
-    # dir (e.g. "regions.py" for "backend/app/routers/regions.py"). Accept a
-    # basename match anywhere in the tree before declaring it unresolved.
-    name = Path(fp).name
-    try:
-        for p in repo.rglob(name):
-            if p.is_file():
-                return True
-    except OSError:
-        pass
-    return False
+    from .quality import _resolve_source
+    return _resolve_source(location, repo) is not None
 
 
 def assess_candidates(findings: List[Finding], meta: Dict[str, Any]) -> None:
@@ -1595,20 +1592,13 @@ def assess_candidates(findings: List[Finding], meta: Dict[str, Any]) -> None:
     level = quality.normalize_level(meta.get("quality_strictness"))
     for f in findings:
         f.candidate_key = candidate_key(f, meta.get("git_commit", ""))
-        # Harness-derived authorization-map findings are deterministic structural
-        # facts (a guarded sibling proves the resource is meant to be protected),
-        # not model claims — the inconsistency IS the evidence, so they are
-        # statically supported directly rather than through the model-claim battery.
-        if getattr(f, "source", "") == "authz-map":
-            f.classification = CLASS_STATICALLY_SUPPORTED
-            f.assessment = ASSESS_SUPPORTED
-            f.assessment_reason = (
-                "Cross-endpoint authorization inconsistency established "
-                "deterministically from the route map — a sibling route guards this "
-                "resource while the cited route does not. A bypass candidate to "
-                "confirm (the open route may be intentionally public).")
-            f.quality_checks = [{"name": "authz_map", "status": "pass",
-                                 "reason": "guarded sibling route exists for this resource"}]
+        if f.verification_status:
+            # Decisions have been schema/evidence checked against this checkout
+            # by verification.load_findings. Model review is static, not execution.
+            f.classification = CLASS_STATICALLY_SUPPORTED if f.verification_status == "supported" else CLASS_HYPOTHESIS
+            f.assessment = ASSESS_SUPPORTED if f.verification_status == "supported" else ASSESS_UNRESOLVED
+            f.assessment_reason = f.verification_reason
+            f.quality_checks = quality.evaluate(f, repo, level).checks_as_dicts()
             continue
         reviewed, review_reason = review_support(f, meta)
         if reviewed:
@@ -1878,7 +1868,18 @@ def compute_run_status(meta: Dict[str, Any], ledger=None,
     # a valid verification: it cannot count toward completion, so dependent work is
     # explicitly partial rather than reading as fully verified.
     disp_gap = _phase2b_disposition_gap(results_dir) if results_dir is not None else None
-    invalid = set(empties)
+    contract_errors = []
+    if results_dir is not None:
+        from . import verification
+        manifest = verification.read_json(Path(results_dir) / verification.MANIFEST)
+        if (Path(results_dir) / verification.MANIFEST).exists() and ("2b" in req or verification.manifest_problem(manifest)):
+            reconciliation = verification.reconcile(manifest,
+                verification.read_json(Path(results_dir) / verification.DECISIONS),
+                verification.target_repo(manifest, results_dir))
+            contract_errors += [("2b", e) for e in reconciliation["errors"]]
+        if manifest is not None and "3" in done:
+            contract_errors += [("3", e) for e in verification.validate_artifacts(results_dir)]
+    invalid = set(empties) | {ph for ph, _ in contract_errors}
     if disp_gap:
         invalid.add("2b")
     effective_done = done - invalid
@@ -1896,7 +1897,9 @@ def compute_run_status(meta: Dict[str, Any], ledger=None,
     else:
         execution = "unknown"
 
-    reasons: List[str] = []
+    if contract_errors and execution == "complete":
+        execution = "partial"
+    reasons: List[str] = ["Phase {} quality failure: {}".format(ph, e) for ph, e in contract_errors]
     if empties:
         reasons.append(
             "phase(s) {0} produced an empty or missing deliverable — recorded as "
@@ -2087,11 +2090,13 @@ def _build_chains_safe(findings):
 def render(results_dir: Path) -> str:
     meta = load_meta(results_dir)
     findings = parse_findings(results_dir)
-    findings += authz_findings(meta)  # harness-derived cross-endpoint authz findings
+    if not (results_dir / "candidate_manifest.json").exists():
+        findings += authz_findings(meta)
     # Restore CWE + file:line the model dropped, then dedup (which keys on
     # family:file:func).
     backfill_locations(findings, results_dir, meta.get("repo", ""))
-    flag_duplicates(findings)
+    if not (results_dir / "candidate_manifest.json").exists():
+        flag_duplicates(findings)
     # Votes are applied before assessment: the quality battery's agreement check
     # reads them (≥2 independent hunt samples is a corroboration signal).
     _apply_votes(findings, results_dir)
@@ -2158,6 +2163,9 @@ def render(results_dir: Path) -> str:
         A("| Commit scanned | `{0}` |".format(commit))
     A("")
     # Mode A — how this run compares to the previous report of the same target.
+    if lifecycle.get("comparison_note"):
+        A("> " + lifecycle["comparison_note"])
+        A("")
     if lifecycle.get("has_prior"):
         A("### Change since previous scan")
         A("")
@@ -2369,6 +2377,8 @@ def render(results_dir: Path) -> str:
             A("| Why the scanner flagged this | {0} |".format(
                 _clean(f.hypothesis_reason or f.data_flow or "No candidate-specific explanation was provided.").replace("|", "\\|")))
             A("| Evidence assessment | {0} |".format(_clean(f.assessment_reason).replace("|", "\\|")))
+            if f.verification_status:
+                A("| Verification disposition | {0} |".format(f.verification_status))
             if f.quality_checks:
                 A("| Quality checks | {0} |".format(
                     _format_quality_checks(f.quality_checks).replace("|", "\\|")))
@@ -2670,11 +2680,13 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
     results_dir = Path(results_dir)
     meta = load_meta(results_dir)
     findings = parse_findings(results_dir)
-    findings += authz_findings(meta)  # harness-derived cross-endpoint authz findings
+    if not (results_dir / "candidate_manifest.json").exists():
+        findings += authz_findings(meta)
     # Restore CWE + file:line the model dropped, then dedup (which keys on
     # family:file:func).
     backfill_locations(findings, results_dir, meta.get("repo", ""))
-    flag_duplicates(findings)
+    if not (results_dir / "candidate_manifest.json").exists():
+        flag_duplicates(findings)
     # Votes feed the quality battery's agreement check — apply before assessment.
     _apply_votes(findings, results_dir)
     assess_candidates(findings, meta)
@@ -2771,6 +2783,7 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
             import logging
             logging.getLogger(__name__).warning("remediation DTOs failed: %s", exc)
 
+    from . import verification
     js = results_dir / FINDINGS_JSON_FILE
     js.write_text(json.dumps({
         "meta": meta,
@@ -2794,6 +2807,7 @@ def write_consolidated(results_dir: Path) -> Tuple[Path, Path]:
         # reproduced — kept distinct from the severity counts so a larger
         # candidate pool never reads as improved verified yield (proposal §7).
         "assessment": assessment_totals(findings),
+        "verification": verification.refresh(results_dir),
         "vulnerability_counts": _counts([f for f in findings if _is_substantiated(f.classification)]),
         "hypothesis_counts": _counts([f for f in findings if f.classification == CLASS_HYPOTHESIS]),
         # Mode A cross-run lifecycle: new/persisting/regressed vs the prior

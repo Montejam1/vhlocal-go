@@ -117,9 +117,8 @@ PHASES: List[PhaseSpec] = [
         prompt_file="phase3_reproduce_test.md",
         output_file="phase3_output.md",
         max_turns=80,
-        # Compact structured handoff, not the full 2b transcript — Phase 3 is
-        # where the model degraded on inflated context. write_handoff() falls
-        # back to phase2b_output.md if the handoff can't be built.
+        # The engine renders this from validated JSON decisions. No raw
+        # Markdown fallback may authorize reproduction.
         reads=["phase2b_handoff.md"],
     ),
     PhaseSpec(

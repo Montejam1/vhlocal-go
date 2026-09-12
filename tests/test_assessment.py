@@ -80,7 +80,7 @@ class StaticGate(unittest.TestCase):
         self.assertEqual(self._assess(f, repo),
                          (ASSESS_SUPPORTED, CLASS_STATICALLY_SUPPORTED))
 
-    def test_logic_candidate_with_flow_and_agreement_is_supported(self):
+    def test_logic_candidate_requires_source_grounded_review(self):
         # A logic class (IDOR) has no syntactic sink; a described flow + a precise
         # location (basename-matched) + agreement carry it. The basename match
         # (regions.py → backend/app/routers/regions.py) resolves the location.
@@ -90,7 +90,7 @@ class StaticGate(unittest.TestCase):
                     data_flow="region_id -> record returned without an owner check",
                     from_confirmed=True)
         self.assertEqual(self._assess(f, repo),
-                         (ASSESS_SUPPORTED, CLASS_STATICALLY_SUPPORTED))
+                         (ASSESS_UNRESOLVED, CLASS_HYPOTHESIS))
 
     def test_missing_cwe_is_hypothesis(self):
         repo = _repo(["app/x.py"])

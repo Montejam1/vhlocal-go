@@ -27,12 +27,12 @@ PHASE2B = """# Phase 2b Verification
 
 ## Confirmed Findings
 
-| Finding | Source | CWE | Description | Severity |
-|---|---|---|---|---|
-| sg-11-nav-VULN-001 | sg-11_nav.md | CWE-639 | IDOR customer update | High |
-| sg-11-nav-VULN-002 | sg-11_nav.md | CWE-639 | IDOR location create | High |
-| sg-5-inj-Finding1 | sg-5_inj.md | CWE-918 | SSRF via webhook | High |
-| sink-VULN-001 | sink_driven.md | CWE-502 | Pickle RCE | High |
+| Finding | Source | CWE | Endpoint | Severity | Verdict |
+|---|---|---|---|---|---|
+| VULN-001 | sg-11_nav.md | CWE-639 | PUT /customers/{id} | High | CONFIRMED |
+| VULN-002 | sg-11_nav.md | CWE-639 | POST /locations | High | CONFIRMED |
+| Finding 1 | sg-5_inj.md | CWE-918 | POST /webhook | High | CONFIRMED |
+| VULN-001 | sink_driven.md | CWE-502 | POST /pickle | High | CONFIRMED |
 """
 
 # The truncated Phase-4 README (only one finding written up).

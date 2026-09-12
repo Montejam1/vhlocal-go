@@ -76,6 +76,9 @@ def _key(obj: Any) -> str:
     """Stable cross-run identity. Prefer the (family-normalized) root-cause
     fingerprint; fall back to normalized-CWE + file so a run that failed to
     compute a key still matches."""
+    stable = _fval(obj, "stable_identity")
+    if stable:
+        return "source-v1:" + stable
     rck = _fval(obj, "root_cause_key")
     if rck:
         return _normalize_family(rck)
@@ -169,6 +172,8 @@ def find_prior_report(
             data = _read_json(cand / FINDINGS_JSON)
             if not data or not isinstance(data.get("findings"), list):
                 continue
+            if meta.get("cancelled") or meta.get("aborted") or (data.get("run_status") or {}).get("execution_status") in ("cancelled", "aborted"):
+                continue
             if best is None or when > best[0]:
                 best = (when, cand, data)
     if best is None:
@@ -229,6 +234,20 @@ def reconcile(
     prior_meta = prior_data.get("meta") or {}
     prior_findings = [pf for pf in prior_data["findings"] if not _is_dupe(pf)]
     prior_lc = prior_data.get("lifecycle") or {}
+
+    if any(_fval(f, "stable_identity") for f in unique) and prior_findings and not any(
+            _fval(f, "stable_identity") for f in prior_findings):
+        for f in findings:
+            _set(f, "finding_lifecycle", "")
+        return {
+            "has_prior": True, "prior_report": prior_dir.name,
+            "prior_commit": prior_meta.get("git_commit", ""),
+            "current_commit": meta.get("git_commit", ""),
+            "comparison_status": "identity_schema_changed",
+            "comparison_note": "Candidate identity changed to source-v1. This run establishes a new baseline; no disappearance or fix is inferred from incompatible legacy keys.",
+            "new": 0, "persisting": 0, "not_observed": 0, "not_observed_findings": [],
+            "reappeared": 0, "regressed": 0, "fixed": 0, "fixed_findings": [], "fixed_keys": [],
+        }
 
     prior_keys = {_key(pf) for pf in prior_findings if _key(pf)}
     prior_fixed = set(prior_lc.get("fixed_keys") or [])

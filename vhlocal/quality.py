@@ -1,40 +1,13 @@
-"""Pre-report quality checks — corroborate a candidate against the actual source
-before it is published as a substantiated finding.
+"""Deterministic source checks used by reporting and structured verification.
 
-The gap this closes: the harness used to promote a candidate to a substantiated
-finding on *metadata completeness alone* (a CWE, a concrete title, a file that
-exists). A model could write "SQL injection at users.py:81 (CWE-89)" and it would
-publish even if nothing near line 81 executes a query. That over-reports. The
-opposite extreme — demanding an external source-grounded review for everything —
-under-reports (every scan becomes zero findings). This module is the happy medium:
-a battery of *deterministic* checks the harness runs against the real code, so the
-"statically supported" tier is earned by corroboration, not by filled-in fields.
+A matching sink is a corroborating signal, not proof of exploitability. In new
+scans, verification.py requires a candidate-bound decision, source quotes, full
+function context and reasoning before publication. These checks veto structural
+or source contradictions in those decisions.
 
-Three checks corroborate a claim, none of which trust model prose:
-
-* ``source_corroborated`` — read the cited source (a window around the line) and
-  test whether it contains a sink pattern for the finding's CWE (reusing the
-  ``sweep`` pattern table, plus any call token named in the data flow). N/A for
-  logic/authorization classes (IDOR, missing-authz, TOCTOU), which have no
-  syntactic sink to match.
-* ``flow_described`` — the finding describes a real source→sink / ownership-gap
-  data flow, not a one-word stub.
-* ``agreement`` — independent corroboration: ≥2 hunt samples reported the same
-  site (``votes``) or the finding came through the Phase-2b verification pass
-  (``from_confirmed``).
-
-How much corroboration the middle tier demands is the ``level`` dial:
-
-* ``lenient``  — any one corroboration signal (for any class).
-* ``balanced`` — sink classes MUST show a source pattern (a checked-and-absent
-  pattern demotes to hypothesis); logic classes need flow + a line-precise
-  location + agreement. When the source can't be checked (no checkout / no
-  derivable pattern) the benefit of the doubt falls back to flow-or-agreement.
-* ``strict``   — sink classes need a source pattern AND a second signal; logic
-  classes need flow + precise location + agreement.
-
-All checks are deterministic and side-effect free, so the result is reproducible
-and unit-testable.
+Legacy report replays retain the lenient/balanced/strict sink policies. Logic and
+authorization claims remain hypotheses without a source-grounded review; sample
+agreement and recognized guard names do not establish effective permissions.
 """
 
 import ast
@@ -120,25 +93,23 @@ def _is_logic_cwe(finding) -> bool:
 
 
 def _resolve_source(location: str, repo: Optional[Path]) -> Optional[Path]:
-    """The cited file inside the repo, or a basename match anywhere in the tree
-    (the model often omits a leading package dir). None if unavailable."""
+    """Resolve only in-tree, unambiguous paths; never choose the first basename hit."""
     if repo is None:
         return None
     m = _FILE.search(location or "")
     if not m:
         return None
-    rel = m.group(1).strip()
-    cand = repo / rel
-    if cand.is_file():
-        return cand
-    name = Path(rel).name
-    try:
-        for p in repo.rglob(name):
-            if p.is_file():
-                return p
-    except OSError:
-        pass
-    return None
+    repo = Path(repo).resolve()
+    rel = m[1]
+    if Path(rel).is_absolute() or ".." in Path(rel).parts:
+        return None
+    candidate = (repo / rel).resolve()
+    if candidate.is_relative_to(repo) and candidate.is_file():
+        return candidate
+    matches = [p.resolve() for p in repo.rglob(Path(rel).name)
+               if p.is_file() and p.as_posix().endswith("/" + rel)
+               and p.resolve().is_relative_to(repo)]
+    return matches[0] if len(matches) == 1 else None
 
 
 def check_weakness_class(finding) -> Check:
@@ -414,6 +385,22 @@ def check_class_evidence(finding, repo: Optional[Path]) -> Check:
     ctx = "{0} {1}".format(getattr(finding, "data_flow", "") or "",
                            getattr(finding, "title", "") or "")
 
+    if re.search(r"template injection|\bSSTI\b", getattr(finding, "title", ""), re.I):
+        import textwrap
+        source = _enclosing_function_source(finding, repo)
+        try:
+            tree = ast.parse(textwrap.dedent(source)) if source else None
+        except SyntaxError:
+            tree = None
+        templates = [n for n in ast.walk(tree) if isinstance(n, ast.Call)
+                     and (getattr(n.func, "id", "") == "Template"
+                          or getattr(n.func, "attr", "") == "from_string")] if tree else []
+        if templates and all(n.args and isinstance(n.args[0], ast.Constant)
+                             and isinstance(n.args[0].value, str) for n in templates):
+            return Check("class_evidence", FAIL,
+                         "template source is constant; rendering attacker data does not "
+                         "evaluate it as template source (HTML injection needs a separate claim)")
+
     if num in _RANDOM_CWES:
         # A security word appearing SOMEWHERE (a route name, a comment) does not
         # establish that a security decision depends on the value. Require a real
@@ -442,17 +429,12 @@ def check_class_evidence(finding, repo: Optional[Path]) -> Check:
         from . import authz
         route = authz.guard_for_location(
             authz.authz_routes_cached(repo), getattr(finding, "location", ""))
-        if route is not None and route.has_authz:
-            return Check("class_evidence", FAIL,
-                         "the cited handler enforces an authorization guard ({0}) — "
-                         "the claimed missing access check is present".format(
-                             ", ".join(route.authz_guards)[:50]))
-        # No authz guard found — a missing guard does not PROVE the intended
-        # permission, so this does not substantiate on its own; it proceeds through
-        # the logic-class path (flow + precise location + agreement) for review.
+        guards = ", ".join(route.authz_guards) if route else ""
         return Check("class_evidence", NA,
-                     "no authorization guard found on the handler — the intended "
-                     "permission cannot be established statically (needs review)")
+                     "authorization requires a source-grounded review of the claimed "
+                     "permission, object/tenant scope, and complete control flow; "
+                     + ("declared guards ({0}) do not establish that scope".format(guards)
+                        if guards else "guard-name detection cannot establish effective permissions"))
 
     if num in _XSS_CWES:
         # XSS needs an HTML context. A value reflected into a JSON response is
@@ -530,10 +512,8 @@ def check_agreement(finding) -> Check:
     samples = int(getattr(finding, "vote_samples", 0) or 0)
     if votes >= 2:
         return Check("agreement", PASS,
-                     "{0} of {1} independent hunt samples reported this site".format(
+                     "{0} of {1} hunt samples reported this site (agreement is not proof)".format(
                          votes, samples or votes))
-    if getattr(finding, "from_confirmed", False):
-        return Check("agreement", PASS, "confirmed by the Phase-2b verification pass")
     return Check("agreement", FAIL, "a single, unverified report")
 
 
@@ -653,6 +633,11 @@ def evaluate(finding, repo: Optional[Path], level: Optional[str]) -> QualityResu
                                  level, class_ev.reason), checks)
 
     is_logic = _is_logic_cwe(finding)
+    if is_logic:
+        return QualityResult(False, level,
+                             "Hypothesis — authorization and business-logic claims require "
+                             "a source-grounded review of defenses and security impact; "
+                             "prose and sample agreement are insufficient", checks)
     src_check = by_name["source_corroborated"]
     src = src_check.status
     flow = by_name["flow_described"].status == PASS

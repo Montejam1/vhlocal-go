@@ -79,6 +79,24 @@ class TestPriorDiscovery(_Harness):
         self.assertIsNotNone(got)
         self.assertEqual(got[0].name, "recent")
 
+    def test_cancelled_scan_is_not_a_baseline(self):
+        self._write_report("completed", 500, [])
+        bad = self._write_report("cancelled", 900, [])
+        data = json.loads((bad / "findings.json").read_text())
+        data["run_status"] = {"execution_status": "cancelled"}
+        (bad / "findings.json").write_text(json.dumps(data))
+        got = find_prior_report(self.base / "current", self.repo, 1000, reports_dir=self.base)
+        self.assertEqual(got[0].name, "completed")
+
+    def test_identity_migration_does_not_claim_disappearance(self):
+        self._write_report("legacy", 500, [_F("V1", "CWE-94", "a.py:2", "eval")])
+        current = _F("CAND-one", "CWE-94", "a.py:2", "eval")
+        current.stable_identity = "source-digest"
+        result = self._reconcile([current], 1000)
+        self.assertEqual(result["comparison_status"], "identity_schema_changed")
+        self.assertEqual(result["not_observed"], 0)
+        self.assertEqual(result["new"], 0)
+
     def test_different_repo_not_matched(self):
         d = self.base / "other"
         d.mkdir()

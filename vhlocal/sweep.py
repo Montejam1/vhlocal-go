@@ -291,7 +291,8 @@ def run_phase3d_sweep(results_dir: Path, repo: Path) -> Optional[Path]:
     """Build phase3d_output.md deterministically from the confirmed findings."""
     from .consolidate import parse_findings
     results_dir = Path(results_dir)
-    findings = [f for f in parse_findings(results_dir) if not f.duplicate_of]
+    findings = [f for f in parse_findings(results_dir) if not f.duplicate_of
+                and (not f.verification_status or f.verification_status == "supported")]
     if not findings:
         return None
     sweeps = sweep_findings(Path(repo), findings)
