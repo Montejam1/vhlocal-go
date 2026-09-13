@@ -691,15 +691,15 @@ def execute_scan(
                                       "turns": 0, "stopped_reason": "complete"})
             elif spec_phase.key == "2b":
                 manifest = verification.build_manifest(results_dir, repo, prov["git_commit"])
-                def run_verification_batch(task, path, batch):
+                def run_verification_batch(task, path, batch, session):
                     nonlocal aborted
                     label = "p2b:batch-{}".format(batch)
                     task += "\n\n" + _threat_model_note(results_dir)
                     _capture_prompt(results_dir, "2b", label, task)
                     emit({"type": "agent_start", "label": label, "model": client_for("2b").model})
                     res = run_agent(client_for("2b"), sandbox, system, task,
-                                    max_turns=spec_phase.max_turns, expect_files=[path],
-                                    label=label, should_cancel=cancelled)
+                                    max_turns=spec_phase.max_turns,
+                                    label=label, should_cancel=cancelled, task_tools=session)
                     total.merge(res.usage)
                     record.agents.append({"label": label, "phase": "2b", "model": client_for("2b").model,
                                           "turns": res.turns, "stopped_reason": res.stopped_reason})
@@ -707,6 +707,7 @@ def execute_scan(
                           "stopped_reason": res.stopped_reason})
                     if res.systemic:
                         aborted = res.error
+                    return res
                 verification.run_batches(results_dir, manifest, run_verification_batch,
                                          lambda: cancelled() or bool(aborted) or budget.exceeded())
             elif spec_phase.key == "3d" and spec.sweep_mode == "deterministic":

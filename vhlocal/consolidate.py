@@ -1877,7 +1877,7 @@ def compute_run_status(meta: Dict[str, Any], ledger=None,
                 verification.read_json(Path(results_dir) / verification.DECISIONS),
                 verification.target_repo(manifest, results_dir))
             contract_errors += [("2b", e) for e in reconciliation["errors"]]
-        if manifest is not None and "3" in done:
+        if manifest is not None and "3" in req and ("3" in done or (Path(results_dir) / "artifact_manifest.json").exists()):
             contract_errors += [("3", e) for e in verification.validate_artifacts(results_dir)]
     invalid = set(empties) | {ph for ph, _ in contract_errors}
     if disp_gap:

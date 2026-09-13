@@ -77,3 +77,23 @@ class Replay(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DiscoveryVsVerification(unittest.TestCase):
+    def test_discovered_candidate_without_decision_is_not_a_hunt_miss(self):
+        from vhlocal import verification as V
+        d, repo = _run(SG, SOURCE)
+        V.build_manifest(d,repo,'rev1')
+        known=[{'cwe':'CWE-89','file':'app/db.py','line':2},
+               {'cwe':'CWE-611','file':'app/xml.py','line':9}]
+        report=policy_bench.replay(d,known)
+        self.assertEqual(report['discovery']['discovered'],1)
+        self.assertEqual(report['discovery']['not_discovered'],1)
+        self.assertTrue(all(row['known_defects_substantiated']==0 for row in report['policies']))
+
+    def test_matching_honors_full_path_and_line(self):
+        from vhlocal.consolidate import Finding
+        finding=Finding(id='x',cwe='CWE-89',location='left/db.py:2-4')
+        self.assertFalse(policy_bench._loc_match(finding,{'cwe':'CWE-89','file':'right/db.py','line':3}))
+        self.assertFalse(policy_bench._loc_match(finding,{'cwe':'CWE-89','file':'left/db.py','line':30}))
+        self.assertTrue(policy_bench._loc_match(finding,{'cwe':'CWE-89','file':'left/db.py','line':3}))

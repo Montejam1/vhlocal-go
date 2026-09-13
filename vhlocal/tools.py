@@ -92,7 +92,8 @@ class Sandbox:
                  "verification_reconciliation.json", "scan_meta.json", "findings.json",
                  "run_manifest.json", ".vhlocal_state.json", "phase2b_output.md",
                  "phase2b_handoff.md", "phase3_output.md"}
-        if p.parent == self.write_root and (p.name in owned or p.name.startswith(".vhlocal-")):
+        if p.parent == self.write_root and (p.name in owned or p.name.startswith((".vhlocal-", "verification_candidate_"))
+                                           or p.name == "verification_metrics.json"):
             raise ToolError("This artifact is harness-owned and cannot be written by a model: " + p.name)
         if p == self.write_root or str(p).startswith(str(self.write_root) + os.sep):
             return p

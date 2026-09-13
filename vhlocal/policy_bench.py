@@ -1,17 +1,17 @@
 """Replay a FROZEN candidate set through each publication policy.
 
 The count of published findings changed between the balanced and strict runs — but
-those were *separate hunts*: different candidates, 12 h (with connection resets)
-vs 52 min. That does not isolate the reporting threshold. This tool replays ONE
+those were *separate hunts* with different candidates and execution conditions. That does not isolate the reporting threshold. This tool replays ONE
 frozen candidate set (the parsed observations of a single results dir) through
 every ``quality_strictness`` level, so the only variable is the policy.
 
 By construction this separates the three things the audit said must be tracked
 apart: **validated yield** (what each policy publishes) is measured here; **hunt
-reasoning cost** and **transport failures** are out of scope — no model is called,
-nothing is fetched, so timing/resets can't contaminate the comparison.
+reasoning cost** and **transport failures** cannot change the frozen comparison.
+Recorded verification throughput is displayed separately; no model is called.
 
-Optionally scores **recall** against a known-defects file: a small JSON list of
+Separately reports pre-verification discovery matching and publication recall
+against a known-defects file: a small JSON list of
 ground-truth defects (``{"cwe": "...", "file": "...", "line": N}``) — e.g. the
 worker-status-bypass and reset-token-invalidation defects — so a policy that
 suppresses a real bug is visible, not just its headline count.
@@ -35,24 +35,30 @@ def _frozen_candidates(results_dir: Path):
     meta = C.load_meta(results_dir)
     findings = C.parse_findings(results_dir)
     C.backfill_locations(findings, results_dir, meta.get("repo", ""))
-    C.flag_duplicates(findings)
+    if not (results_dir / "candidate_manifest.json").exists():
+        C.flag_duplicates(findings)
     C._apply_votes(findings, results_dir)
     return meta, findings
 
 
 def _loc_match(finding, defect: Dict[str, Any]) -> bool:
-    """Whether a finding plausibly IS a known defect: same file basename and CWE,
-    and (if the defect gives a line) a line within a tolerant band."""
-    from .consolidate import _norm_file, _first_cwe
-    want_file = str(defect.get("file", "")).rsplit("/", 1)[-1].lower()
-    got_file = _norm_file(getattr(finding, "location", "")).lower()
-    if want_file and got_file and want_file != got_file:
+    """Location/CWE matching is a discovery proxy, not an independent correctness verdict."""
+    import re
+    location = getattr(finding, "location", "").replace("`", "")
+    match = re.fullmatch(r"(.+?):(\d+)(?:[-–](\d+))?", location)
+    path = match[1] if match else location
+    want = str(defect.get("file", "")).strip("/")
+    cwe = str(defect.get("cwe", "")).upper()
+    if not want or not cwe:
         return False
-    want_cwe = _first_cwe(str(defect.get("cwe", "")))
-    got_cwe = _first_cwe(getattr(finding, "cwe", "") or getattr(finding, "normalized_cwe", ""))
-    if want_cwe and got_cwe and want_cwe.upper() != got_cwe.upper():
+    if path != want and not path.endswith("/" + want):
         return False
-    return bool((want_file and got_file) or (want_cwe and got_cwe))
+    if (getattr(finding, "cwe", "") or "").upper() != cwe:
+        return False
+    line = defect.get("line", 0)
+    if line:
+        return bool(match and int(match[2]) <= int(line) <= int(match[3] or match[2]))
+    return True
 
 
 def replay(results_dir, known_defects: Optional[List[Dict[str, Any]]] = None,
@@ -62,6 +68,18 @@ def replay(results_dir, known_defects: Optional[List[Dict[str, Any]]] = None,
     from . import consolidate as C
     results_dir = Path(results_dir)
     meta, base = _frozen_candidates(results_dir)
+
+    discovery = None
+    if known_defects is not None:
+        matches = [{"defect": defect,
+                    "candidate_ids": [f.id for f in base if _loc_match(f, defect)]}
+                   for defect in known_defects]
+        detected = sum(bool(m["candidate_ids"]) for m in matches)
+        discovery = {"known_defects_total":len(matches), "discovered":detected,
+                     "not_discovered":len(matches)-detected, "matches":matches,
+                     "matching_basis":"file, CWE, and line when supplied; location proxy, not semantic validation"}
+    from .verification import read_json
+    verification_metrics = read_json(results_dir / "verification_metrics.json")
 
     policies: List[Dict[str, Any]] = []
     for level in levels:
@@ -98,6 +116,8 @@ def replay(results_dir, known_defects: Optional[List[Dict[str, Any]]] = None,
         "note": ("Same frozen candidate set through every policy — differences are "
                  "the reporting threshold ALONE, not the hunt, timing, or transport."),
         "policies": policies,
+        "discovery": discovery,
+        "verification_throughput": verification_metrics,
     }
 
 
@@ -108,11 +128,21 @@ def render(report: Dict[str, Any]) -> str:
              report["repo"] or "?", (report["git_commit"] or "?")[:12],
              report["frozen_candidates"]),
          ""]
+    discovery = report.get("discovery")
+    if discovery is not None:
+        L += ["Discovery before verification: {}/{} known defects matched; {} not discovered.".format(
+            discovery["discovered"], discovery["known_defects_total"], discovery["not_discovered"]),
+            discovery["matching_basis"], ""]
+    throughput = report.get("verification_throughput")
+    if throughput:
+        L += ["Verification: {}/{} accepted decisions; {} incomplete; {} accepted decisions/minute.".format(
+            throughput["accepted_decisions"], throughput["candidates"], throughput["incomplete"],
+            throughput["accepted_decisions_per_minute"]), ""]
     has_recall = any("known_defects_total" in p for p in report["policies"])
     head = "| Policy | Substantiated | statically-supported | reviewed | Hypotheses |"
     sep = "|---|---|---|---|---|"
     if has_recall:
-        head += " Known-defect recall |"
+        head += " Known-defect publication recall |"
         sep += "---|"
     L += [head, sep]
     for p in report["policies"]:

@@ -107,12 +107,15 @@ def run_agent(
     expect_files: Optional[List[Path]] = None,
     label: str = "agent",
     should_cancel: Optional[Callable[[], bool]] = None,
+    task_tools=None,
 ) -> AgentResult:
     """Run one agent to completion.
 
     ``expect_files`` are absolute paths the phase contract says must exist when
     the agent finishes. If they're missing we push the agent once more with an
-    explicit instruction before declaring failure.
+    explicit instruction before declaring failure. Verification instead supplies
+    ``task_tools``: session-scoped schemas/dispatch plus accepted/exhausted state.
+    Its completion depends on an accepted submission, never file existence.
     """
     messages: List[Dict[str, Any]] = [
         {"role": "system", "content": system},
@@ -122,6 +125,9 @@ def run_agent(
     wrote: List[str] = []
     budget = client.num_ctx - CTX_HEADROOM_TOKENS
     nudged = False
+    submission_nudges = 0
+    schemas = TOOL_SCHEMAS if task_tools is None else [
+        t for t in TOOL_SCHEMAS if t["function"]["name"] != "Write"] + task_tools.schemas
     started = time.time()
 
     # Grounding for fresh-context tool-call repair (client._repair). A repair
@@ -132,6 +138,9 @@ def run_agent(
     if expect_files:
         repair_hint += " This phase writes: {0}.".format(
             ", ".join(str(p) for p in expect_files))
+
+    if task_tools is not None:
+        repair_hint = "Use submit_verification to finish. Evidence comes from capture_evidence; never Write a decision file."
 
     turn = 0
     while turn < max_turns:
@@ -152,7 +161,7 @@ def run_agent(
             log.warning("[%s] pruned %d old tool result(s) to stay under context", label, evicted)
 
         try:
-            result = client.chat(messages, tools=TOOL_SCHEMAS,
+            result = client.chat(messages, tools=schemas,
                                   repair_hint=repair_hint)
         except OllamaError as exc:
             # A local model deep into a long session degrades into malformed
@@ -176,6 +185,16 @@ def run_agent(
                 "[%s] prompt %d tok exceeds budget %d — output may be degraded",
                 label, result.prompt_tokens, budget,
             )
+
+        if not result.tool_calls and task_tools is not None:
+            messages.append({"role": "assistant", "content": result.content})
+            if submission_nudges < 2:
+                submission_nudges += 1
+                messages.append({"role":"user", "content":
+                    "No decision has been accepted. Call submit_verification now. If evidence or policy is insufficient, submit unresolved with a specific reason. Do not write a file."})
+                continue
+            return AgentResult(final_text=result.content, turns=turn, usage=usage,
+                               stopped_reason="verification_incomplete", transcript=messages)
 
         if not result.tool_calls:
             # No tool call: the model believes it is finished.
@@ -226,7 +245,12 @@ def run_agent(
             args = fn.get("arguments") or {}
             log.info("[%s] turn %d → %s(%s)", label, turn, name, _brief(args))
 
-            output = call_tool(sandbox, name, args)
+            if task_tools is not None and task_tools.handles(name):
+                output = task_tools.call(name, args)
+            elif task_tools is not None and name.lower() in ("write", "write_file", "writefile"):
+                output = "ERROR: verification decisions must use submit_verification, not Write."
+            else:
+                output = call_tool(sandbox, name, args)
             if name == "Write" and not output.startswith("ERROR"):
                 target = args.get("file_path") if isinstance(args, dict) else None
                 if target:
@@ -238,13 +262,18 @@ def run_agent(
                 "content": output,
             })
 
+            if task_tools is not None and (task_tools.accepted or task_tools.exhausted):
+                return AgentResult(final_text="", turns=turn, usage=usage,
+                    stopped_reason="complete" if task_tools.accepted else "verification_incomplete",
+                    transcript=messages)
+
     log.error("[%s] hit max_turns=%d without finishing", label, max_turns)
     return AgentResult(
         final_text="",
         turns=turn,
         usage=usage,
         wrote_files=wrote,
-        stopped_reason="max_turns",
+        stopped_reason="verification_incomplete" if task_tools is not None else "max_turns",
         transcript=messages,
     )
 

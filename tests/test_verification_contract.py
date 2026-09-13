@@ -145,14 +145,18 @@ class VerificationContract(unittest.TestCase):
         self.manifest['candidates'] = [dict(self.manifest['candidates'][0], id='CAND-' + str(i)) for i in range(17)]
         V.write_json(self.out / V.MANIFEST, self.manifest)
         calls = []
-        def run(task, path, batch):
+        def run(task, path, batch, session):
             calls.append(batch)
-            cs = json.loads(task.split('Candidates:\n')[1])
-            V.write_json(path, [{'candidate_id': c['id'], 'verdict':'unresolved', 'rationale':'needs review'} for c in cs])
-            self.assertLessEqual(len(cs), 8)
+            self.assertEqual(len(session.manifest['candidates']), 1)
+            self.assertFalse(path.exists())
+            payload = {k:'' for k in ['entry_point','attacker_control','preconditions','defenses_reviewed','security_impact']}
+            payload.update(verdict='unresolved', rationale='needs policy review',
+                           evidence_ids=[], unresolved_questions=['permission unknown'])
+            self.assertNotIn('ERROR', session.call('submit_verification', payload))
         V.run_batches(self.out, self.manifest, run, lambda: False)
-        self.assertEqual(calls, [1, 2, 3])
+        self.assertEqual(calls, list(range(1,18)))
         self.assertTrue(V.refresh(self.out)['complete'])
+        self.assertEqual(V.read_json(self.out / 'verification_metrics.json')['accepted_decisions'],17)
 
     def test_identity_ignores_title_and_line_shift(self):
         old = V.source_identity(self.f, self.repo)
@@ -213,13 +217,13 @@ class EngineContract(unittest.TestCase):
         calls = []
         def run(client, sandbox, system, task, **kw):
             calls.append(kw['label'])
-            output = Path(kw['expect_files'][0])
             if kw['label'].startswith('p2b:'):
-                batch = json.loads(task.split('Candidates:\n')[1])
-                manifest = V.read_json(self.out / V.MANIFEST)
-                V.write_json(output, [dict(self.decision, candidate_id=c['id'],
-                                          revision=manifest['revision']) for c in batch])
+                session = kw['task_tools']
+                payload = {k:v for k,v in self.decision.items() if k in session.schemas[1]['function']['parameters']['properties']}
+                payload['evidence_ids'] = list(session.evidence)
+                self.assertNotIn('ERROR', session.call('submit_verification', payload))
             elif kw['label'] == 'p3':
+                output = Path(kw['expect_files'][0])
                 manifest = V.read_json(self.out / V.MANIFEST)
                 V.write_json(output, [{'candidate_id':c['id'], 'kind':'deferred',
                                        'reason':'Needs isolated HTTP fixture'} for c in manifest['candidates']])

@@ -11,7 +11,7 @@ from pathlib import Path
 MANIFEST = 'candidate_manifest.json'
 DECISIONS = 'verification_decisions.json'
 RECONCILIATION = 'verification_reconciliation.json'
-BATCH_SIZE = 8
+BATCH_SIZE = 1
 
 
 def read_json(path):
@@ -260,6 +260,7 @@ def refresh(root):
         return None
     result = reconcile(manifest, read_json(root / DECISIONS),
                        target_repo(manifest, root))
+    result["throughput"] = read_json(root / "verification_metrics.json")
     write_json(root / RECONCILIATION, result)
     return result
 
@@ -301,6 +302,12 @@ def render(root):
     for f in fs:
         lines.append('| {} | {} | {} |'.format(f.id, f.verification_status,
                                               f.verification_reason.replace('|', '/').replace('\n', ' ')))
+    metrics = read_json(root / 'verification_metrics.json')
+    if metrics:
+        lines += ['', 'Accepted decisions: {}/{}; incomplete: {}; accepted decisions/minute: {}.'.format(
+            metrics['accepted_decisions'], metrics['candidates'], metrics['incomplete'],
+            metrics['accepted_decisions_per_minute']),
+            'Acceptance includes explicit unresolved decisions; it does not imply vulnerability confirmation.']
     (root / 'phase2b_output.md').write_text('\n'.join(lines) + '\n')
     supported = [f for f in fs if f.verification_status == 'supported']
     lines = ['# Verified candidate handoff', '',
@@ -314,49 +321,61 @@ def render(root):
     refresh(root)
 
 
-CONTRACT = '''Review only the supplied candidates against the actual checkout. Preserve candidate_id exactly.
-Read each complete relevant function, dependencies, called defenses, and database constraints.
-Evidence must quote the COMPLETE containing function, including decorators, not just a sink line.
-Where the manifest supplies a registered endpoint, entry_point must match its exact METHOD /path.
-For authorization, identify actor, action, object/tenant/region, intended policy, and every effective predicate;
-a role guard alone neither proves nor refutes object authorization. For races identify an achievable
-interleaving and security impact despite constraints. For XSS distinguish template data from template source,
-check CSP and victim delivery. Agreement between hunters is not evidence. Do not execute exploits.
-Write a JSON array (no Markdown), exactly one decision per supplied candidate. Each decision:
-{"candidate_id":"CAND-...", "verdict":"supported|rejected|unresolved", "reviewer":"phase2b-model",
- "revision":"COPY PROVIDED REVISION", "rationale":"finding-specific explanation",
- "entry_point":"method and endpoint", "attacker_control":"...", "preconditions":"...",
- "defenses_reviewed":"...", "security_impact":"...", "unresolved_questions":[],
- "evidence":[{"path":"exact repo-relative path", "start_line":1, "end_line":10,
- "quote":"exact complete source lines"}]}
-Supported and rejected decisions require source evidence covering the candidate location and all reasoning fields.
-Supported decisions must have no unresolved questions. Use unresolved when evidence or policy is missing.
-'''
+CONTRACT = """Verify the single assigned candidate against the actual checkout.
+Use capture_evidence for additional source context and submit_verification to finish.
+The harness supplies candidate identity, revision, and exact quotations. Never write a decision file.
+Inspect the complete relevant functions, dependencies, defenses, and constraints. Initial evidence is
+context, not proof. For authorization establish actor, action, resource/tenant scope and intended policy;
+a role guard or model agreement alone proves neither a bypass nor its absence. For races establish a
+security-relevant interleaving despite constraints. Distinguish template data from template source.
+If evidence or intended policy is insufficient, explicitly submit unresolved. Do not invent a policy
+or force a supported/rejected verdict. Do not execute exploits. Validation errors are actionable:
+correct the submission within the retry budget or explicitly record the remaining uncertainty.
+"""
 
 
 def run_batches(root, manifest, run, should_stop):
-    """One fresh bounded agent per batch. `run` owns usage, cancellation and transport errors."""
+    """One candidate per fresh session; only an accepted tool submission is collected."""
+    import time
+    from .verification_session import VerificationSession
     root = Path(root)
-    decisions = []
+    decisions, attempts = [], []
+    started = time.monotonic()
     write_json(root / DECISIONS, decisions)
-    candidates = manifest['candidates']
-    for offset in range(0, len(candidates), BATCH_SIZE):
+    write_json(root / 'verification_metrics.json', {
+        'candidates':len(manifest['candidates']), 'attempted':0, 'accepted_decisions':0,
+        'incomplete':len(manifest['candidates']), 'validation_failures':0, 'seconds':0,
+        'accepted_decisions_per_minute':0, 'verdict_counts':{'supported':0,'rejected':0,'unresolved':0}, 'attempts':[]})
+    for index, candidate in enumerate(manifest['candidates'], 1):
         if should_stop():
             break
-        batch = candidates[offset:offset + BATCH_SIZE]
-        path = root / ('verification_batch_%03d.json' % (offset // BATCH_SIZE + 1))
-        # A retry/resume must not ingest a stale result from a previous invocation.
-        path.write_text('null\n')
-        task = CONTRACT + '\nRevision: ' + manifest['revision'] + '\nTarget checkout: ' + manifest['repo']
-        task += '\nWrite your JSON to: ' + str(path) + '\nCandidates:\n' + json.dumps(batch)
-        run(task, path, offset // BATCH_SIZE + 1)
-        result = read_json(path)
-        if isinstance(result, list):
-            # Cross-batch decisions cannot impersonate a candidate assigned elsewhere.
-            allowed = {c['id'] for c in batch}
-            if all(isinstance(d, dict) and d.get('candidate_id') in allowed for d in result):
-                decisions.extend(result)
+        session = VerificationSession(manifest, candidate)
+        task = (CONTRACT + '\nTarget checkout: ' + manifest['repo'] +
+                '\nCandidate:\n' + json.dumps(candidate) +
+                '\nInitial harness-captured evidence:\n' + session.initial_context)
+        path = root / ('verification_candidate_%03d.json' % index)
+        before = time.monotonic()
+        result = run(task, path, index, session)
+        if session.accepted:
+            decisions.append(session.decision)
+        # Harness-owned outcome; never ingest arbitrary files left by an agent or a prior attempt.
+        outcome = {'candidate_id': candidate['id'], 'accepted': session.accepted,
+                   'decision': session.decision, 'validation_errors': session.failures,
+                   'stopped_reason': 'complete' if session.accepted else
+                       (getattr(result, 'stopped_reason', None) if getattr(result, 'stopped_reason', None) not in (None, 'complete') else 'verification_incomplete'),
+                   'seconds': round(time.monotonic() - before, 3)}
+        attempts.append(outcome)
+        write_json(path, outcome)
         write_json(root / DECISIONS, decisions)
+        seconds = time.monotonic() - started
+        write_json(root / 'verification_metrics.json', {
+            'candidates': len(manifest['candidates']), 'attempted': len(attempts),
+            'accepted_decisions': len(decisions), 'incomplete': len(manifest['candidates'])-len(decisions),
+            'validation_failures': sum(len(a['validation_errors']) for a in attempts),
+            'seconds': round(seconds, 3),
+            'accepted_decisions_per_minute': round(60*len(decisions)/seconds, 3) if seconds else 0,
+            'verdict_counts': {v:sum(d['verdict']==v for d in decisions) for v in ('supported','rejected','unresolved')},
+            'attempts': attempts})
         render(root)
     render(root)
 
