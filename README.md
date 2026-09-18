@@ -6,6 +6,46 @@ Claude Code, no `claude` binary, no Anthropic API, no network egress.
 Built for `gpt-oss:120b`. Works with any Ollama model that reports the `tools`
 capability.
 
+## Go port — command mapping
+
+vhlocal is being ported to Go as a single self-contained binary (`vhlocal`) with
+the bundled methodology and web UI embedded — no interpreter to install. The
+interface is preserved; only the launch mechanism changes:
+
+| Python (during migration) | Go binary |
+|---|---|
+| `python3 -m vhlocal.run …` | `vhlocal run …` |
+| `python3 -m vhlocal.server …` | `vhlocal server …` |
+| `python3 -m vhlocal.report …` | `vhlocal report …` |
+| `python3 -m vhlocal.logs …` | `vhlocal logs …` |
+| `python3 -m vhlocal.sbom …` | `vhlocal sbom …` |
+| `python3 -m vhlocal.bench …` | `vhlocal bench …` |
+| `python3 -m vhlocal.batch …` | `vhlocal batch …` |
+| `python3 -m vhlocal.{authz,membank,policy_bench} …` | `vhlocal {authz,membank,policy-bench} …` |
+
+The Go port preserves the main command and server interfaces, but complete
+behavioral parity is still under assessment. Build with `make build` or
+`make release`; run `make ui` first when changing the embedded UI. Test offline
+with `go test ./...`. The examples below still use Python invocations during
+migration; substitute `vhlocal <cmd>` for `python3 -m vhlocal.<cmd>`.
+
+Scan completion now requires all planned hunt outputs, accepted per-candidate
+verification decisions, and (when Phase 3 is selected) validated reproduction
+dispositions. Each supported finding must have registered authored material under
+`poc/` or `exploit_tests/`, or a specific deferral reason in
+`artifact_manifest.json`. Authored material is **not executed** by the scanner.
+`phase3_output.md` lists reproduction assignments; Phase 3d enumerates syntactic
+leads deterministically, and Phase 4 renders the canonical report without a model.
+Missing artifacts or incomplete verification prevent full completion and remain
+visible when reports are regenerated.
+
+Rebuilding does not replace an already-running server process. Restart the service
+to load the rebuilt binary before evaluating a new scan. Offline regression and
+independent Python-reference contract checks are documented in
+[`tests/parity/README.md`](tests/parity/README.md). These checks do not establish
+scanner-wide detection parity. Full migration detail: `specs/002-golang-port/` and
+`CHANGELOG.md`.
+
 ## Why this exists
 
 VulnHunter ships as Claude Code skills. The *methodology* — `SKILL.md` plus the
