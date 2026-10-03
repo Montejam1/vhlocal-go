@@ -140,15 +140,53 @@ python3 -m vhlocal.run --repo ~/code/app \
 
 ## Consolidated report
 
-Every scan ends by writing two extra artifacts, generated deterministically in
-Python — **no model involved**:
+Every scan ends by writing the report artifacts deterministically — **no model
+involved**:
 
 | File | Contents |
 |---|---|
-| **`SCAN_REPORT.html`** | **Start here.** Designed, self-contained report — hero count, KPI tiles, severity meter, filterable findings, expandable detail, light/dark |
+| **`SCAN_REPORT.html`** | **Start here.** Designed, self-contained report — the issues to fix, each with what we found, why it matters, where it is, how to fix it and how to check the fix; filterable index; light/dark |
 | `SCAN_REPORT.md` | Same content as markdown, for diffing and terminals |
+| `report_model.json` | The one model every surface renders, including the reader-facing `presentation` projection |
 | `findings.json` | Findings machine-readable, for triage tooling |
 | `scan_meta.json` | Raw engine record both reports render from |
+
+### What the report leads with
+
+The reporting unit is **one established defect**, not one detection: three
+detections of the same unsafe deserialization are one issue with three citations,
+never three issues. The opening is bounded — what was found, the severity split,
+up to five prioritised actions, and a one-line review-scope note giving the three
+independent status facts (execution, completed-review coverage over its
+denominator, and the assessment method) in plain words.
+
+Three things are kept deliberately apart:
+
+- **Issues to fix** — established defects, each with reviewed, weakness-specific
+  remediation guidance. Where the fix depends on a policy the records cannot
+  establish (who may act on an object, which invariant must hold), the report
+  names the decision you have to make instead of inventing one. Nothing in it is
+  described as an implemented or tested fix, because nothing was run.
+- **Needs review** — allegations that could not be settled either way, split into
+  "inconclusive" (examined, no decision) and "assessment not completed". None is
+  counted as a vulnerability, and any severity shown is marked proposed, not
+  established.
+- **Scan details**, with **Technical diagnostics** inside it — the scanner's own
+  troubleshooting: candidate totals, failure classes, stop reasons, token and turn
+  counts, provider provenance (credentials redacted), phase detail and recovery
+  steps. It is collapsed in the browser and left out of the default print body;
+  choose the "full + diagnostics" export scope to print it.
+
+Dismissed candidates stay available, on demand, with the reason recorded at the
+time. The report never re-decides a dismissal.
+
+A report saved before this redesign has no `presentation` projection and renders
+as it always did; its values that the redesign would have computed read as
+unavailable rather than being back-filled.
+
+Browser quality, print quality and timed reader comprehension are **not
+established** by the offline test suite. They are operator-run and recorded
+separately.
 
 The HTML report is one file with no external requests — open it from disk, mail
 it, or serve it. It prints cleanly (controls hide, sections expand).
@@ -497,3 +535,57 @@ python3 testdata/score.py <results-dir>          # recall + decoy check
 `testdata/ground_truth/vulnapp.json` describes each planted bug in the same
 schema `harness/local_harness/benchmark/ground_truth/` uses, so the fixture can
 be folded into the benchmark harness alongside real corpora.
+
+## Analyst reports and efficacy (feature 015)
+
+Reports now lead with a bounded executive summary and supported-only severity
+counts. A searchable findings index links to captured evidence and grouped fixes;
+unresolved candidates and execution diagnostics remain in separate appendices.
+The full Markdown body is collapsed in the interactive viewers to avoid repeating
+all details. Diagram failures retain the narrative, source and a table fallback.
+
+Review coverage v2 requires a validated handler disposition and recorded reads;
+reading a file alone counts as source exposure. Historical v1 records retain
+read-overlap labels on regeneration. Scans join application history at start,
+including running/interrupted/cancelled state; unidentified legacy reports are
+kept separate with a mapping warning.
+
+Verification validates citations at ingestion, permits one bounded formatting
+repair and one validated candidate amendment, and returns structured submission
+feedback. Evidence validation remains fail-closed. `--diagnostic-capture bounded`
+(the default) records complete failing submissions and feedback; `full` adds
+sanitized conversation context with declared size limits. Stored 8 KB prompt
+previews are not the full text sent to a model.
+
+Score existing artifacts without launching a scan:
+
+```sh
+bin/vhlocal bench efficacy --results /path/to/results \
+  --truth testdata/benchmark/truth/ground_truth.json --json
+make bench-efficacy RESULTS=/path/to/results
+```
+
+Use matching target truth. `--baseline FILE` adds configuration differences first
+and a nonzero exit on policy regression. `bench throughput` retains the older
+provider-throughput command. The offline transcript baseline measures pipeline
+behavior, not live model accuracy.
+
+Compare only verification over a frozen manifest, keeping the original intact:
+
+```sh
+bin/vhlocal verify-compare --manifest /path/to/candidate_manifest.json \
+  --repo /path/to/unchanged/repo --revision FROZEN_REVISION \
+  --out /path/to/new-comparison-directory \
+  --variant model=MODEL_A,backend=ollama,host=http://127.0.0.1:11434 \
+  --variant model=MODEL_B,backend=ollama,host=http://127.0.0.1:11434 \
+  --dry-run
+```
+
+`--dry-run` records planned variants as `not_run` without provider calls. Removing
+it runs the explicitly named providers. The source must match a clean git commit
+or the manifest's recorded tree fingerprint. Output must be a new directory
+outside the source tree. Prompt comparisons use `--variant prompt=/path/to/file`
+with explicit base `--model`, `--backend`, and `--host`; optional `--truth FILE`
+enables ground-truth comparison. An all-unresolved variant never claims improved
+efficacy. See `specs/015-analyst-reports-efficacy/quickstart.md` for validation and
+`web-react/tests/browser/README.md` for the separately run browser suite.

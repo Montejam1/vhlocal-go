@@ -1,0 +1,208 @@
+{
+  "captured_at_utc": "2026-09-17T16:26:15.497722+00:00",
+  "scope": "Read-only local API/source inspection; no browser reproduction, new scan, or regeneration.",
+  "report_directory": "/home/br0kan/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-17-003627",
+  "running_process": {
+    "pid_at_inspection": 225612,
+    "executable_sha256": "152db3f11ce8bae75af1f57b26d0fde6b2d7c1f6786f413f90d18473270e7f63",
+    "disk_binary_sha256": "152db3f11ce8bae75af1f57b26d0fde6b2d7c1f6786f413f90d18473270e7f63"
+  },
+  "api": {
+    "scan_count": 8,
+    "busy": false,
+    "report_count": 8,
+    "application_count": 1,
+    "application_list_fields": [
+      "created",
+      "name",
+      "repo",
+      "slug",
+      "updated"
+    ],
+    "application_detail_fields": [
+      "created",
+      "name",
+      "repo",
+      "slug",
+      "updated"
+    ]
+  },
+  "latest_job": {
+    "id": "52331b0a1cf3",
+    "status": "done",
+    "phase": "4 \u2014 Report",
+    "error": null,
+    "elapsed": 9628,
+    "findings_count": 140
+  },
+  "submitted_options": {
+    "threat_model": true,
+    "ledger": false,
+    "hunt_samples": 3,
+    "phases": "all",
+    "phase2_mode": "split",
+    "max_partitions": 8
+  },
+  "scan": {
+    "phases_requested": [
+      "1",
+      "1t",
+      "2",
+      "2b",
+      "3",
+      "3d",
+      "4"
+    ],
+    "phases_completed": [
+      "1",
+      "1t",
+      "2",
+      "3d",
+      "4"
+    ],
+    "phases_skipped": null,
+    "cancelled": false,
+    "aborted": "",
+    "usage": {
+      "calls": 4353,
+      "completion_tokens": 1363663,
+      "prompt_tokens": 61180259,
+      "repairs": 30
+    },
+    "artifact_errors": [
+      "artifact lacks canonical candidate ID or source location",
+      "artifact lacks canonical candidate ID or source location",
+      "artifact lacks canonical candidate ID or source location",
+      "artifact lacks canonical candidate ID or source location",
+      "artifact lacks canonical candidate ID or source location",
+      "artifact lacks canonical candidate ID or source location",
+      "unregistered artifact: exploit_tests/test_CAND-1f5dca3f002579fffd97f4a7.py",
+      "unregistered artifact: exploit_tests/test_CAND-3044992ce3acfdf4ad350fad.py",
+      "unregistered artifact: exploit_tests/test_CAND-8821cbcfedd55698a1bff507.py",
+      "unregistered artifact: exploit_tests/test_CAND-a6b240664b02427990024545.py",
+      "unregistered artifact: exploit_tests/test_CAND-b7acbe152a0c637999e2a8ff.py",
+      "unregistered artifact: exploit_tests/test_CAND-d84eb9d03ffc3699472a7371.py"
+    ]
+  },
+  "run_status": {
+    "execution_status": "partial",
+    "coverage_status": "degraded",
+    "coverage_degraded_reasons": [
+      "verification left 123 candidate(s) unresolved",
+      "phase 3: artifact lacks canonical candidate ID or source location",
+      "phase 3: unregistered artifact: exploit_tests/test_CAND-1f5dca3f002579fffd97f4a7.py",
+      "phase 3: unregistered artifact: exploit_tests/test_CAND-3044992ce3acfdf4ad350fad.py",
+      "phase 3: unregistered artifact: exploit_tests/test_CAND-8821cbcfedd55698a1bff507.py",
+      "phase 3: unregistered artifact: exploit_tests/test_CAND-a6b240664b02427990024545.py",
+      "phase 3: unregistered artifact: exploit_tests/test_CAND-b7acbe152a0c637999e2a8ff.py",
+      "phase 3: unregistered artifact: exploit_tests/test_CAND-d84eb9d03ffc3699472a7371.py"
+    ],
+    "validation_mode": "static_reasoning"
+  },
+  "verification": {
+    "complete": false,
+    "counts": {
+      "rejected": 7,
+      "supported": 10,
+      "unresolved": 123
+    },
+    "reconciliation_error_count": 98,
+    "missing_decisions": 98,
+    "stop_reasons": {
+      "tool_repair": 72,
+      "complete": 42,
+      "max_turns": 26
+    }
+  },
+  "agent_counts": {
+    "1": 1,
+    "1t": 1,
+    "2": 217,
+    "2b": 140,
+    "3": 1,
+    "3d": 1,
+    "4": 1
+  },
+  "partition_count": 24,
+  "sbom_components": 21,
+  "report_files": {
+    "scan_meta.json": {
+      "bytes": 98912,
+      "sha256": "61674eac01173c64caf1093095ef9965cbd1e2922167fcf00734eb122f4ffb1c"
+    },
+    "findings.json": {
+      "bytes": 680544,
+      "sha256": "555bb95e1b45dd2a9c14d6e8affc4e1f8cf2ef55bbe22c3be3fa65c6bb23f0a3"
+    },
+    "verification_reconciliation.json": {
+      "bytes": 182039,
+      "sha256": "45878ca3175eaf4eec9bdd78ddd71ad192ffd7cf563f809fec5b1e6598d68e7e"
+    },
+    "artifact_manifest.json": {
+      "bytes": 2235,
+      "sha256": "7f56a07f8c6d42ce4f285e073bb0bbf4395a8d7f9f11a807d6060fc2b07d6873"
+    },
+    "threat_model.md": {
+      "bytes": 6024,
+      "sha256": "99affdd0d96133e0173823ed6abc123b2b31914e3bb143ab3d9f7b5295c23c3f"
+    },
+    "sbom.cdx.json": {
+      "bytes": 5640,
+      "sha256": "cf894ae2121134244933543294e85cabe9fc7cf215f41a45adc1e3cc95386625"
+    },
+    "SCAN_REPORT.md": {
+      "bytes": 90231,
+      "sha256": "6938ef9be541e4f8750119dd66befdb50e57c194df925a775e9fddee9c56d3bd"
+    },
+    "hunt_execution.json": {
+      "bytes": 8673,
+      "sha256": "3b215026ab09c5dae3d982944f1dd4030da5ed2faa1bc36f07a096a15cdf7dfe"
+    }
+  },
+  "source_hashes_at_handoff": {
+    "internal/source/source.go": "63c13f3bf7b382aaf1c228ed26d20c06e9a5b3355ef94a4f8d7e26d71bed7a53",
+    "internal/verification/verification.go": "0e3007a1e91d60b15947b27cd294ce891e210ce3866db546d4f46fd274bcedd0",
+    "internal/verification/artifacts.go": "08ea8864718b7a3ffca47ab74fb9f64ce91ce4e9a61c33c47490e08e31bc6fec",
+    "internal/consolidate/normalize.go": "3b48809f2dd9d154c618e9543de7386e42392ce196e9d064d008cf1e9e9ed763",
+    "internal/consolidate/corroborate.go": "e1f9a23c4f7130a49b5c03d22d48efddc407c5a71512210524063583515f0239",
+    "internal/engine/verify.go": "4901782d8e2b8602ad3df370da1d38ea65a2a2070899f8b414dbbc11641bab81",
+    "internal/engine/hunt.go": "be1f5328ed2bc953ff2837f6bb3c376b53a747ed39616f99d178f6db5160b74a",
+    "internal/engine/votes.go": "8f225d7548a2cfba6b5c9bff9440ff6093d8f47748b9b188a3d848ca9b4d77a9",
+    "internal/engine/reproduction.go": "292abfd8ee33503277efb136ab8b35e448612efd171367bfa49a8e5234e99af7",
+    "internal/engine/sweep.go": "7b5f14449f29418313def4aed83f40a6a65af27961252737bc8164364243e43c",
+    "internal/engine/engine.go": "1148b05d695ccf883be064dd85a6b9fb3486b7a785747e161781716b07b39ea3",
+    "internal/engine/regenerate.go": "e649ee6bad4635d02e54b453ed5f02ce5b14c89405ed5bc1a4becffe90c00515",
+    "internal/tools/tools.go": "296629ce45fe79d9f475a5d6cb36d587c75095b5bdbbc474fe43dc31f72d74ff",
+    "internal/verification/audit_regression_test.go": "c9ff2ee4b5e10a4d54f0050a680507e8a5837d7e3ace44c6e373e2330e46d806",
+    "internal/verification/verification_test.go": "6b9daed355e915815431406236119c89b7987d275eba41fb2cb90bd649c668f8",
+    "internal/engine/audit_regression_test.go": "54133aa4538c56ca26361ca32006d88c896f8258b4b3f371a21d07310bfe4603",
+    "internal/engine/us1_test.go": "f68be51eded16ca02513f62649d51b84c11135966d4a764e40328078ae8ea91d",
+    "internal/engine/us2_test.go": "2b78ac126817e5637635d3f1e58b5baa40a456ed254e542d904618d774ebc561",
+    "internal/engine/toolparse_degrade_test.go": "056b2fe4e5271b989d44e1665bf9ad02587a806818b6e7b1a05c51ac9e6ec868",
+    "tests/parity/full_pipeline_test.go": "691556bfc480ea4cbc101e44e6426ce59ff33abc19f34faa5850b49952ecbfaa",
+    "tests/parity/reference_contract_test.go": "db4a84c1e9840d515832fefb5db6928894f54349b01f55128aea495610db096c",
+    "tests/parity/reference/export_contracts.py": "3e735e72dd876617d7d35cc9916b6d9e97b552ae6031aa5a999afab1c1ed3f49",
+    "tests/parity/reference/contracts.json": "32cb484f8dcef72e51488023a4ec17f5e6ff9e8dd7d3b11e6eda6d021bcafc8b",
+    "tests/parity/project.go": "a72bf3635972b6570cb18bfb2f2cedff763004095f7f682bab2339a770011fde",
+    "tests/parity/compare_test.go": "c0258f6dc32b877582bca322765599bef2a1d44e0ec6e9bae1f7be290a8116c7",
+    "tests/parity/golden/vulnapp.json": "06ff9c714e7355d286ea36e565cf429cc9bc06dbfc5bbeb95d53cb51b13bc0b5",
+    "tests/parity/transcript/vulnapp.json": "80711a9408b6e6f42ff93558abc4d570ba28445d682ffbec8a64ddada2c6a13f",
+    "tests/parity/README.md": "0e72ad1a310f6ab8e76e822becbfdc099787673cdfc02a55920b1970f29d12c9",
+    "README.md": "5a04674e8b47392c657aff8e085b309b4efe1114b11d7b90e1fd4a6cea968914",
+    "CHANGELOG.md": "5925ebca7b8a4f98079fd00cf4bf177b6e3450a3f4dec95ce67e4265ded55cb4",
+    "internal/server/server.go": "7694393dd71d8be0d91d9da6eaba99a1a1ed71d365e09cf52d608659260eb2a8",
+    "internal/server/handlers.go": "8c1eda547210e48a2f0054ea1623b0f4f622d39ccfdf0f0a6799060a0d2970e6",
+    "internal/jobs/jobs.go": "20ae196accf7fdd63466b4fdeaafaec1ba9ba3554c55e7a5ea5e69d224d54242",
+    "internal/report/report.go": "bca754568048f97c90115b80dc7ef756b840b08f358af40ca8d7db783244e271",
+    "web-react/src/pages/Scans.tsx": "554ae79d427c80641192cbb035deca525ea9a704267f62892e060320ba4ad8f8",
+    "web-react/src/pages/Applications.tsx": "347ea542a35da16778906147d6b9c8b0a3d41ac62e3e263cc7723a9e6fc236ed",
+    "web-react/src/components/StepTracker.tsx": "938eee879f00d8e11acf5dd2e847800583f5b9e935c5f84b3725e1beec82c144",
+    "vhlocal/web/index.html": "64f5b4b138ba40448345c8801e56560104e937e714dd72b4e1f290933a031a18"
+  },
+  "limits": [
+    "File and HTTP presence do not establish content quality.",
+    "Supported is a harness review disposition, not runtime confirmation.",
+    "Scans browser-rendering root cause has not been reproduced.",
+    "Working tree is dirty and largely untracked; hashes identify current files, not an isolated patch."
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "kind": "machine_executed",
+  "browser": "not run",
+  "build": {
+    "version": "cc3c1f0-dirty-015",
+    "embedded_assets_hash": "f425d27109c75e4616ebfc3cc713be0e8016dd2ddfe3014a074f487787e7aa51",
+    "built_at": "2026-09-29T23:40:57Z",
+    "built_at_source": "ldflags"
+  },
+  "http_smoke": [
+    {
+      "url": "http://127.0.0.1:47349/",
+      "status": 200,
+      "bytes": 289126
+    },
+    {
+      "url": "http://127.0.0.1:47349/app/",
+      "status": 200,
+      "bytes": 685
+    },
+    {
+      "url": "http://127.0.0.1:47349/app/reports",
+      "status": 200,
+      "bytes": 685
+    },
+    {
+      "url": "http://127.0.0.1:47349/static/mermaid.min.js",
+      "status": 200,
+      "bytes": 3572661
+    },
+    {
+      "url": "http://127.0.0.1:47349/api/scans",
+      "status": 200,
+      "bytes": 25
+    },
+    {
+      "url": "http://127.0.0.1:47349/api/applications",
+      "status": 200,
+      "bytes": 22
+    }
+  ]
+}
