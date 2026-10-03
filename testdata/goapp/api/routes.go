@@ -8,9 +8,9 @@ import (
 // RegisterRoutes wires the HTTP surface. A fake route in this comment must be
 // ignored: mux.HandleFunc("GET /commented", nope)
 func RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /users/{id}", getUser)   // supported-candidate target (command injection)
-	mux.HandleFunc("POST /login", login)         // defended target
-	mux.HandleFunc("GET /health", health)        // unrelated sibling (must stay not_reviewed)
+	mux.HandleFunc("GET /users/{id}", getUser) // supported-candidate target (command injection)
+	mux.HandleFunc("POST /login", login)       // defended target
+	mux.HandleFunc("GET /health", health)      // unrelated sibling (must stay not_reviewed)
 }
 
 func getUser(w http.ResponseWriter, r *http.Request) {
