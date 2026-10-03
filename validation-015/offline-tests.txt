@@ -1,0 +1,65 @@
+# T095 offline gate — 2026-09-30T05:43:52Z
+# go: go version go1.27.1 linux/amd64
+# commit: cc3c1f0 (worktree dirty: 407 entries)
+### gofmt -l . (excluding the pre-existing static fixture)
+PASS: gofmt clean (only testdata/goapp/api/routes.go is unformatted, pre-existing and unchanged)
+### go vet ./...
+$ go vet ./...
+PASS: go vet ./...
+### go build ./...
+$ go build ./...
+PASS: go build ./...
+### static binary build (CGO_ENABLED=0)
+$ env CGO_ENABLED=0 go build -o /tmp/vhlocal-t095-static ./cmd/vhlocal
+PASS: static binary build (CGO_ENABLED=0)
+### go test ./... -count=1
+$ go test ./... -count=1
+?   	vhlocal	[no test files]
+?   	vhlocal/cmd/vhlocal	[no test files]
+ok  	vhlocal/internal/activity	0.004s
+ok  	vhlocal/internal/agent	0.008s
+ok  	vhlocal/internal/apps	0.010s
+ok  	vhlocal/internal/assist	0.002s
+ok  	vhlocal/internal/attention	0.018s
+ok  	vhlocal/internal/authz	0.006s
+ok  	vhlocal/internal/benchmark	0.003s
+ok  	vhlocal/internal/citation	0.007s
+ok  	vhlocal/internal/cli	0.020s
+ok  	vhlocal/internal/client	0.509s
+?   	vhlocal/internal/client/testsupport	[no test files]
+ok  	vhlocal/internal/config	0.004s
+ok  	vhlocal/internal/consolidate	0.024s
+ok  	vhlocal/internal/engine	20.268s
+ok  	vhlocal/internal/evidence	0.002s
+ok  	vhlocal/internal/findings	0.003s
+ok  	vhlocal/internal/inventory	0.002s
+ok  	vhlocal/internal/jobs	0.203s
+ok  	vhlocal/internal/knowledge	0.001s
+ok  	vhlocal/internal/lifecycle	0.002s
+ok  	vhlocal/internal/logsetup	0.001s
+?   	vhlocal/internal/manifest	[no test files]
+ok  	vhlocal/internal/membank	0.002s
+ok  	vhlocal/internal/phases	0.002s
+ok  	vhlocal/internal/pricing	0.002s
+ok  	vhlocal/internal/profiles	0.002s
+ok  	vhlocal/internal/recognize	0.002s
+ok  	vhlocal/internal/redact	0.001s
+ok  	vhlocal/internal/remediation	0.001s
+ok  	vhlocal/internal/report	0.176s
+ok  	vhlocal/internal/reports	0.002s
+ok  	vhlocal/internal/review	0.002s
+ok  	vhlocal/internal/sarif	0.002s
+ok  	vhlocal/internal/sbom	0.002s
+ok  	vhlocal/internal/server	0.609s
+?   	vhlocal/internal/server/testsupport	[no test files]
+?   	vhlocal/internal/source	[no test files]
+?   	vhlocal/internal/testisolate	[no test files]
+ok  	vhlocal/internal/threatmodel	0.004s
+ok  	vhlocal/internal/tools	0.002s
+ok  	vhlocal/internal/verification	0.006s
+ok  	vhlocal/internal/views	0.001s
+ok  	vhlocal/tests/parity	0.183s
+?   	vhlocal/tests/parity/projctl	[no test files]
+?   	vhlocal/tests/parity/transcript	[no test files]
+PASS: go test ./... -count=1
+GATE_EXIT=0

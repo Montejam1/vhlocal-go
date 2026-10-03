@@ -1,0 +1,52 @@
+{
+  "_comment": [
+    "Feature 016 (T100): the measured AFTER state of the frozen fixture, produced by",
+    "the report package itself so no figure here is retyped. Compare with baseline.json."
+  ],
+  "baseline_for_comparison": {
+    "bytes": 182553,
+    "detail_sections": 49,
+    "fix_not_provided_occurrences": 54,
+    "lines": 2777,
+    "prose_words_before_findings_index": 557
+  },
+  "counts": {
+    "candidates_examined": 64,
+    "detections": 49,
+    "dismissed": 8,
+    "issues_to_fix": 34,
+    "needs_incomplete": 6,
+    "needs_inconclusive": 1,
+    "needs_review": 7,
+    "severity": {
+      "Critical": 0,
+      "High": 13,
+      "Informational": 0,
+      "Low": 2,
+      "Medium": 19,
+      "Unrated": 0
+    }
+  },
+  "coverage": {
+    "completed": 40,
+    "execution": "Incomplete",
+    "exposed": 90,
+    "known": true,
+    "method": "Source-code analysis",
+    "total": 100
+  },
+  "document": {
+    "detail_sections": 34,
+    "fix_not_provided_occurrences": 0,
+    "html_bytes": 226567,
+    "markdown_bytes": 176519,
+    "markdown_lines": 3293,
+    "opening_words_in_projection": 90,
+    "priority_rows": 5,
+    "prose_words_before_issue_index": 114
+  },
+  "guidance_provenance": {
+    "general": 32,
+    "investigate": 2
+  }
+}

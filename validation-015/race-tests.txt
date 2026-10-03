@@ -1,0 +1,10 @@
+# T095 race gate — 2026-09-30T05:44:15Z
+### go test -race (engine jobs server agent apps)
+$ go test -race -count=1 ./internal/engine/... ./internal/jobs/... ./internal/server/... ./internal/agent/... ./internal/apps/...
+ok  	vhlocal/internal/engine	189.015s
+ok  	vhlocal/internal/jobs	1.211s
+ok  	vhlocal/internal/server	1.734s
+?   	vhlocal/internal/server/testsupport	[no test files]
+ok  	vhlocal/internal/agent	1.019s
+ok  	vhlocal/internal/apps	1.034s
+PASS: go test -race (engine jobs server agent apps)

@@ -1,0 +1,5 @@
+=== gofmt -l . (excluding the pre-existing unformatted fixture) ===
+=== go vet ./... ===
+=== go build ./... ===
+=== static build (CGO_ENABLED=0) ===
+/tmp/claude-1000/-home-br0kan-Programs-vhlocal-go/87270b1c-05f1-479e-8459-3fc084443180/scratchpad/vhlocal-static-gate: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, Go BuildID=cNhOD-0zWB1xjrG3IEUc/uiblhID03kdOELJbU36N/gDDMxp8j-kuadEBBRpNM/kAx-50ifhzhWc0UQzNem, BuildID[sha1]=7f0b3f1dba9dddb1bf50b9a36b7085fb4217f831, stripped

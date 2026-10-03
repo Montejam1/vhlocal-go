@@ -1,0 +1,48 @@
+?   	vhlocal	[no test files]
+?   	vhlocal/cmd/vhlocal	[no test files]
+ok  	vhlocal/internal/activity	0.003s
+ok  	vhlocal/internal/agent	0.005s
+ok  	vhlocal/internal/apps	0.006s
+ok  	vhlocal/internal/assist	0.007s
+ok  	vhlocal/internal/attention	0.013s
+ok  	vhlocal/internal/authz	0.009s
+ok  	vhlocal/internal/benchmark	0.004s
+ok  	vhlocal/internal/citation	0.006s
+ok  	vhlocal/internal/cli	0.015s
+ok  	vhlocal/internal/client	0.507s
+?   	vhlocal/internal/client/testsupport	[no test files]
+ok  	vhlocal/internal/config	0.003s
+ok  	vhlocal/internal/consolidate	0.013s
+ok  	vhlocal/internal/engine	20.294s
+ok  	vhlocal/internal/evidence	0.003s
+ok  	vhlocal/internal/findings	0.006s
+ok  	vhlocal/internal/guidance	0.001s
+ok  	vhlocal/internal/inventory	0.002s
+ok  	vhlocal/internal/jobs	0.209s
+ok  	vhlocal/internal/knowledge	0.004s
+ok  	vhlocal/internal/lifecycle	0.003s
+ok  	vhlocal/internal/logsetup	0.003s
+?   	vhlocal/internal/manifest	[no test files]
+ok  	vhlocal/internal/membank	0.002s
+ok  	vhlocal/internal/phases	0.003s
+ok  	vhlocal/internal/pricing	0.002s
+ok  	vhlocal/internal/profiles	0.002s
+ok  	vhlocal/internal/recognize	0.003s
+ok  	vhlocal/internal/redact	0.001s
+ok  	vhlocal/internal/remediation	0.002s
+ok  	vhlocal/internal/report	1.776s
+ok  	vhlocal/internal/reports	0.003s
+ok  	vhlocal/internal/review	0.002s
+ok  	vhlocal/internal/sarif	0.001s
+ok  	vhlocal/internal/sbom	0.003s
+ok  	vhlocal/internal/server	0.615s
+?   	vhlocal/internal/server/testsupport	[no test files]
+?   	vhlocal/internal/source	[no test files]
+?   	vhlocal/internal/testisolate	[no test files]
+ok  	vhlocal/internal/threatmodel	0.004s
+ok  	vhlocal/internal/tools	0.003s
+ok  	vhlocal/internal/verification	0.007s
+ok  	vhlocal/internal/views	0.002s
+ok  	vhlocal/tests/parity	0.190s
+?   	vhlocal/tests/parity/projctl	[no test files]
+?   	vhlocal/tests/parity/transcript	[no test files]
