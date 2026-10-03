@@ -1,0 +1,64 @@
+{
+  "partition_table": "",
+  "hunt": [
+    {
+      "partition": "sg-1",
+      "class": "log",
+      "findings": [
+        {
+          "id": "LOG-001",
+          "title": "Missing authorization on user lookup",
+          "cwe": "CWE-862",
+          "severity": "High",
+          "location": "api/routes.go:19",
+          "entry_point": "GET /users/{id}",
+          "data_flow": "path parameter id reaches a privileged action with no authorization check"
+        },
+        {
+          "id": "LOG-002",
+          "title": "Authorization on login handler",
+          "cwe": "CWE-862",
+          "severity": "Medium",
+          "location": "api/routes.go:24",
+          "entry_point": "POST /login",
+          "data_flow": "login handler performs a constant action"
+        },
+        {
+          "id": "LOG-003",
+          "title": "Health endpoint exposure",
+          "cwe": "CWE-862",
+          "severity": "Low",
+          "location": "api/routes.go:27",
+          "entry_point": "GET /health",
+          "data_flow": "unauthenticated health endpoint"
+        }
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "location": "api/routes.go:19",
+      "verdict": "supported",
+      "func_start": 16,
+      "func_end": 20,
+      "entry_point": "GET /users/{id}",
+      "rationale": "the handler performs a privileged action with no authorization guard"
+    },
+    {
+      "location": "api/routes.go:24",
+      "verdict": "rejected",
+      "func_start": 22,
+      "func_end": 25,
+      "entry_point": "POST /login",
+      "rationale": "authorization is enforced before this handler and the action is constant (a real defense)"
+    },
+    {
+      "location": "api/routes.go:27",
+      "verdict": "unresolved",
+      "func_start": 27,
+      "func_end": 27,
+      "entry_point": "GET /health",
+      "rationale": "exposure cannot be determined from source without deployment configuration"
+    }
+  ]
+}

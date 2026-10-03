@@ -1,0 +1,992 @@
+[
+  {
+    "candidate_id": "CAND-ff7e82c355cedfe8e5a114aa",
+    "stop_reason": "complete",
+    "turns": 11,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-ff7e82c355cedfe8e5a114aa: evidence must cover the cited primary location (the containing handler/defenses)",
+    "calls": 11,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-b9be0f6e56f3a9733060787f",
+    "stop_reason": "complete",
+    "turns": 8,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1
+    },
+    "last_operation": "Grep",
+    "last_contract_violation": "invalid regex \"router.post(\\\"/password-reset/confirm\\\"\": error parsing regexp: missing closing ): `router.post(\"/password-reset/confirm\"`",
+    "calls": 8,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-4f2df0128b72ea3091447bdc",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-fe230f6d72b96d8f00eb0fa5",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget",
+    "calls": 21,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-b77d024b4e0a9e78de5bd807",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0,
+    "calls": 4,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-ccc1e02e67b4ed8ff8bae79e",
+    "stop_reason": "complete",
+    "turns": 11,
+    "failures": 0,
+    "calls": 10,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-0340bd1aaed43fafbe54469f",
+    "stop_reason": "complete",
+    "turns": 18,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 2
+    },
+    "last_operation": "Grep",
+    "last_contract_violation": "invalid regex \"router.post(\\\"/jobs\\\"\": error parsing regexp: missing closing ): `router.post(\"/jobs\"`",
+    "calls": 18,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-a98bed1f76c2d216b8523e2c",
+    "stop_reason": "complete",
+    "turns": 7,
+    "failures": 0,
+    "calls": 7,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-cad1dac00aecacc81bf71a9b",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0,
+    "calls": 4,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-3b234f241a5ca6af25eb9306",
+    "stop_reason": "complete",
+    "turns": 5,
+    "failures": 0,
+    "calls": 5,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-dfed0e63aee8ceb2fe120fb7",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 0,
+    "calls": 6,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-b8c215fc94c93581db03b67a",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-8cee3de4b08cf2ed7912ade5",
+    "stop_reason": "complete",
+    "turns": 12,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-8cee3de4b08cf2ed7912ade5: class-specific evidence refutes exploitability for this weakness class",
+    "calls": 12,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-6ca63140aabf043e10bcf5fd",
+    "stop_reason": "complete",
+    "turns": 7,
+    "failures": 0,
+    "calls": 7,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-325da680b4c928e2a853a4d7",
+    "stop_reason": "complete",
+    "turns": 11,
+    "failures": 0,
+    "calls": 11,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-93e1f28f97ca78cc0e0af8d7",
+    "stop_reason": "complete",
+    "turns": 2,
+    "failures": 0,
+    "calls": 2,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-3d39d7181c05e7a32a92c86c",
+    "stop_reason": "complete",
+    "turns": 7,
+    "failures": 1,
+    "failures_by_class": {
+      "tool_envelope": 1
+    },
+    "last_operation": "chat",
+    "last_contract_violation": "provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"file_path\\\":\\\"backend/app/dispatch_operations.py\\\",\\\"limit\\\":30\\\",\\\"offset\\\":20}', err=invalid character '\\\"' after object key:value pair\"}",
+    "calls": 7,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-d84eb9d03ffc3699472a7371",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-14843f01434010be67e1248d",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-841f302ddfed56d8f3e2fa2e",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-61b315f0806108e7bb65a11e",
+    "stop_reason": "complete",
+    "turns": 17,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 2
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-61b315f0806108e7bb65a11e: evidence must cover the cited primary location (the containing handler/defenses)",
+    "calls": 17,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-45db64d73c13adacb14a7e01",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0,
+    "calls": 4,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-f6edc1f3d0a374dd878ef752",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-f6edc1f3d0a374dd878ef752: class-specific evidence refutes exploitability for this weakness class",
+    "calls": 21,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-8821cbcfedd55698a1bff507",
+    "stop_reason": "complete",
+    "turns": 2,
+    "failures": 0,
+    "calls": 2,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-23e4c3c69bf233dd3180781a",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-23e4c3c69bf233dd3180781a: class-specific evidence refutes exploitability for this weakness class",
+    "calls": 6,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-361238fae39851f0422bee55",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget",
+    "calls": 21,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-221c3bf8b2684becd7aeb590",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget",
+    "calls": 21,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-818a17d75bc2d424496ce2fe",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-d3cf97a13474e6e7c30d34ec",
+    "stop_reason": "complete",
+    "turns": 9,
+    "failures": 0,
+    "calls": 9,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-e86f9330a718efb2e881919b",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-67a7d4d4d915d882aeacce99",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-ebd3bed1fca8bc3e970df14e",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-48ee098573d88bd6a7188770",
+    "stop_reason": "complete",
+    "turns": 8,
+    "failures": 0,
+    "calls": 8,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-09318c7b7f392e816031affd",
+    "stop_reason": "complete",
+    "turns": 2,
+    "failures": 0,
+    "calls": 2,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    },
+    "explicit_unresolved": true
+  },
+  {
+    "candidate_id": "CAND-25c75ec3408b106f58903a55",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-25c75ec3408b106f58903a55: evidence must cover the cited primary location (the containing handler/defenses)",
+    "calls": 6,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-689df88df37120c211ffa592",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-689df88df37120c211ffa592: evidence must cover the cited primary location (the containing handler/defenses)",
+    "calls": 6,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-861da33785957adb3d0f0bc2",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0,
+    "calls": 4,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-20b097fd98f187d8d7efc82b",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 0,
+    "calls": 6,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-bd6528e16c9bcdff4981c908",
+    "stop_reason": "complete",
+    "turns": 9,
+    "failures": 0,
+    "calls": 9,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-e4550e90b08c0564204d0719",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0,
+    "calls": 4,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-bbd59c4f71b172c11329d6a8",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0,
+    "calls": 4,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-f32f8d5e56abe87364723ded",
+    "stop_reason": "complete",
+    "turns": 5,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-f32f8d5e56abe87364723ded: class-specific evidence refutes exploitability for this weakness class",
+    "calls": 5,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-d63d88b15ef409e9aceb1c13",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0,
+    "calls": 4,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-e52d1745036248b94f457301",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 0,
+    "calls": 6,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-eaa811e261cfdf467dce9487",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 2,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-4d0bb66be6c5b14ee8d686e8",
+    "stop_reason": "complete",
+    "turns": 8,
+    "failures": 0,
+    "calls": 8,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-2d4c199723731b357aa41454",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0,
+    "calls": 4,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-3386df5f04ee8a2dc117e497",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-7b08361efcaf1d7b99cee7fa",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-f92c89a3b16760505dc7848d",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0,
+    "calls": 4,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-61dbf0b09c74b87ec22ae41a",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-b0009919dfb3100900ba3a7e",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-af9e10c4261e3be1064a2be3",
+    "stop_reason": "complete",
+    "turns": 2,
+    "failures": 0,
+    "calls": 2,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-b384018d727a8163cfe7daca",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-674daf12b6ea64426d16f33c",
+    "stop_reason": "complete",
+    "turns": 15,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-674daf12b6ea64426d16f33c: class-specific evidence refutes exploitability for this weakness class",
+    "calls": 15,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-36a7e2e69c4d50a7978b38c9",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-36a7e2e69c4d50a7978b38c9: class-specific evidence refutes exploitability for this weakness class",
+    "calls": 6,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-b62c35a20521bba0bbb9bbf4",
+    "stop_reason": "complete",
+    "turns": 7,
+    "failures": 0,
+    "calls": 7,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-f984a27718450d3987c249c4",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 0,
+    "calls": 6,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-7617602ae4d97c8661582da3",
+    "stop_reason": "complete",
+    "turns": 5,
+    "failures": 0,
+    "calls": 5,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-416f42e06546825319f1a2f4",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget",
+    "calls": 21,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-9bf7ffe4714d08772f499c8b",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0,
+    "calls": 4,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-f45e5f1607e3c80f75df63ce",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-87931c42ccaef6ada1674742",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "calls": 3,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  },
+  {
+    "candidate_id": "CAND-824407bfc530bb93a47b809d",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 8,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "Grep",
+    "last_contract_violation": "invalid regex \"enqueue_event(\": error parsing regexp: missing closing ): `enqueue_event(`",
+    "calls": 21,
+    "model": "gpt-oss:120b",
+    "provenance": {
+      "backend": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "requested_model": "gpt-oss:120b",
+      "returned_model": "gpt-oss:120b"
+    }
+  }
+]

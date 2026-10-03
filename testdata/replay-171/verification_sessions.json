@@ -1,0 +1,1819 @@
+[
+  {
+    "candidate_id": "CAND-fa6905c56a11f339e09325e3",
+    "stop_reason": "tool_repair",
+    "turns": 15,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-fa6905c56a11f339e09325e3: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-85926fda87ca9d3bacd3480a",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 3,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-85926fda87ca9d3bacd3480a: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-38a2af0a1b7c65fb2805c91c",
+    "stop_reason": "tool_repair",
+    "turns": 15,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-38a2af0a1b7c65fb2805c91c: evidence must cover the cited primary location (the containing handler/defenses)"
+  },
+  {
+    "candidate_id": "CAND-8978e33f3231eb4c7a5ec02b",
+    "stop_reason": "complete",
+    "turns": 10,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-4f2df0128b72ea3091447bdc",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-6a775f8ddca95b6239af18c7",
+    "stop_reason": "tool_repair",
+    "turns": 16,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-6a775f8ddca95b6239af18c7: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-75503afcb89eca99a1bb66dd",
+    "stop_reason": "tool_repair",
+    "turns": 19,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-75503afcb89eca99a1bb66dd: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-5074d8bb9dedfe690fb7ee6a",
+    "stop_reason": "complete",
+    "turns": 9,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-ae9d4d1ffdeee1db5869a069",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_tool_args": 1,
+      "tool_envelope": 1,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "path must be repo-relative"
+  },
+  {
+    "candidate_id": "CAND-fe230f6d72b96d8f00eb0fa5",
+    "stop_reason": "tool_repair",
+    "turns": 13,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-fe230f6d72b96d8f00eb0fa5: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-a0921ebc711f398055e054a9",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "Grep",
+    "last_contract_violation": "invalid regex \"Incident(\": error parsing regexp: missing closing ): `Incident(`"
+  },
+  {
+    "candidate_id": "CAND-16f9eb1f4be8353d0b9460ea",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget"
+  },
+  {
+    "candidate_id": "CAND-bb066500e0b183cbd60652e2",
+    "stop_reason": "tool_repair",
+    "turns": 19,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 2,
+      "tool_envelope": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-bb066500e0b183cbd60652e2: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-ccc1e02e67b4ed8ff8bae79e",
+    "stop_reason": "complete",
+    "turns": 15,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-d69ac1c98c8912f4c0c20d69",
+    "stop_reason": "complete",
+    "turns": 10,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-46d7b038922e3d09e4717ef3",
+    "stop_reason": "complete",
+    "turns": 16,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-d7615cbac704f0c891b3b23d",
+    "stop_reason": "complete",
+    "turns": 13,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-d3cf97a13474e6e7c30d34ec",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 3,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "path must be repo-relative"
+  },
+  {
+    "candidate_id": "CAND-1aa1d2d9d54a6eaab2c30d12",
+    "stop_reason": "tool_repair",
+    "turns": 12,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-1aa1d2d9d54a6eaab2c30d12: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-3d1a32fe80c25e6f1166c8e1",
+    "stop_reason": "complete",
+    "turns": 11,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-0ec863f9f29483732f09d5f2",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget"
+  },
+  {
+    "candidate_id": "CAND-1db6543fa23307cbb91eacaf",
+    "stop_reason": "complete",
+    "turns": 10,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1
+    },
+    "last_operation": "Grep",
+    "last_contract_violation": "invalid regex \"ForeignKey(\\\"regions.id\\\"\": error parsing regexp: missing closing ): `ForeignKey(\"regions.id\"`"
+  },
+  {
+    "candidate_id": "CAND-73fc65f7a28b6d240830e488",
+    "stop_reason": "complete",
+    "turns": 10,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-060304a095db105a86d8eacb",
+    "stop_reason": "complete",
+    "turns": 12,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 4
+    },
+    "last_operation": "Grep",
+    "last_contract_violation": "invalid regex \"ForeignKey(\\\"regions.id\\\"\": error parsing regexp: missing closing ): `ForeignKey(\"regions.id\"`"
+  },
+  {
+    "candidate_id": "CAND-7dcb3247a7da0b537d9a9495",
+    "stop_reason": "complete",
+    "turns": 2,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-8cee3de4b08cf2ed7912ade5",
+    "stop_reason": "tool_repair",
+    "turns": 9,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-8cee3de4b08cf2ed7912ade5: class-specific evidence refutes exploitability for this weakness class"
+  },
+  {
+    "candidate_id": "CAND-325da680b4c928e2a853a4d7",
+    "stop_reason": "complete",
+    "turns": 17,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-325da680b4c928e2a853a4d7: evidence must cover the complete containing function, including decorators and defenses"
+  },
+  {
+    "candidate_id": "CAND-f45e5f1607e3c80f75df63ce",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 2
+    },
+    "last_operation": "Read",
+    "last_contract_violation": "file not found: backend/app/response_..."
+  },
+  {
+    "candidate_id": "CAND-0c1cc353da7186008a23f722",
+    "stop_reason": "complete",
+    "turns": 8,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-0c1cc353da7186008a23f722: evidence must cover the complete containing function, including decorators and defenses"
+  },
+  {
+    "candidate_id": "CAND-b8c215fc94c93581db03b67a",
+    "stop_reason": "tool_repair",
+    "turns": 9,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "tool_envelope": 1
+    },
+    "last_operation": "chat",
+    "last_contract_violation": "provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"file_path\\\":\\\"backend/app/main.py\\\",\\\"limit\\\":200\\\",\\\"...\\\"}', err=invalid character '\\\"' after object key:value pair\"}"
+  },
+  {
+    "candidate_id": "CAND-3386df5f04ee8a2dc117e497",
+    "stop_reason": "tool_repair",
+    "turns": 10,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-3386df5f04ee8a2dc117e497: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-93e1f28f97ca78cc0e0af8d7",
+    "stop_reason": "tool_repair",
+    "turns": 10,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 2
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-93e1f28f97ca78cc0e0af8d7: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-282fde8746f5ae857be2de39",
+    "stop_reason": "tool_repair",
+    "turns": 7,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-282fde8746f5ae857be2de39: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-3d39d7181c05e7a32a92c86c",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-cdaf5bc83779dd9c75ad1e87",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1,
+      "invalid_tool_args": 1,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-cdaf5bc83779dd9c75ad1e87: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-bac16cac54bead8488313da8",
+    "stop_reason": "tool_repair",
+    "turns": 12,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-bac16cac54bead8488313da8: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-df0556f2ec9295f89cfe234a",
+    "stop_reason": "tool_repair",
+    "turns": 12,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-df0556f2ec9295f89cfe234a: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-2ea9696d0a8ba4ea18837480",
+    "stop_reason": "tool_repair",
+    "turns": 18,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 2,
+      "tool_envelope": 1
+    },
+    "last_operation": "chat",
+    "last_contract_violation": "provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"attacker_control\\\":\\\"Hardcoded  ... ... ... ... ... ... ...... ... ... ... ... ... ... ... ... ... ... ... ... ... ......\\\"? (???)??\\n\\n\\n\\nWe need to correct submission format: must include exact source location (a…[truncated]"
+  },
+  {
+    "candidate_id": "CAND-cef7a4c0d1e6170b051777ad",
+    "stop_reason": "tool_repair",
+    "turns": 15,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 1,
+      "tool_envelope": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-cef7a4c0d1e6170b051777ad: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-689df88df37120c211ffa592",
+    "stop_reason": "complete",
+    "turns": 8,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-20b097fd98f187d8d7efc82b",
+    "stop_reason": "complete",
+    "turns": 14,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-20b097fd98f187d8d7efc82b: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-d64c219333a5a825a538fbf3",
+    "stop_reason": "complete",
+    "turns": 17,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "path must be repo-relative"
+  },
+  {
+    "candidate_id": "CAND-0d3d52e7fe2975ead6dfdc11",
+    "stop_reason": "tool_repair",
+    "turns": 9,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-0d3d52e7fe2975ead6dfdc11: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-214959ba915ae88ce6e4dbd9",
+    "stop_reason": "tool_repair",
+    "turns": 12,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "evidence_ids must reference evidence captured this session: EV-ec1bd34e"
+  },
+  {
+    "candidate_id": "CAND-9f4b5d703369c1d519c091ed",
+    "stop_reason": "tool_repair",
+    "turns": 10,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-9f4b5d703369c1d519c091ed: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-78ad0391960791ee7a51abf2",
+    "stop_reason": "complete",
+    "turns": 10,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "rationale is required"
+  },
+  {
+    "candidate_id": "CAND-48ee098573d88bd6a7188770",
+    "stop_reason": "complete",
+    "turns": 13,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-6d658a1afc55b8dd0e58be95",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 2,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "functions/Read",
+    "last_contract_violation": "unknown tool"
+  },
+  {
+    "candidate_id": "CAND-b0d45835e5978231d43fdf44",
+    "stop_reason": "tool_repair",
+    "turns": 5,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "tool_envelope": 1
+    },
+    "last_operation": "chat",
+    "last_contract_violation": "provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"file_path\\\":\\\"backend/app/exact?\\\",\\\"limit\\\":\\\"\\\",\\\"offset\\\":\\\"\\\"]}', err=invalid character ']' after object key:value pair\"}"
+  },
+  {
+    "candidate_id": "CAND-d63d88b15ef409e9aceb1c13",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget"
+  },
+  {
+    "candidate_id": "CAND-6cebc20661f319c9ea3e583e",
+    "stop_reason": "tool_repair",
+    "turns": 14,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-6cebc20661f319c9ea3e583e: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-63d4c66c8fed316692d7956b",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-eaa811e261cfdf467dce9487",
+    "stop_reason": "tool_repair",
+    "turns": 15,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-eaa811e261cfdf467dce9487: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-c9830a94284773eaf17fe814",
+    "stop_reason": "complete",
+    "turns": 13,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "path must be repo-relative"
+  },
+  {
+    "candidate_id": "CAND-30ff69e180fe9be1fa426c02",
+    "stop_reason": "tool_repair",
+    "turns": 18,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-30ff69e180fe9be1fa426c02: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-cc6473a6cc78d446ce36f4a2",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-cc6473a6cc78d446ce36f4a2: a supported decision cannot carry unresolved questions"
+  },
+  {
+    "candidate_id": "CAND-861da33785957adb3d0f0bc2",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 4,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-861da33785957adb3d0f0bc2: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-a2898f8d7a8fe413e9cb6461",
+    "stop_reason": "tool_repair",
+    "turns": 12,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-a2898f8d7a8fe413e9cb6461: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-3c8c6098f495a95d8e99e90c",
+    "stop_reason": "tool_repair",
+    "turns": 16,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-3c8c6098f495a95d8e99e90c: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-87b268f61c77305ae4db050d",
+    "stop_reason": "tool_repair",
+    "turns": 12,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 1,
+      "tool_envelope": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-87b268f61c77305ae4db050d: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-64f82d01b67a62d82a310ab6",
+    "stop_reason": "tool_repair",
+    "turns": 20,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-64f82d01b67a62d82a310ab6: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-4e3ab9a23bfe3810b33006da",
+    "stop_reason": "tool_repair",
+    "turns": 16,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-4e3ab9a23bfe3810b33006da: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-bd523d1087fd2eb3badaff9f",
+    "stop_reason": "tool_repair",
+    "turns": 14,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-bd523d1087fd2eb3badaff9f: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-9216e440ddda506575d2cb18",
+    "stop_reason": "complete",
+    "turns": 16,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-3663c7f5f0c7ea2d3c702f04",
+    "stop_reason": "complete",
+    "turns": 11,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-77a9929389b144989b70345b",
+    "stop_reason": "tool_repair",
+    "turns": 17,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-77a9929389b144989b70345b: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-61b315f0806108e7bb65a11e",
+    "stop_reason": "complete",
+    "turns": 7,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 2
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-61b315f0806108e7bb65a11e: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-14843f01434010be67e1248d",
+    "stop_reason": "complete",
+    "turns": 16,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 2
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-14843f01434010be67e1248d: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-1f5dca3f002579fffd97f4a7",
+    "stop_reason": "complete",
+    "turns": 20,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-1f5dca3f002579fffd97f4a7: evidence must cover the complete containing function, including decorators and defenses"
+  },
+  {
+    "candidate_id": "CAND-3044992ce3acfdf4ad350fad",
+    "stop_reason": "complete",
+    "turns": 10,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-d4f7b80378d1e26ea24f242b",
+    "stop_reason": "tool_repair",
+    "turns": 10,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-d4f7b80378d1e26ea24f242b: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-a6b240664b02427990024545",
+    "stop_reason": "tool_repair",
+    "turns": 5,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-a6b240664b02427990024545: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-45db64d73c13adacb14a7e01",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-649b7ac2ad11645f726fa7de",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-649b7ac2ad11645f726fa7de: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-8821cbcfedd55698a1bff507",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "invalid line range (1..161, max 2000 lines)"
+  },
+  {
+    "candidate_id": "CAND-082241c5969cbfe7607cd9ef",
+    "stop_reason": "tool_repair",
+    "turns": 13,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "tool_envelope": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-082241c5969cbfe7607cd9ef: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-78c4512fd56eca5ac21025fe",
+    "stop_reason": "tool_repair",
+    "turns": 9,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "tool_envelope": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-78c4512fd56eca5ac21025fe: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-a98bed1f76c2d216b8523e2c",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget"
+  },
+  {
+    "candidate_id": "CAND-a452c4bbf3a1aa851ba2d3cf",
+    "stop_reason": "tool_repair",
+    "turns": 11,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-a452c4bbf3a1aa851ba2d3cf: a supported or rejected verdict requires cited source evidence"
+  },
+  {
+    "candidate_id": "CAND-8c08a5b4759d258d03dbfe33",
+    "stop_reason": "complete",
+    "turns": 7,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-523134ed5e0d4d7751501f8f",
+    "stop_reason": "complete",
+    "turns": 7,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-c7f3512202a3dad3d396033f",
+    "stop_reason": "tool_repair",
+    "turns": 16,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-c7f3512202a3dad3d396033f: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-ee4cc41897c5d46036b750c8",
+    "stop_reason": "complete",
+    "turns": 12,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-9b7dd244252048378e86f65c",
+    "stop_reason": "complete",
+    "turns": 14,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-9b7dd244252048378e86f65c: evidence must cover the cited primary location (the containing handler/defenses)"
+  },
+  {
+    "candidate_id": "CAND-82306cca5fc3164a6520a3c0",
+    "stop_reason": "complete",
+    "turns": 5,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-82306cca5fc3164a6520a3c0: evidence must cover the complete containing function, including decorators and defenses"
+  },
+  {
+    "candidate_id": "CAND-85cb3fa183c187878d963828",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "invalid line range (1..161, max 2000 lines)"
+  },
+  {
+    "candidate_id": "CAND-c2d6b3c5e9b40e8f98f4f7b5",
+    "stop_reason": "tool_repair",
+    "turns": 8,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-c2d6b3c5e9b40e8f98f4f7b5: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-0e739a693d75797ae3fd9551",
+    "stop_reason": "complete",
+    "turns": 9,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-0e739a693d75797ae3fd9551: evidence must cover the complete containing function, including decorators and defenses"
+  },
+  {
+    "candidate_id": "CAND-433d64fe4dd1f3185c6adbc1",
+    "stop_reason": "complete",
+    "turns": 9,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 2
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-433d64fe4dd1f3185c6adbc1: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-841f302ddfed56d8f3e2fa2e",
+    "stop_reason": "tool_repair",
+    "turns": 9,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-841f302ddfed56d8f3e2fa2e: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-7fab7280516dfc3c58a10a0a",
+    "stop_reason": "tool_repair",
+    "turns": 6,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-7fab7280516dfc3c58a10a0a: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-ad0d5b2b047feb92c54be67f",
+    "stop_reason": "tool_repair",
+    "turns": 12,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-ad0d5b2b047feb92c54be67f: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-0c4e9f6e6e25bbf69d9f36e9",
+    "stop_reason": "tool_repair",
+    "turns": 12,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-0c4e9f6e6e25bbf69d9f36e9: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-3a99b6a31868807c99c3ccc6",
+    "stop_reason": "tool_repair",
+    "turns": 10,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-3a99b6a31868807c99c3ccc6: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-f3287cf4d8059a9dfa8c33ff",
+    "stop_reason": "tool_repair",
+    "turns": 16,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-f3287cf4d8059a9dfa8c33ff: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-a70ebf21439abfc5ee307cc1",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1,
+      "invalid_tool_args": 1,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-a70ebf21439abfc5ee307cc1: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-82b974661f39930488381fb2",
+    "stop_reason": "tool_repair",
+    "turns": 17,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-82b974661f39930488381fb2: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-c3b6701c38c1591e5b4b9ef3",
+    "stop_reason": "tool_repair",
+    "turns": 15,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 2
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-c3b6701c38c1591e5b4b9ef3: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-d1ca0c5f19ea44837a5f1c74",
+    "stop_reason": "tool_repair",
+    "turns": 16,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-d1ca0c5f19ea44837a5f1c74: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-cac41c8f4035e32e49b10a19",
+    "stop_reason": "tool_repair",
+    "turns": 9,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 1,
+      "tool_envelope": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-cac41c8f4035e32e49b10a19: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-9407b3f4056698de3c615bcf",
+    "stop_reason": "tool_repair",
+    "turns": 15,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-9407b3f4056698de3c615bcf: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-c86e31535b94e07999cab8dd",
+    "stop_reason": "tool_repair",
+    "turns": 14,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-c86e31535b94e07999cab8dd: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-87931c42ccaef6ada1674742",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget"
+  },
+  {
+    "candidate_id": "CAND-b384018d727a8163cfe7daca",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-7b08361efcaf1d7b99cee7fa",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "path must be repo-relative"
+  },
+  {
+    "candidate_id": "CAND-1ad7e421cc11cfcbdb85b696",
+    "stop_reason": "tool_repair",
+    "turns": 13,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-1ad7e421cc11cfcbdb85b696: class-specific evidence refutes exploitability for this weakness class"
+  },
+  {
+    "candidate_id": "CAND-7c0c86726f9189607a9994db",
+    "stop_reason": "complete",
+    "turns": 3,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-f92c89a3b16760505dc7848d",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "path must be repo-relative"
+  },
+  {
+    "candidate_id": "CAND-7bc8eb2f27948a1f372562d1",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget"
+  },
+  {
+    "candidate_id": "CAND-3554b78780703e82e3b66407",
+    "stop_reason": "tool_repair",
+    "turns": 6,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-3554b78780703e82e3b66407: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-37fcb8e0ad21d6b65818a76c",
+    "stop_reason": "complete",
+    "turns": 8,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-37fcb8e0ad21d6b65818a76c: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-c295c4c7f2b56efe45067f37",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 3,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "Grep",
+    "last_contract_violation": "invalid regex \"write(\": error parsing regexp: missing closing ): `write(`"
+  },
+  {
+    "candidate_id": "CAND-5021798a7259fee684446542",
+    "stop_reason": "tool_repair",
+    "turns": 10,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 1,
+      "tool_envelope": 1
+    },
+    "last_operation": "chat",
+    "last_contract_violation": "provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"file_path\\\":\\\"backend/app/dispatch_operations.py\\\",\\\"limit\\\":20\\\",\\\"offset\\\":0}', err=invalid character '\\\"' after object key:value pair\"}"
+  },
+  {
+    "candidate_id": "CAND-b812b7cd6fe78436aa7153a2",
+    "stop_reason": "tool_repair",
+    "turns": 10,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-b812b7cd6fe78436aa7153a2: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-416f42e06546825319f1a2f4",
+    "stop_reason": "tool_repair",
+    "turns": 10,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-416f42e06546825319f1a2f4: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-f6fa4b7cfc4c3300bd99fdc1",
+    "stop_reason": "complete",
+    "turns": 8,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-0706ece4c2fe13b967439c20",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "path must be repo-relative"
+  },
+  {
+    "candidate_id": "CAND-10e066d6ffa1ba87bef18220",
+    "stop_reason": "tool_repair",
+    "turns": 14,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-10e066d6ffa1ba87bef18220: evidence must cover the cited primary location (the containing handler/defenses)"
+  },
+  {
+    "candidate_id": "CAND-33421ef5afac2547d5d8d1eb",
+    "stop_reason": "complete",
+    "turns": 18,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 3
+    },
+    "last_operation": "Read",
+    "last_contract_violation": "path is outside the sandbox (read): <redacted-path>"
+  },
+  {
+    "candidate_id": "CAND-c53db8ab7eda2caa3e0c2816",
+    "stop_reason": "complete",
+    "turns": 18,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 1,
+      "tool_envelope": 1
+    },
+    "last_operation": "chat",
+    "last_contract_violation": "provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"attacker_control:\\\": \\\"???\\\"??\\\"? \\n\\nWe need to construct a correct verification submission. Must include evidence covering cited primary location (the handler). We have evidence EV-eb69ec3512bfb4013ed341fc covering …[truncated]"
+  },
+  {
+    "candidate_id": "CAND-9e7c59eea388bc151c84c6ce",
+    "stop_reason": "tool_repair",
+    "turns": 5,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-9e7c59eea388bc151c84c6ce: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-848dd00148d4534fab5ac919",
+    "stop_reason": "tool_repair",
+    "turns": 4,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-848dd00148d4534fab5ac919: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-8c295b53396f5030480a3310",
+    "stop_reason": "tool_repair",
+    "turns": 9,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-8c295b53396f5030480a3310: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-f6edc1f3d0a374dd878ef752",
+    "stop_reason": "tool_repair",
+    "turns": 7,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-f6edc1f3d0a374dd878ef752: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-4c30ae3a70c1b0aea813ac07",
+    "stop_reason": "tool_repair",
+    "turns": 4,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-4c30ae3a70c1b0aea813ac07: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-af9e10c4261e3be1064a2be3",
+    "stop_reason": "tool_repair",
+    "turns": 10,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-af9e10c4261e3be1064a2be3: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-5f65bcd2b5fe55d002fe65bd",
+    "stop_reason": "tool_repair",
+    "turns": 12,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-5f65bcd2b5fe55d002fe65bd: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-818a17d75bc2d424496ce2fe",
+    "stop_reason": "tool_repair",
+    "turns": 9,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-818a17d75bc2d424496ce2fe: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-44a78baf2040e333c6f8e627",
+    "stop_reason": "tool_repair",
+    "turns": 4,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-44a78baf2040e333c6f8e627: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-205b5da3faf2c30067fd85f6",
+    "stop_reason": "complete",
+    "turns": 11,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 2
+    },
+    "last_operation": "Grep",
+    "last_contract_violation": "invalid regex \"os.environ[\": error parsing regexp: missing closing ]: `[`"
+  },
+  {
+    "candidate_id": "CAND-8a19192fc4afa0fefb35d32e",
+    "stop_reason": "tool_repair",
+    "turns": 8,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-8a19192fc4afa0fefb35d32e: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-221c3bf8b2684becd7aeb590",
+    "stop_reason": "complete",
+    "turns": 14,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-221c3bf8b2684becd7aeb590: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-361238fae39851f0422bee55",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget"
+  },
+  {
+    "candidate_id": "CAND-b4400c2db8c8556221f04f5f",
+    "stop_reason": "complete",
+    "turns": 20,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-b7acbe152a0c637999e2a8ff",
+    "stop_reason": "tool_repair",
+    "turns": 6,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "tool_envelope": 1
+    },
+    "last_operation": "chat",
+    "last_contract_violation": "provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"file_path\\\":\\\"backend/app/relevant\\\",\\\"...\\\"}', err=invalid character '}' after object key\"}"
+  },
+  {
+    "candidate_id": "CAND-e796748df72d16e43fb5b856",
+    "stop_reason": "complete",
+    "turns": 4,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-27cdb39a294b8e8c76b2ca87",
+    "stop_reason": "complete",
+    "turns": 2,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-ff9dd9943ac4f4efd080f83f",
+    "stop_reason": "complete",
+    "turns": 7,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "rationale is required"
+  },
+  {
+    "candidate_id": "CAND-fc50f2703c1c1f2c24cd0781",
+    "stop_reason": "complete",
+    "turns": 13,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 2
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "path must be repo-relative"
+  },
+  {
+    "candidate_id": "CAND-2359cd7f3467e993519b5dbb",
+    "stop_reason": "tool_repair",
+    "turns": 7,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-2359cd7f3467e993519b5dbb: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-473256a1a8cfd1cb5128b796",
+    "stop_reason": "tool_repair",
+    "turns": 14,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-473256a1a8cfd1cb5128b796: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-6193567fe84ce069da296c51",
+    "stop_reason": "tool_repair",
+    "turns": 10,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-6193567fe84ce069da296c51: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-cf2740c9c9e85933489b7afd",
+    "stop_reason": "tool_repair",
+    "turns": 8,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-cf2740c9c9e85933489b7afd: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-e3c6e28f4007738a7504219b",
+    "stop_reason": "tool_repair",
+    "turns": 11,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-e3c6e28f4007738a7504219b: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-0340bd1aaed43fafbe54469f",
+    "stop_reason": "tool_repair",
+    "turns": 16,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-0340bd1aaed43fafbe54469f: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-1911f78b6c4435e9ebc9d5c1",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "path must be repo-relative"
+  },
+  {
+    "candidate_id": "CAND-17d1309224a3bea6e56f0f15",
+    "stop_reason": "tool_repair",
+    "turns": 7,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-17d1309224a3bea6e56f0f15: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-22344e1bbd3dc05bf8a1ed63",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "Read",
+    "last_contract_violation": "file not found: backend/app/components/settings.py"
+  },
+  {
+    "candidate_id": "CAND-20207be0897536d75b35af6b",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget"
+  },
+  {
+    "candidate_id": "CAND-57d549a96f48bf5c1418e60c",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget"
+  },
+  {
+    "candidate_id": "CAND-efba0ee6177d59ce8920ee0b",
+    "stop_reason": "complete",
+    "turns": 11,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-efba0ee6177d59ce8920ee0b: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-fc986203728768e6029069e1",
+    "stop_reason": "tool_repair",
+    "turns": 13,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-fc986203728768e6029069e1: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-d17219a16315083f0fd13706",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-d17219a16315083f0fd13706: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-d84eb9d03ffc3699472a7371",
+    "stop_reason": "complete",
+    "turns": 6,
+    "failures": 1,
+    "failures_by_class": {
+      "invalid_submission": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-d84eb9d03ffc3699472a7371: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-6ca63140aabf043e10bcf5fd",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "turn_exhaustion": 1
+    },
+    "last_operation": "turn limit",
+    "last_contract_violation": "no decision submitted within the turn budget"
+  },
+  {
+    "candidate_id": "CAND-e5d3ce2d2748655403783683",
+    "stop_reason": "complete",
+    "turns": 14,
+    "failures": 0
+  },
+  {
+    "candidate_id": "CAND-d353a646068820386b906017",
+    "stop_reason": "tool_repair",
+    "turns": 8,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-d353a646068820386b906017: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-36a7e2e69c4d50a7978b38c9",
+    "stop_reason": "tool_repair",
+    "turns": 5,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-36a7e2e69c4d50a7978b38c9: review entry point does not match the cited source handler"
+  },
+  {
+    "candidate_id": "CAND-d4dd834687600c26a7c3563c",
+    "stop_reason": "tool_repair",
+    "turns": 12,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-d4dd834687600c26a7c3563c: evidence must cover the cited primary location (the containing handler/defenses)"
+  },
+  {
+    "candidate_id": "CAND-a969bc8706a601c97ae92da0",
+    "stop_reason": "tool_repair",
+    "turns": 17,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-a969bc8706a601c97ae92da0: evidence must cover the cited primary location (the containing handler/defenses)"
+  },
+  {
+    "candidate_id": "CAND-302c420fa62a0f874bf2d3b0",
+    "stop_reason": "tool_repair",
+    "turns": 13,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-302c420fa62a0f874bf2d3b0: evidence must cover the cited primary location (the containing handler/defenses)"
+  },
+  {
+    "candidate_id": "CAND-84f5cb00f525cab7e5d0096b",
+    "stop_reason": "tool_repair",
+    "turns": 15,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-84f5cb00f525cab7e5d0096b: evidence must cover the cited primary location (the containing handler/defenses)"
+  },
+  {
+    "candidate_id": "CAND-25ce83758073af8bd398e672",
+    "stop_reason": "tool_repair",
+    "turns": 11,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 2
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-25ce83758073af8bd398e672: evidence must cover the cited primary location (the containing handler/defenses)"
+  },
+  {
+    "candidate_id": "CAND-ad260ace46a67f1fcceb0276",
+    "stop_reason": "tool_repair",
+    "turns": 11,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-ad260ace46a67f1fcceb0276: evidence must cover the cited primary location (the containing handler/defenses)"
+  },
+  {
+    "candidate_id": "CAND-aece94b2d1074432cc4b1163",
+    "stop_reason": "tool_repair",
+    "turns": 13,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-aece94b2d1074432cc4b1163: evidence must cover the cited primary location (the containing handler/defenses)"
+  },
+  {
+    "candidate_id": "CAND-81358b34d138e79e98b874ce",
+    "stop_reason": "tool_repair",
+    "turns": 13,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 2
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-81358b34d138e79e98b874ce: evidence must cover the cited primary location (the containing handler/defenses)"
+  },
+  {
+    "candidate_id": "CAND-824407bfc530bb93a47b809d",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 3,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-824407bfc530bb93a47b809d: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-5c35f0a133647a0f99efe96d",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 2,
+    "failures_by_class": {
+      "invalid_submission": 2,
+      "invalid_tool_args": 1,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-5c35f0a133647a0f99efe96d: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-051b78b4b4d485a89f164bae",
+    "stop_reason": "tool_repair",
+    "turns": 20,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3,
+      "invalid_tool_args": 1
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-051b78b4b4d485a89f164bae: candidate needs an exact source location"
+  },
+  {
+    "candidate_id": "CAND-4de0c0718ed32f2ac3f06359",
+    "stop_reason": "max_turns",
+    "turns": 20,
+    "failures": 0,
+    "failures_by_class": {
+      "invalid_tool_args": 1,
+      "turn_exhaustion": 1
+    },
+    "last_operation": "capture_evidence",
+    "last_contract_violation": "path must be repo-relative"
+  },
+  {
+    "candidate_id": "CAND-672fa5c01897f80068afaa31",
+    "stop_reason": "tool_repair",
+    "turns": 7,
+    "failures": 3,
+    "failures_by_class": {
+      "invalid_submission": 3
+    },
+    "last_operation": "submit_verification",
+    "last_contract_violation": "CAND-672fa5c01897f80068afaa31: candidate needs an exact source location"
+  }
+]

@@ -1,0 +1,1717 @@
+{
+  "schema_version": 1,
+  "complete": false,
+  "errors": [
+    "CAND-fe230f6d72b96d8f00eb0fa5: missing decision",
+    "CAND-f6edc1f3d0a374dd878ef752: missing decision",
+    "CAND-361238fae39851f0422bee55: missing decision",
+    "CAND-221c3bf8b2684becd7aeb590: missing decision",
+    "CAND-416f42e06546825319f1a2f4: missing decision",
+    "CAND-824407bfc530bb93a47b809d: missing decision"
+  ],
+  "counts": {
+    "invalid_citation": 0,
+    "rejected": 8,
+    "superseded": 0,
+    "supported": 49,
+    "unresolved": 7
+  },
+  "results": [
+    {
+      "candidate_id": "CAND-ff7e82c355cedfe8e5a114aa",
+      "status": "rejected",
+      "reason": "The test webhook endpoint ultimately calls test_webhook which only performs an outbound HTTP request when DISPATCH_WEBHOOKS_LIVE=1 and the target URL passes the _is_safe_url guard. The guard parses the URL, resolves hostnames, and rejects private, loopback, reserved, link‑local, multicast or unspecified IPs, preventing SSRF to internal services. Therefore, even though an attacker controlling the webhook_id can select a webhook with an attacker‑controlled URL, the request will be blocked unless the URL is public, eliminating SSRF risk.",
+      "record": {
+        "candidate_id": "CAND-ff7e82c355cedfe8e5a114aa",
+        "verdict": "rejected",
+        "rationale": "The test webhook endpoint ultimately calls test_webhook which only performs an outbound HTTP request when DISPATCH_WEBHOOKS_LIVE=1 and the target URL passes the _is_safe_url guard. The guard parses the URL, resolves hostnames, and rejects private, loopback, reserved, link‑local, multicast or unspecified IPs, preventing SSRF to internal services. Therefore, even though an attacker controlling the webhook_id can select a webhook with an attacker‑controlled URL, the request will be blocked unless the URL is public, eliminating SSRF risk.",
+        "entry_point": "POST /api/webhooks/{webhook_id}/test",
+        "attacker_control": "webhook_id path parameter selects a webhook whose URL is attacker‑controlled via webhook creation (admin can set arbitrary URL)",
+        "preconditions": "Attacker has ops_admin role to create a webhook with malicious URL and sets DISPATCH_WEBHOOKS_LIVE=1",
+        "defenses_reviewed": "require_roles(models.UserRole.ops_admin) restricts test endpoint to admins; _is_safe_url guard validates URL before outbound request (lines 29‑52 definition and its use at line 80 in enqueue_event)",
+        "security_impact": "none – outbound request to internal resources is blocked by URL validation",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-f173bc8afb0f78f38538fd23",
+            "path": "backend/app/routers/admin_misc.py",
+            "start_line": 75,
+            "end_line": 89,
+            "quote": "@router.post(\"/webhooks/{webhook_id}/test\")\ndef trigger_test_webhook(\n    webhook_id: str,\n    request: Request,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(require_roles(models.UserRole.ops_admin)),\n):\n    hook = db.query(models.Webhook).filter(models.Webhook.id == webhook_id).one_or_none()\n    if not hook:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    delivery = do_test_webhook(db, hook)\n    write_audit(db, actor=user, action=\"webhook.test\", target_type=\"webhook\", target_id=hook.id, details={\"delivery_id\": delivery.id}, ip_address=get_client_ip(request))\n    db.commit()\n    db.refresh(delivery)\n    return {\"delivery_id\": delivery.id, \"status\": delivery.delivery_status, \"response_status\": delivery.response_status}"
+          },
+          {
+            "evidence_id": "EV-a9e2fab4d2ced2d0e9ddb886",
+            "path": "backend/app/webhooks.py",
+            "start_line": 29,
+            "end_line": 50,
+            "quote": "def _is_safe_url(url: str) -\u003e bool:\n    \"\"\"Best-effort SSRF guard: block private addresses for outbound webhooks.\"\"\"\n    try:\n        parsed = urlparse(url)\n        if parsed.scheme not in (\"http\", \"https\"):\n            return False\n        host = parsed.hostname\n        if not host:\n            return False\n        try:\n            ip = ipaddress.ip_address(host)\n            ips = [ip]\n        except ValueError:\n            try:\n                infos = socket.getaddrinfo(host, None)\n                ips = [ipaddress.ip_address(i[4][0]) for i in infos]\n            except Exception:\n                return False\n        for ip in ips:\n            if ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_link_local or ip.is_multicast or ip.is_unspecified:\n                return False\n        return True"
+          },
+          {
+            "evidence_id": "EV-539e06a67cc11b2c8e168105",
+            "path": "backend/app/webhooks.py",
+            "start_line": 55,
+            "end_line": 100,
+            "quote": "def enqueue_event(db: Session, event: str, data: dict) -\u003e None:\n    \"\"\"Find webhooks subscribed to this event and create a delivery record.\n\n    The delivery is processed inline in this simple implementation, but is\n    recorded immediately so callers can poll status.\n    \"\"\"\n    hooks = db.query(models.Webhook).filter(models.Webhook.is_active == True).all()  # noqa: E712\n    for hook in hooks:\n        subscribed = [e.strip() for e in (hook.events or \"\").split(\",\") if e.strip()]\n        if event not in subscribed and \"*\" not in subscribed:\n            continue\n        payload = {\"event\": event, \"data\": data}\n        body = json.dumps(payload, sort_keys=True).encode(\"utf-8\")\n        delivery = models.WebhookDelivery(\n            webhook_id=hook.id,\n            event=event,\n            payload=payload,\n            response_status=None,\n            response_body=None,\n            delivery_status=\"queued\",\n        )\n        db.add(delivery)\n        db.flush()\n        live = os.environ.get(\"DISPATCH_WEBHOOKS_LIVE\") == \"1\"\n        signature = _sign_payload(hook.secret, body)\n        if live and _is_safe_url(hook.url):\n            try:\n                import urllib.request\n\n                req = urllib.request.Request(hook.url, data=body, method=\"POST\")\n                req.add_header(\"Content-Type\", \"application/json\")\n                req.add_header(\"X-Dispatch-Event\", event)\n                req.add_header(\"X-Dispatch-Signature\", \"sha256=\" + signature)\n                with urllib.request.urlopen(req, timeout=5) as resp:\n                    delivery.response_status = resp.getcode()\n                    delivery.response_body = resp.read(2048).decode(\"utf-8\", errors=\"replace\")\n                    delivery.delivery_status = \"delivered\" if 200 \u003c= delivery.response_status \u003c 300 else \"failed\"\n            except Exception as e:\n                delivery.delivery_status = \"failed\"\n                delivery.response_body = str(e)[:2048]\n        else:\n            # Local mock: record as delivered to ease testing without external HTTP.\n            delivery.response_status = 200\n            delivery.response_body = \"mock-delivered (signature=sha256=\" + signature[:16] + \"...)\"\n            delivery.delivery_status = \"delivered\" if not live else \"skipped_unsafe_url\"\n        db.add(delivery)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-b9be0f6e56f3a9733060787f",
+      "status": "supported",
+      "reason": "The handler confirm_password_reset checks token.used_at is None before resetting password, then sets token.used_at and commits. Without atomicity, two concurrent requests with the same valid token can both pass the check before either writes used_at, allowing token reuse to reset the password multiple times. This race condition enables an attacker who possesses a valid reset token to repeatedly change the account password, potentially hijacking the account or causing denial-of-service.",
+      "record": {
+        "candidate_id": "CAND-b9be0f6e56f3a9733060787f",
+        "verdict": "supported",
+        "rationale": "The handler confirm_password_reset checks token.used_at is None before resetting password, then sets token.used_at and commits. Without atomicity, two concurrent requests with the same valid token can both pass the check before either writes used_at, allowing token reuse to reset the password multiple times. This race condition enables an attacker who possesses a valid reset token to repeatedly change the account password, potentially hijacking the account or causing denial-of-service.",
+        "entry_point": "POST /api/auth/password-reset/confirm",
+        "attacker_control": "payload.token (the password reset token) and payload.new_password; attacker can issue concurrent requests",
+        "preconditions": "Attacker must possess a valid, unused password reset token (e.g., via intercepted email) and be able to send concurrent requests before the token is marked used",
+        "defenses_reviewed": "The code checks token.used_at is not None and sets token.used_at after password reset, but there is no atomic transaction or row lock to prevent concurrent use; no database constraint prevents reuse",
+        "security_impact": "Allows an attacker to reuse a password reset token to change the victim's password multiple times, enabling account takeover or denial-of-service after a legitimate password reset",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-cff33f52581d9f351c0bdb19",
+            "path": "backend/app/routers/auth.py",
+            "start_line": 218,
+            "end_line": 242,
+            "quote": "@router.post(\"/password-reset/confirm\", status_code=204)\ndef confirm_password_reset(\n    payload: schemas.PasswordResetConfirm,\n    request: Request,\n    db: Session = Depends(get_db),\n):\n    token_hash = hash_token(payload.token)\n    token = db.query(models.PasswordResetToken).filter(models.PasswordResetToken.token_hash == token_hash).one_or_none()\n    if not token or token.used_at is not None:\n        raise HTTPException(status_code=400, detail=\"Invalid or expired token\")\n    expires = token.expires_at\n    if expires.tzinfo is None:\n        expires = expires.replace(tzinfo=timezone.utc)\n    if expires \u003c datetime.now(timezone.utc):\n        raise HTTPException(status_code=400, detail=\"Invalid or expired token\")\n    user = db.query(models.User).filter(models.User.id == token.user_id).one_or_none()\n    if not user or not user.is_active:\n        raise HTTPException(status_code=400, detail=\"Invalid or expired token\")\n    user.password_hash = hash_password(payload.new_password)\n    token.used_at = datetime.now(timezone.utc)\n    # Kill existing sessions\n    db.query(models.Session).filter(models.Session.user_id == user.id).delete()\n    write_audit(db, actor=user, action=\"user.password_reset.confirmed\", target_type=\"user\", target_id=user.id, ip_address=get_client_ip(request))\n    db.commit()\n    return Response(status_code=204)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-4f2df0128b72ea3091447bdc",
+      "status": "supported",
+      "reason": "The delete_customer handler checks for existing jobs (line 123) then deletes the customer (line 125) without atomicity. A concurrent request can create a Job for the same customer after the check but before the delete, causing a race condition that allows deletion despite existing jobs.",
+      "record": {
+        "candidate_id": "CAND-4f2df0128b72ea3091447bdc",
+        "verdict": "supported",
+        "rationale": "The delete_customer handler checks for existing jobs (line 123) then deletes the customer (line 125) without atomicity. A concurrent request can create a Job for the same customer after the check but before the delete, causing a race condition that allows deletion despite existing jobs.",
+        "entry_point": "DELETE /api/customers/{customer_id}",
+        "attacker_control": "the customer_id path parameter",
+        "preconditions": "attacker has ops_admin role and can invoke the DELETE endpoint",
+        "defenses_reviewed": "no transaction locking or SELECT FOR UPDATE; the check and delete are separate statements, so no defense against TOCTOU",
+        "security_impact": "deleting a customer while jobs exist can orphan job records, break referential integrity, and cause loss of billing or audit data, leading to data inconsistency and potential denial of service for job processing",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-5cdc94f7baca73ab0ebe6fe4",
+            "path": "backend/app/routers/customers.py",
+            "start_line": 113,
+            "end_line": 128,
+            "quote": "@router.delete(\"/{customer_id}\", status_code=204)\ndef delete_customer(\n    customer_id: str,\n    request: Request,\n    db: Session = Depends(get_db),\n    actor: models.User = Depends(require_roles(models.UserRole.ops_admin)),\n):\n    c = db.query(models.Customer).filter(models.Customer.id == customer_id).one_or_none()\n    if not c:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    if db.query(models.Job).filter(models.Job.customer_id == customer_id).first():\n        raise HTTPException(status_code=400, detail=\"Customer has jobs and cannot be deleted\")\n    db.delete(c)\n    write_audit(db, actor=actor, action=\"customer.delete\", target_type=\"customer\", target_id=customer_id, ip_address=get_client_ip(request))\n    db.commit()\n    return None"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-fe230f6d72b96d8f00eb0fa5",
+      "status": "unresolved",
+      "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget",
+      "record": null
+    },
+    {
+      "candidate_id": "CAND-b77d024b4e0a9e78de5bd807",
+      "status": "rejected",
+      "reason": "The _sanitize_cell function prefixes any cell value starting with '=', '+', '-', '@', tab or carriage return with a single quote, which neutralizes CSV formula injection. All exported CSV endpoints (e.g., GET /export/jobs.csv) apply this sanitization to each field before writing them via csv.writer, so attacker-controlled data cannot trigger formula injection.",
+      "record": {
+        "candidate_id": "CAND-b77d024b4e0a9e78de5bd807",
+        "verdict": "rejected",
+        "rationale": "The _sanitize_cell function prefixes any cell value starting with '=', '+', '-', '@', tab or carriage return with a single quote, which neutralizes CSV formula injection. All exported CSV endpoints (e.g., GET /export/jobs.csv) apply this sanitization to each field before writing them via csv.writer, so attacker-controlled data cannot trigger formula injection.",
+        "entry_point": "GET /export/jobs.csv",
+        "attacker_control": "job fields (code, status, priority, timestamps, customer name, etc.) that populate CSV cells",
+        "preconditions": "attacker can insert or modify job records in the database that are later exported",
+        "defenses_reviewed": "_sanitize_cell sanitizes risky leading characters before CSV output (lines 219-226)",
+        "security_impact": "none – the sanitization mitigates CSV formula injection for exported data",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-e85a40d75372fa23b32b4a81",
+            "path": "backend/app/routers/io_csv.py",
+            "start_line": 219,
+            "end_line": 226,
+            "quote": "def _sanitize_cell(v) -\u003e str:\n    \"\"\"Prevent CSV formula injection by prefixing risky values with a single quote.\"\"\"\n    if v is None:\n        return \"\"\n    s = str(v)\n    if s and s[0] in (\"=\", \"+\", \"-\", \"@\", \"\\t\", \"\\r\"):\n        return \"'\" + s\n    return s"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-ccc1e02e67b4ed8ff8bae79e",
+      "status": "supported",
+      "reason": "The import_jobs endpoint allows an authenticated dispatcher (or ops_admin) to upload a CSV that controls the `customer_name` field (attacker_control). The handler builds a map of all customers (`customers_by_name = {c.name: c for c in db.query(models.Customer).all()}`) without any tenant or role restriction, then selects the customer based on the CSV value (`customer = customers_by_name[cust_name]`). No further authorization check ensures the dispatcher is allowed to act on that customer. The only additional check is a region‑scope guard (`if user.role == models.UserRole.dispatcher: if location.region_id not in dispatcher_region_ids(db, user): …`), which limits the dispatcher to locations in regions they are assigned to but does not restrict the customer itself. Consequently a dispatcher can create jobs for any customer that has a service location in a region the dispatcher is permitted to access, bypassing intended customer‑level authorization.\n\nPreconditions: the attacker must be an authenticated user with the `dispatcher` role (or ops_admin) and be able to upload a CSV file to the endpoint.\n\nDefenses reviewed: \n- `require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)` only enforces role, not customer scope (evidence EV-33ee310cc28e520888f697de). \n- The region‑scope check (`dispatcher_region_ids`) limits the dispatcher to allowed regions but does not bind the customer to that region check (evidence EV-2c975ca85717b7dd72424215). \n- No tenant/customer‑level check exists before creating the `models.Job` (evidence EV-a91d73673d96b635ebf75d44).\n\nSecurity impact: an attacker with dispatcher privileges can create jobs on behalf of any customer (subject only to region assignment). This enables unauthorized job creation, potential billing fraud, and data injection across customer boundaries, violating confidentiality and integrity guarantees.\n\nEvidence IDs: [\"EV-a91d73673d96b635ebf75d44\", \"EV-33ee310cc28e520888f697de\", \"EV-c40052fc57594fb25f4a8353\", \"EV-2c975ca85717b7dd72424215\"]",
+      "record": {
+        "candidate_id": "CAND-ccc1e02e67b4ed8ff8bae79e",
+        "verdict": "supported",
+        "rationale": "The import_jobs endpoint allows an authenticated dispatcher (or ops_admin) to upload a CSV that controls the `customer_name` field (attacker_control). The handler builds a map of all customers (`customers_by_name = {c.name: c for c in db.query(models.Customer).all()}`) without any tenant or role restriction, then selects the customer based on the CSV value (`customer = customers_by_name[cust_name]`). No further authorization check ensures the dispatcher is allowed to act on that customer. The only additional check is a region‑scope guard (`if user.role == models.UserRole.dispatcher: if location.region_id not in dispatcher_region_ids(db, user): …`), which limits the dispatcher to locations in regions they are assigned to but does not restrict the customer itself. Consequently a dispatcher can create jobs for any customer that has a service location in a region the dispatcher is permitted to access, bypassing intended customer‑level authorization.\n\nPreconditions: the attacker must be an authenticated user with the `dispatcher` role (or ops_admin) and be able to upload a CSV file to the endpoint.\n\nDefenses reviewed: \n- `require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)` only enforces role, not customer scope (evidence EV-33ee310cc28e520888f697de). \n- The region‑scope check (`dispatcher_region_ids`) limits the dispatcher to allowed regions but does not bind the customer to that region check (evidence EV-2c975ca85717b7dd72424215). \n- No tenant/customer‑level check exists before creating the `models.Job` (evidence EV-a91d73673d96b635ebf75d44).\n\nSecurity impact: an attacker with dispatcher privileges can create jobs on behalf of any customer (subject only to region assignment). This enables unauthorized job creation, potential billing fraud, and data injection across customer boundaries, violating confidentiality and integrity guarantees.\n\nEvidence IDs: [\"EV-a91d73673d96b635ebf75d44\", \"EV-33ee310cc28e520888f697de\", \"EV-c40052fc57594fb25f4a8353\", \"EV-2c975ca85717b7dd72424215\"]",
+        "entry_point": "POST /api/io/import/jobs",
+        "attacker_control": "customer_name field in uploaded CSV (row[\"customer_name\"]). The attacker can also control location_label which selects the location used for the job.",
+        "preconditions": "Authenticated user with the dispatcher role (or ops_admin) can access the /api/io/import/jobs endpoint and upload a CSV file.",
+        "defenses_reviewed": "require_roles (role check only), dispatcher_region_ids (region‑scope check only), no customer/tenant scoping before job creation.",
+        "security_impact": "Cross‑customer job creation allows unauthorized actions, potential billing manipulation, and data leakage across customer boundaries.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-a91d73673d96b635ebf75d44",
+            "path": "backend/app/routers/io_csv.py",
+            "start_line": 120,
+            "end_line": 201,
+            "quote": "@router.post(\"/import/jobs\")\ndef import_jobs(\n    request: Request,\n    file: UploadFile = File(...),\n    db: Session = Depends(get_db),\n    user: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),\n):\n    rows = _parse_csv(file)\n    created = 0\n    errors: list[str] = []\n    customers_by_name = {c.name: c for c in db.query(models.Customer).all()}\n    service_by_code = {s.code: s for s in db.query(models.ServiceType).all()}\n    for idx, row in enumerate(rows, start=2):\n        cust_name = (row.get(\"customer_name\") or \"\").strip()\n        if cust_name not in customers_by_name:\n            errors.append(f\"row {idx}: unknown customer '{cust_name}'\")\n            continue\n        customer = customers_by_name[cust_name]\n        # location: first match by label, else first location\n        label = (row.get(\"location_label\") or \"\").strip()\n        location: Optional[models.ServiceLocation] = None\n        if label:\n            location = db.query(models.ServiceLocation).filter(\n                models.ServiceLocation.customer_id == customer.id,\n                models.ServiceLocation.label == label,\n            ).first()\n        if not location:\n            location = db.query(models.ServiceLocation).filter(models.ServiceLocation.customer_id == customer.id).first()\n        if not location:\n            errors.append(f\"row {idx}: customer '{cust_name}' has no service locations\")\n            continue\n        service_code = (row.get(\"service_type_code\") or \"\").strip()\n        if service_code not in service_by_code:\n            errors.append(f\"row {idx}: unknown service type '{service_code}'\")\n            continue\n        start_raw = (row.get(\"scheduled_start\") or \"\").strip()\n        end_raw = (row.get(\"scheduled_end\") or \"\").strip()\n        if not start_raw or not end_raw:\n            errors.append(f\"row {idx}: missing scheduled_start or scheduled_end\")\n            continue\n        try:\n            start = datetime.fromisoformat(start_raw)\n            end = datetime.fromisoformat(end_raw)\n        except Exception:\n            errors.append(f\"row {idx}: invalid scheduled_start/scheduled_end (must be ISO 8601)\")\n            continue\n        if start.tzinfo is None:\n            start = start.replace(tzinfo=timezone.utc)\n        if end.tzinfo is None:\n            end = end.replace(tzinfo=timezone.utc)\n        if end \u003c= start:\n            errors.append(f\"row {idx}: scheduled_end must be after scheduled_start\")\n            continue\n        # Dispatcher region scope\n        if user.role == models.UserRole.dispatcher:\n            if location.region_id not in dispatcher_region_ids(db, user):\n                errors.append(f\"row {idx}: region not permitted for this dispatcher\")\n                continue\n        priority_raw = (row.get(\"priority\") or \"normal\").strip()\n        try:\n            priority = models.JobPriority(priority_raw)\n        except ValueError:\n            priority = models.JobPriority.normal\n        job = models.Job(\n            code=_gen_job_code(db),\n            customer_id=customer.id,\n            location_id=location.id,\n            region_id=location.region_id,\n            service_type_id=service_by_code[service_code].id,\n            scheduled_start=start,\n            scheduled_end=end,\n            priority=priority,\n            description=(row.get(\"description\") or \"\").strip() or None,\n            customer_summary=(row.get(\"customer_summary\") or \"\").strip() or None,\n            created_by_user_id=user.id,\n            status=models.JobStatus.unassigned,\n        )\n        db.add(job)\n        created += 1\n    write_audit(db, actor=user, action=\"import.jobs\", details={\"created\": created, \"errors\": len(errors)}, ip_address=get_client_ip(request))\n    db.commit()\n    return {\"created\": created, \"errors\": errors}"
+          },
+          {
+            "evidence_id": "EV-33ee310cc28e520888f697de",
+            "path": "backend/app/deps.py",
+            "start_line": 88,
+            "end_line": 96,
+            "quote": "def require_roles(*roles: models.UserRole):\n    role_values = {r for r in roles}\n\n    def _checker(user: models.User = Depends(get_current_user)) -\u003e models.User:\n        if user.role not in role_values:\n            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=\"Insufficient privileges\")\n        return user\n\n    return _checker"
+          },
+          {
+            "evidence_id": "EV-c40052fc57594fb25f4a8353",
+            "path": "backend/app/deps.py",
+            "start_line": 105,
+            "end_line": 108,
+            "quote": "def dispatcher_region_ids(db: Session, user: models.User) -\u003e set[str]:\n    rows = db.query(models.DispatcherRegion).filter(models.DispatcherRegion.user_id == user.id).all()\n    return {r.region_id for r in rows}\n"
+          },
+          {
+            "evidence_id": "EV-2c975ca85717b7dd72424215",
+            "path": "backend/app/routers/io_csv.py",
+            "start_line": 170,
+            "end_line": 179,
+            "quote": "        if end \u003c= start:\n            errors.append(f\"row {idx}: scheduled_end must be after scheduled_start\")\n            continue\n        # Dispatcher region scope\n        if user.role == models.UserRole.dispatcher:\n            if location.region_id not in dispatcher_region_ids(db, user):\n                errors.append(f\"row {idx}: region not permitted for this dispatcher\")\n                continue\n        priority_raw = (row.get(\"priority\") or \"normal\").strip()\n        try:"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-0340bd1aaed43fafbe54469f",
+      "status": "supported",
+      "reason": "The _gen_job_code function generates a random job code, checks the database for existence, and returns it without any locking or atomic operation. Concurrent invocations can generate the same code, both see it as unused, and both return it, leading to duplicate job codes being inserted. The Job model defines the code column as unique, so duplicate insertion will cause a database integrity error, resulting in a denial‑of‑service or inconsistent state. This is a classic race condition (CWE‑367).",
+      "record": {
+        "candidate_id": "CAND-0340bd1aaed43fafbe54469f",
+        "verdict": "supported",
+        "rationale": "The _gen_job_code function generates a random job code, checks the database for existence, and returns it without any locking or atomic operation. Concurrent invocations can generate the same code, both see it as unused, and both return it, leading to duplicate job codes being inserted. The Job model defines the code column as unique, so duplicate insertion will cause a database integrity error, resulting in a denial‑of‑service or inconsistent state. This is a classic race condition (CWE‑367).",
+        "entry_point": "POST /api/jobs",
+        "attacker_control": "ability to send multiple concurrent POST requests to the job creation endpoint (create_job or import_jobs)",
+        "preconditions": "attacker can issue concurrent requests to the endpoint; the system does not serialize code generation or enforce uniqueness at generation time",
+        "defenses_reviewed": "no transaction, lock, or retry logic around _gen_job_code; uniqueness is only enforced by the database unique constraint on models.Job.code",
+        "security_impact": "duplicate job codes cause database integrity errors, leading to failed job creation (denial of service) and possible confusion in job identification, which could be exploited for further attacks",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-c5555701022e5ac9d0961438",
+            "path": "backend/app/routers/jobs.py",
+            "start_line": 28,
+            "end_line": 33,
+            "quote": "def _gen_job_code(db: Session) -\u003e str:\n    for _ in range(20):\n        code = \"JOB-\" + \"\".join(random.choices(string.ascii_uppercase + string.digits, k=8))\n        if not db.query(models.Job).filter(models.Job.code == code).first():\n            return code\n    raise RuntimeError(\"Could not generate unique job code\")"
+          },
+          {
+            "evidence_id": "EV-e7588718a360b5e63c31ccf6",
+            "path": "backend/app/models.py",
+            "start_line": 190,
+            "end_line": 194,
+            "quote": "\nclass Job(Base):\n    __tablename__ = \"jobs\"\n    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)\n    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False, index=True)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-a98bed1f76c2d216b8523e2c",
+      "status": "supported",
+      "reason": "The _gen_job_code function checks for an existing job code then returns a new random code without atomic protection. Concurrent calls to create_job can both generate the same code before either inserts it, causing a race condition where duplicate codes may be attempted. The database enforces a unique constraint, but the race can cause a unique‑constraint violation error (denial of service) or, if the DB were misconfigured, allow duplicate job codes, breaking data integrity.",
+      "record": {
+        "candidate_id": "CAND-a98bed1f76c2d216b8523e2c",
+        "verdict": "supported",
+        "rationale": "The _gen_job_code function checks for an existing job code then returns a new random code without atomic protection. Concurrent calls to create_job can both generate the same code before either inserts it, causing a race condition where duplicate codes may be attempted. The database enforces a unique constraint, but the race can cause a unique‑constraint violation error (denial of service) or, if the DB were misconfigured, allow duplicate job codes, breaking data integrity.",
+        "entry_point": "POST /api/jobs",
+        "attacker_control": "ability to invoke the create_job endpoint concurrently (multiple POST requests)",
+        "preconditions": "attacker can send multiple POST /api/jobs requests in parallel",
+        "defenses_reviewed": "unique constraint on Job.code (models.Job.code) prevents duplicates, but there is no transactional lock or atomic check‑then‑insert in create_job; _gen_job_code performs a non‑atomic existence check",
+        "security_impact": "possible denial of service via unique‑constraint violation or data integrity issues if duplicate codes were allowed",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-c5555701022e5ac9d0961438",
+            "path": "backend/app/routers/jobs.py",
+            "start_line": 28,
+            "end_line": 33,
+            "quote": "def _gen_job_code(db: Session) -\u003e str:\n    for _ in range(20):\n        code = \"JOB-\" + \"\".join(random.choices(string.ascii_uppercase + string.digits, k=8))\n        if not db.query(models.Job).filter(models.Job.code == code).first():\n            return code\n    raise RuntimeError(\"Could not generate unique job code\")"
+          },
+          {
+            "evidence_id": "EV-8aae1092542ef43bc46b3e56",
+            "path": "backend/app/routers/jobs.py",
+            "start_line": 102,
+            "end_line": 162,
+            "quote": "@router.post(\"\", status_code=201)\ndef create_job(\n    payload: schemas.JobCreate,\n    request: Request,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(get_current_user),\n):\n    if user.role not in (models.UserRole.ops_admin, models.UserRole.dispatcher):\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n\n    customer = db.query(models.Customer).filter(models.Customer.id == payload.customer_id).one_or_none()\n    if not customer:\n        raise HTTPException(status_code=400, detail=\"Invalid customer\")\n    location = db.query(models.ServiceLocation).filter(\n        models.ServiceLocation.id == payload.location_id,\n        models.ServiceLocation.customer_id == payload.customer_id,\n    ).one_or_none()\n    if not location:\n        raise HTTPException(status_code=400, detail=\"Invalid location for this customer\")\n    service_type = db.query(models.ServiceType).filter(models.ServiceType.id == payload.service_type_id).one_or_none()\n    if not service_type:\n        raise HTTPException(status_code=400, detail=\"Invalid service type\")\n    assert_dispatcher_can_access_region(db, user, location.region_id)\n\n    job = models.Job(\n        code=_gen_job_code(db),\n        customer_id=payload.customer_id,\n        location_id=payload.location_id,\n        region_id=location.region_id,\n        service_type_id=payload.service_type_id,\n        priority=payload.priority,\n        scheduled_start=payload.scheduled_start,\n        scheduled_end=payload.scheduled_end,\n        description=payload.description,\n        internal_notes=payload.internal_notes,\n        customer_summary=payload.customer_summary,\n        created_by_user_id=user.id,\n        status=models.JobStatus.unassigned,\n    )\n    if payload.assigned_worker_id:\n        worker = db.query(models.Worker).filter(models.Worker.id == payload.assigned_worker_id).one_or_none()\n        if not worker:\n            raise HTTPException(status_code=400, detail=\"Invalid worker\")\n        if worker.region_id and worker.region_id != location.region_id:\n            raise HTTPException(status_code=400, detail=\"Worker not in this region\")\n        job.assigned_worker_id = worker.id\n        job.status = models.JobStatus.assigned\n    db.add(job)\n    db.flush()\n    write_audit(db, actor=user, action=\"job.create\", target_type=\"job\", target_id=job.id, details={\"code\": job.code}, ip_address=get_client_ip(request))\n    if job.assigned_worker_id:\n        write_audit(db, actor=user, action=\"job.assign\", target_type=\"job\", target_id=job.id, details={\"worker_id\": job.assigned_worker_id}, ip_address=get_client_ip(request))\n        if job.assigned_worker and job.assigned_worker.user_id:\n            notify(db, user_id=job.assigned_worker.user_id, title=f\"New job assigned: {job.code}\", link=f\"/worker/jobs/{job.id}\")\n    if customer.user_id:\n        notify(db, user_id=customer.user_id, title=f\"Your service is scheduled: {job.code}\", link=f\"/portal/jobs/{job.id}\")\n    db.commit()\n    db.refresh(job)\n    enqueue_event(db, \"job.created\", {\"job_id\": job.id, \"code\": job.code, \"status\": job.status.value})\n    return _serialize_job(job, requester=user)\n"
+          },
+          {
+            "evidence_id": "EV-168551b9d0bad42af354e8c8",
+            "path": "backend/app/models.py",
+            "start_line": 191,
+            "end_line": 196,
+            "quote": "class Job(Base):\n    __tablename__ = \"jobs\"\n    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)\n    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False, index=True)\n    customer_id: Mapped[str] = mapped_column(String(36), ForeignKey(\"customers.id\"), nullable=False, index=True)\n    location_id: Mapped[str] = mapped_column(String(36), ForeignKey(\"service_locations.id\"), nullable=False, index=True)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-cad1dac00aecacc81bf71a9b",
+      "status": "supported",
+      "reason": "The change_status handler checks allowed transitions based on the job's current status (line 281) then later writes the new status (line 293) without any concurrency control. If two requests race, the first can read an allowed transition based on the old status, while the second updates the status in between, causing the first to set an invalid status that bypasses the allowed transition rules.",
+      "record": {
+        "candidate_id": "CAND-cad1dac00aecacc81bf71a9b",
+        "verdict": "supported",
+        "rationale": "The change_status handler checks allowed transitions based on the job's current status (line 281) then later writes the new status (line 293) without any concurrency control. If two requests race, the first can read an allowed transition based on the old status, while the second updates the status in between, causing the first to set an invalid status that bypasses the allowed transition rules.",
+        "entry_point": "POST /api/jobs/{job_id}/status",
+        "attacker_control": "job_id path parameter and payload.status field",
+        "preconditions": "Attacker must be an authenticated user who passes user_can_modify_job (e.g., a dispatcher or field worker with appropriate role)",
+        "defenses_reviewed": "role-based checks (field_worker restrictions), allowed transition map lookup, proof requirement for completion, but no locking or transactional isolation is used to prevent TOCTOU.",
+        "security_impact": "Allows an attacker to force a job into a status that should be unreachable, potentially skipping required proof steps or moving directly to completed/failed states, leading to unauthorized state changes and downstream workflow disruptions.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-24842442e3b10f8cbdf33582",
+            "path": "backend/app/routers/jobs.py",
+            "start_line": 260,
+            "end_line": 313,
+            "quote": "@router.post(\"/{job_id}/status\")\ndef change_status(\n    job_id: str,\n    payload: schemas.JobStatusChange,\n    request: Request,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(get_current_user),\n):\n    job = db.query(models.Job).filter(models.Job.id == job_id).one_or_none()\n    if not job:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    if not user_can_modify_job(db, user, job):\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n\n    # Field workers can only do operational transitions, not cancel\n    new_status = payload.status\n    if user.role == models.UserRole.field_worker and new_status == models.JobStatus.cancelled:\n        raise HTTPException(status_code=403, detail=\"Workers cannot cancel jobs\")\n    if user.role == models.UserRole.field_worker and new_status == models.JobStatus.assigned:\n        raise HTTPException(status_code=403, detail=\"Workers cannot reassign jobs\")\n\n    allowed = models.JOB_STATUS_TRANSITIONS.get(job.status, set())\n    if new_status not in allowed:\n        raise HTTPException(status_code=400, detail=f\"Invalid transition from {job.status.value} to {new_status.value}\")\n\n    # Completion requires proof when service type requires it\n    if new_status == models.JobStatus.completed:\n        if job.service_type and job.service_type.requires_proof:\n            has_proof = db.query(models.Proof).filter(models.Proof.job_id == job.id).first()\n            if not has_proof:\n                raise HTTPException(status_code=400, detail=\"Proof is required to complete this job\")\n\n    old = job.status\n    job.status = new_status\n    now = datetime.now(timezone.utc)\n    if new_status == models.JobStatus.in_progress and not job.started_at:\n        job.started_at = now\n    if new_status == models.JobStatus.completed:\n        job.completed_at = now\n    if new_status == models.JobStatus.failed:\n        job.failure_reason = payload.failure_reason or \"Failed\"\n\n    db.add(job)\n    write_audit(db, actor=user, action=\"job.status_change\", target_type=\"job\", target_id=job.id,\n                details={\"from\": old.value, \"to\": new_status.value}, ip_address=get_client_ip(request))\n\n    # Notify customer for some statuses\n    customer = job.customer\n    if customer and customer.user_id and new_status in (models.JobStatus.en_route, models.JobStatus.arrived, models.JobStatus.completed, models.JobStatus.cancelled, models.JobStatus.failed):\n        notify(db, user_id=customer.user_id, title=f\"Job {job.code} is now {new_status.value}\", link=f\"/portal/jobs/{job.id}\")\n    db.commit()\n    db.refresh(job)\n    enqueue_event(db, \"job.status_changed\", {\"job_id\": job.id, \"code\": job.code, \"from\": old.value, \"to\": new_status.value})\n    return _serialize_job(job, requester=user)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-3b234f241a5ca6af25eb9306",
+      "status": "supported",
+      "reason": "The cancel_job handler reads the job status, checks if a transition to cancelled is allowed, then later updates the status to cancelled and commits. The check and update occur in separate steps without a lock or SELECT ... FOR UPDATE, so a concurrent request could modify the job status between the check and the commit, allowing an invalid status transition (race condition). This enables an attacker with a valid job_id and appropriate role to bypass the status transition rules, potentially causing inconsistent job state or denial of service.",
+      "record": {
+        "candidate_id": "CAND-3b234f241a5ca6af25eb9306",
+        "verdict": "supported",
+        "rationale": "The cancel_job handler reads the job status, checks if a transition to cancelled is allowed, then later updates the status to cancelled and commits. The check and update occur in separate steps without a lock or SELECT ... FOR UPDATE, so a concurrent request could modify the job status between the check and the commit, allowing an invalid status transition (race condition). This enables an attacker with a valid job_id and appropriate role to bypass the status transition rules, potentially causing inconsistent job state or denial of service.",
+        "entry_point": "DELETE /{job_id}",
+        "attacker_control": "the job_id path parameter",
+        "preconditions": "an authenticated user with role dispatcher or ops_admin; for dispatcher, region access must be granted",
+        "defenses_reviewed": "role check, region access check, status transition validation (line 331), but no concurrency control such as row locking",
+        "security_impact": "allows unauthorized cancellation of jobs in disallowed states via race condition, leading to state inconsistency and possible denial of service for job processing",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-ee122fda1a712d27e81d667c",
+            "path": "backend/app/routers/jobs.py",
+            "start_line": 316,
+            "end_line": 346,
+            "quote": "@router.delete(\"/{job_id}\", status_code=204)\ndef cancel_job(\n    job_id: str,\n    request: Request,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(get_current_user),\n):\n    \"\"\"Cancel a job (soft - sets status). Only dispatchers/admins.\"\"\"\n    job = db.query(models.Job).filter(models.Job.id == job_id).one_or_none()\n    if not job:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    if user.role not in (models.UserRole.ops_admin, models.UserRole.dispatcher):\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    if user.role == models.UserRole.dispatcher:\n        assert_dispatcher_can_access_region(db, user, job.region_id)\n    if models.JobStatus.cancelled not in models.JOB_STATUS_TRANSITIONS.get(job.status, set()):\n        raise HTTPException(status_code=400, detail=f\"Cannot cancel job in status {job.status.value}\")\n    old = job.status\n    job.status = models.JobStatus.cancelled\n    db.add(job)\n    write_audit(db, actor=user, action=\"job.cancel\", target_type=\"job\", target_id=job.id, details={\"from\": old.value}, ip_address=get_client_ip(request))\n    db.commit()\n    enqueue_event(db, \"job.cancelled\", {\"job_id\": job.id, \"code\": job.code})\n    return None\n\n\n@router.get(\"/{job_id}/messages\", response_model=list[schemas.MessageOut])\ndef list_messages(\n    job_id: str,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(get_current_user),"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-dfed0e63aee8ceb2fe120fb7",
+      "status": "supported",
+      "reason": "assign_job reads the job record, checks status and permissions, then updates assigned_worker_id and status, and commits without any row-level lock or version check. Concurrent requests can both pass the status check and overwrite each other's assignment, leading to a lost update race condition (CWE-362). An attacker can trigger this by issuing rapid assign requests with different worker_id values, causing the final job assignment to be nondeterministic and potentially assigning a worker without proper authorization.",
+      "record": {
+        "candidate_id": "CAND-dfed0e63aee8ceb2fe120fb7",
+        "verdict": "supported",
+        "rationale": "assign_job reads the job record, checks status and permissions, then updates assigned_worker_id and status, and commits without any row-level lock or version check. Concurrent requests can both pass the status check and overwrite each other's assignment, leading to a lost update race condition (CWE-362). An attacker can trigger this by issuing rapid assign requests with different worker_id values, causing the final job assignment to be nondeterministic and potentially assigning a worker without proper authorization.",
+        "entry_point": "POST /api/jobs/{job_id}/assign",
+        "attacker_control": "job_id path parameter and payload.worker_id in request body",
+        "preconditions": "authenticated user with role ops_admin or dispatcher",
+        "defenses_reviewed": "role check (lines 228-230), dispatcher region check (line 231), job status check (line 232) but no concurrency control (no SELECT FOR UPDATE, no version check)",
+        "security_impact": "lost update race allows attacker to manipulate job assignment, potentially assigning unauthorized workers or causing inconsistent job state",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-c7365a44bd0524120f33e20b",
+            "path": "backend/app/routers/jobs.py",
+            "start_line": 217,
+            "end_line": 257,
+            "quote": "@router.post(\"/{job_id}/assign\")\ndef assign_job(\n    job_id: str,\n    payload: schemas.JobAssign,\n    request: Request,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(get_current_user),\n):\n    job = db.query(models.Job).filter(models.Job.id == job_id).one_or_none()\n    if not job:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    if user.role not in (models.UserRole.ops_admin, models.UserRole.dispatcher):\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    if user.role == models.UserRole.dispatcher:\n        assert_dispatcher_can_access_region(db, user, job.region_id)\n    if job.status in (models.JobStatus.completed, models.JobStatus.cancelled):\n        raise HTTPException(status_code=400, detail=\"Cannot reassign a closed job\")\n\n    old_worker_id = job.assigned_worker_id\n    if payload.worker_id is None:\n        job.assigned_worker_id = None\n        if job.status in (models.JobStatus.assigned, models.JobStatus.en_route, models.JobStatus.arrived):\n            job.status = models.JobStatus.unassigned\n    else:\n        worker = db.query(models.Worker).filter(models.Worker.id == payload.worker_id).one_or_none()\n        if not worker:\n            raise HTTPException(status_code=400, detail=\"Invalid worker\")\n        if worker.region_id and worker.region_id != job.region_id:\n            raise HTTPException(status_code=400, detail=\"Worker not in this region\")\n        job.assigned_worker_id = worker.id\n        if job.status == models.JobStatus.unassigned or job.status == models.JobStatus.failed:\n            job.status = models.JobStatus.assigned\n    db.add(job)\n    write_audit(db, actor=user, action=\"job.assign\", target_type=\"job\", target_id=job.id,\n                details={\"from\": old_worker_id, \"to\": job.assigned_worker_id}, ip_address=get_client_ip(request))\n    if job.assigned_worker_id and job.assigned_worker and job.assigned_worker.user_id:\n        notify(db, user_id=job.assigned_worker.user_id, title=f\"Job assigned to you: {job.code}\", link=f\"/worker/jobs/{job.id}\")\n    db.commit()\n    db.refresh(job)\n    enqueue_event(db, \"job.assigned\", {\"job_id\": job.id, \"code\": job.code, \"worker_id\": job.assigned_worker_id})\n    return _serialize_job(job, requester=user)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-b8c215fc94c93581db03b67a",
+      "status": "supported",
+      "reason": "The handler dispatch_formula_cast_254 directly evals the user-controlled query parameter 'expr' with eval(). Although builtins are cleared, the locals dict provides objects that can be leveraged to access Python internals, enabling arbitrary code execution. An attacker who can supply a crafted expression (e.g., \"(__import__('os')).system('id')\") can execute OS commands, leading to server compromise.",
+      "record": {
+        "candidate_id": "CAND-b8c215fc94c93581db03b67a",
+        "verdict": "supported",
+        "rationale": "The handler dispatch_formula_cast_254 directly evals the user-controlled query parameter 'expr' with eval(). Although builtins are cleared, the locals dict provides objects that can be leveraged to access Python internals, enabling arbitrary code execution. An attacker who can supply a crafted expression (e.g., \"(__import__('os')).system('id')\") can execute OS commands, leading to server compromise.",
+        "entry_point": "GET /ops/formula/dispatch-cast-254",
+        "attacker_control": "the 'expr' query parameter supplied by the client",
+        "preconditions": "the request must include a valid internal token header 'x-internal-token' matching the INTERNAL_OPS_TOKEN environment variable (required by _wrk_gate)",
+        "defenses_reviewed": "the _wrk_gate token check restricts access; eval is called with empty __builtins__ but locals expose 'amount' and 'fee' allowing expression evaluation, which is insufficient to prevent code execution",
+        "security_impact": "arbitrary code execution on the server, potentially leading to full system compromise, data theft, or denial of service",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-1593e7c81059636cfeb57c2a",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 74,
+            "end_line": 77,
+            "quote": "@router.get(\"/formula/dispatch-cast-254\")\nasync def dispatch_formula_cast_254(expr: str = \"amount + fee\", gate_ref: None = Depends(_wrk_gate)):\n    result = eval(expr, {\"__builtins__\": {}}, {\"amount\": 42, \"fee\": 7})\n    return {\"result\": result}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-8cee3de4b08cf2ed7912ade5",
+      "status": "rejected",
+      "reason": "Although the handler renders a Jinja2 template with user-controlled fragment, the route is protected by the _wrk_gate dependency that requires a secret internal token. Without this token an attacker cannot reach the code, so the SSTI is not exploitable by external attackers.",
+      "record": {
+        "candidate_id": "CAND-8cee3de4b08cf2ed7912ade5",
+        "verdict": "rejected",
+        "rationale": "Although the handler renders a Jinja2 template with user-controlled fragment, the route is protected by the _wrk_gate dependency that requires a secret internal token. Without this token an attacker cannot reach the code, so the SSTI is not exploitable by external attackers.",
+        "entry_point": "GET /ops/jinja/dispatch-cast-380",
+        "attacker_control": "fragment query parameter (user-supplied via URL)",
+        "preconditions": "attacker must possess a valid INTERNAL_OPS_TOKEN and send it in the x-internal-token header, which is not available to external users",
+        "defenses_reviewed": "_wrk_gate dependency validates an internal token header before allowing access",
+        "security_impact": "No impact for unauthenticated external attackers; internal token holders already have sufficient privileges",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-b2bd91ff77e2e3b3b8af3276",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 107,
+            "end_line": 111,
+            "quote": "@router.get(\"/jinja/dispatch-cast-380\")\nasync def dispatch_jinja_cast_380(fragment: str = \"{{ 7 * 7 }}\", gate_ref: None = Depends(_wrk_gate)):\n    from jinja2 import Template\n    body = Template(\"Result: \" + fragment).render()\n    return HTMLResponse(body)"
+          },
+          {
+            "evidence_id": "EV-5ce1802433c923341c9ca008",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 16,
+            "end_line": 19,
+            "quote": "def _wrk_gate(request: Request) -\u003e None:\n    gate_value = os.environ.get(\"INTERNAL_OPS_TOKEN\")\n    if not gate_value or request.headers.get(\"x-internal-token\") != gate_value:\n        raise HTTPException(status_code=403, detail=\"forbidden\")"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-6ca63140aabf043e10bcf5fd",
+      "status": "supported",
+      "reason": "The 'name' query parameter is attacker-controlled and is concatenated with BASE_EXPORT_DIR using pathlib's '/' operator without validation, enabling path traversal. The handler writes the request body to the resulting path via target.write_bytes(body), allowing arbitrary file write on the server filesystem.",
+      "record": {
+        "candidate_id": "CAND-6ca63140aabf043e10bcf5fd",
+        "verdict": "supported",
+        "rationale": "The 'name' query parameter is attacker-controlled and is concatenated with BASE_EXPORT_DIR using pathlib's '/' operator without validation, enabling path traversal. The handler writes the request body to the resulting path via target.write_bytes(body), allowing arbitrary file write on the server filesystem.",
+        "entry_point": "POST /ops/dock/dispatch-shelf-393",
+        "attacker_control": "the 'name' query parameter controls the file path",
+        "preconditions": "attacker can send a POST request with a chosen 'name' value and arbitrary request body",
+        "defenses_reviewed": "none; the code does not validate or sanitize the 'name' parameter before using it as a file path",
+        "security_impact": "path traversal leading to arbitrary file write, which can be used to overwrite critical files, place malicious scripts, or achieve further server compromise",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-89f364ace33fc55f452433c3",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 113,
+            "end_line": 119,
+            "quote": "@router.post(\"/dock/dispatch-shelf-393\")\nasync def dispatch_dock_shelf_393(request: Request, name: str = \"packet.bin\", gate_ref: None = Depends(_wrk_gate)):\n    body = await request.body()\n    target = BASE_EXPORT_DIR / name\n    target.parent.mkdir(parents=True, exist_ok=True)\n    target.write_bytes(body)\n    return {\"stored\": str(target), \"bytes\": len(body)}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-325da680b4c928e2a853a4d7",
+      "status": "supported",
+      "reason": "The handler reads attacker-controlled data from the request body or the \"blob\" query parameter, optionally base64-decodes it, and then deserializes it with pickle.loads without any validation. An attacker who can supply a crafted pickle payload can achieve arbitrary code execution on the server. The only precondition is possession of the internal token required by _wrk_gate, which is the only access control enforced for this route.",
+      "record": {
+        "candidate_id": "CAND-325da680b4c928e2a853a4d7",
+        "verdict": "supported",
+        "rationale": "The handler reads attacker-controlled data from the request body or the \"blob\" query parameter, optionally base64-decodes it, and then deserializes it with pickle.loads without any validation. An attacker who can supply a crafted pickle payload can achieve arbitrary code execution on the server. The only precondition is possession of the internal token required by _wrk_gate, which is the only access control enforced for this route.",
+        "entry_point": "POST /ops/bundle/dispatch-thaw-172",
+        "attacker_control": "request body and query parameter \"blob\" (both attacker-controlled)",
+        "preconditions": "Attacker must provide a valid internal token in the \"x-internal-token\" header (as required by _wrk_gate).",
+        "defenses_reviewed": "Authentication gate _wrk_gate checks the internal token header; no additional input validation or deserialization safeguards are present.",
+        "security_impact": "Remote code execution on the server, leading to full compromise of the application and underlying host.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-eb08fdf1ae3a96601224ebc8",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 50,
+            "end_line": 62,
+            "quote": "@router.post(\"/bundle/dispatch-thaw-172\")\nasync def dispatch_bundle_thaw_172(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    import base64\n    import pickle\n    raw = await request.body()\n    if not raw:\n        raw = request.query_params.get(\"blob\", \"\").encode(\"utf-8\")\n    if request.query_params.get(\"wrap\") == \"b64\":\n        raw = base64.b64decode(raw)\n    if not raw:\n        raw = b\"\\x80\\x04}q\\x00.\"\n    bundle = pickle.loads(raw)\n    return {\"bundle\": repr(bundle)[:200]}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-93e1f28f97ca78cc0e0af8d7",
+      "status": "supported",
+      "reason": "The handler parses XML from the request body using lxml.etree.XMLParser with load_dtd=True and resolve_entities=True, allowing external entity expansion. An attacker can supply crafted XML with an external entity referencing file:// or http:// resources, leading to XXE attacks (file disclosure, SSRF). No input validation or parser hardening is performed.",
+      "record": {
+        "candidate_id": "CAND-93e1f28f97ca78cc0e0af8d7",
+        "verdict": "supported",
+        "rationale": "The handler parses XML from the request body using lxml.etree.XMLParser with load_dtd=True and resolve_entities=True, allowing external entity expansion. An attacker can supply crafted XML with an external entity referencing file:// or http:// resources, leading to XXE attacks (file disclosure, SSRF). No input validation or parser hardening is performed.",
+        "entry_point": "POST /ops/xml/dispatch-fold-450",
+        "attacker_control": "the raw request body (XML payload) supplied to the endpoint",
+        "preconditions": "the request reaches the handler (no additional authentication required beyond any gate checks)",
+        "defenses_reviewed": "none; the only dependency is _wrk_gate which does not sanitize XML input",
+        "security_impact": "potential arbitrary file read, server-side request forgery, or denial of service via crafted XML",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-8160c55d09a9cee2c346f923",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 155,
+            "end_line": 160,
+            "quote": "@router.post(\"/xml/dispatch-fold-450\")\nasync def dispatch_xml_fold_450(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from lxml import etree\n    parser = etree.XMLParser(load_dtd=True, resolve_entities=True, no_network=False)\n    doc = etree.fromstring(await request.body(), parser)\n    return {\"root\": doc.tag}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-3d39d7181c05e7a32a92c86c",
+      "status": "supported",
+      "reason": "The GET /ops/after/dispatch-afterlane-021 handler redirects to the URL supplied via the 'lane' query parameter without any validation, resulting in an open redirect. An attacker who can provide a malicious URL can cause victims to be redirected to arbitrary sites.",
+      "record": {
+        "candidate_id": "CAND-3d39d7181c05e7a32a92c86c",
+        "verdict": "supported",
+        "rationale": "The GET /ops/after/dispatch-afterlane-021 handler redirects to the URL supplied via the 'lane' query parameter without any validation, resulting in an open redirect. An attacker who can provide a malicious URL can cause victims to be redirected to arbitrary sites.",
+        "entry_point": "GET /ops/after/dispatch-afterlane-021",
+        "attacker_control": "the 'lane' query parameter controls the redirect target URL",
+        "preconditions": "the attacker must supply a valid internal token in the 'x-internal-token' header to pass the _wrk_gate dependency",
+        "defenses_reviewed": "the _wrk_gate function validates the internal token (lines 16-20) but provides no validation of the redirect URL",
+        "security_impact": "open redirect can be used for phishing, credential harvesting, or bypassing security controls by redirecting users to malicious sites",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-d89ce586d7c1efffb8f17215",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 37,
+            "end_line": 39,
+            "quote": "@router.get(\"/after/dispatch-afterlane-021\")\nasync def dispatch_afterlane_021(lane: str = \"/\", gate_ref: None = Depends(_wrk_gate)):\n    return RedirectResponse(lane)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-d84eb9d03ffc3699472a7371",
+      "status": "supported",
+      "reason": "The handler dispatch_blurb_tile_320 renders the user-controlled 'card' query parameter using a Jinja template with the |safe filter, which disables auto-escaping. The rendered string is returned directly in an HTMLResponse, allowing an attacker to inject arbitrary HTML/JavaScript that will be executed in the victim's browser (reflected XSS). No input validation or sanitization is performed.",
+      "record": {
+        "candidate_id": "CAND-d84eb9d03ffc3699472a7371",
+        "verdict": "supported",
+        "rationale": "The handler dispatch_blurb_tile_320 renders the user-controlled 'card' query parameter using a Jinja template with the |safe filter, which disables auto-escaping. The rendered string is returned directly in an HTMLResponse, allowing an attacker to inject arbitrary HTML/JavaScript that will be executed in the victim's browser (reflected XSS). No input validation or sanitization is performed.",
+        "entry_point": "GET /ops/blurb/dispatch-tile-320",
+        "attacker_control": "card query parameter",
+        "preconditions": "any attacker can send a request to the endpoint (no authentication or authorization required)",
+        "defenses_reviewed": "none – the code uses the |safe filter, which explicitly disables escaping, and there is no validation or sanitization of the 'card' value",
+        "security_impact": "reflected cross-site scripting (CWE-79) enabling arbitrary script execution in the context of the victim's browser, leading to session hijacking, credential theft, or other malicious actions",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-4c471790e59dbe852d35941f",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 84,
+            "end_line": 88,
+            "quote": "@router.get(\"/blurb/dispatch-tile-320\")\nasync def dispatch_blurb_tile_320(card: str = \"\u003cb\u003epending\u003c/b\u003e\", gate_ref: None = Depends(_wrk_gate)):\n    from jinja2 import Template\n    body = Template(\"{{ card|safe }}\").render(card=card)\n    return HTMLResponse(body)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-14843f01434010be67e1248d",
+      "status": "supported",
+      "reason": "dispatch_bundle_thaw_172 reads attacker-controlled data from the request body or the 'blob' query parameter, optionally base64‑decodes it, and then passes it directly to pickle.loads without any validation. pickle.loads can execute arbitrary code during deserialization, giving the attacker remote code execution on the server. The only protection is the internal gate checking x‑internal‑token, which an attacker with a valid token can bypass.",
+      "record": {
+        "candidate_id": "CAND-14843f01434010be67e1248d",
+        "verdict": "supported",
+        "rationale": "dispatch_bundle_thaw_172 reads attacker-controlled data from the request body or the 'blob' query parameter, optionally base64‑decodes it, and then passes it directly to pickle.loads without any validation. pickle.loads can execute arbitrary code during deserialization, giving the attacker remote code execution on the server. The only protection is the internal gate checking x‑internal‑token, which an attacker with a valid token can bypass.",
+        "entry_point": "POST /ops/bundle/dispatch-thaw-172",
+        "attacker_control": "the raw request body, or the 'blob' query parameter (and optional 'wrap' flag) supplied by the client",
+        "preconditions": "the client must provide a valid x-internal-token header matching the INTERNAL_OPS_TOKEN environment variable (gate passes)",
+        "defenses_reviewed": "only the internal gate (x-internal-token) is enforced; there is no validation or safe deserialization of the pickle payload",
+        "security_impact": "arbitrary code execution / full server compromise via unsafe pickle deserialization",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-eb08fdf1ae3a96601224ebc8",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 50,
+            "end_line": 62,
+            "quote": "@router.post(\"/bundle/dispatch-thaw-172\")\nasync def dispatch_bundle_thaw_172(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    import base64\n    import pickle\n    raw = await request.body()\n    if not raw:\n        raw = request.query_params.get(\"blob\", \"\").encode(\"utf-8\")\n    if request.query_params.get(\"wrap\") == \"b64\":\n        raw = base64.b64decode(raw)\n    if not raw:\n        raw = b\"\\x80\\x04}q\\x00.\"\n    bundle = pickle.loads(raw)\n    return {\"bundle\": repr(bundle)[:200]}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-841f302ddfed56d8f3e2fa2e",
+      "status": "supported",
+      "reason": "The handler dispatch_spool_fan_304 builds a list of size 'count' without any upper bound or validation. An attacker can supply an arbitrarily large count via the query parameter, causing unbounded memory allocation and CPU usage, leading to a denial‑of‑service.",
+      "record": {
+        "candidate_id": "CAND-841f302ddfed56d8f3e2fa2e",
+        "verdict": "supported",
+        "rationale": "The handler dispatch_spool_fan_304 builds a list of size 'count' without any upper bound or validation. An attacker can supply an arbitrarily large count via the query parameter, causing unbounded memory allocation and CPU usage, leading to a denial‑of‑service.",
+        "entry_point": "GET /ops/spool/dispatch-fan-304",
+        "attacker_control": "the 'count' query parameter controls the size of the allocated list",
+        "preconditions": "attacker can send a GET request to the endpoint (no authentication or authorization checks)",
+        "defenses_reviewed": "the only guard is the _wrk_gate dependency, which does not validate or limit the 'count' parameter; there is no explicit input validation or limit on count",
+        "security_impact": "potential memory exhaustion and CPU overload causing denial‑of‑service for the service and possibly the host",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-4720f83b827bc15a100bbf5b",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 79,
+            "end_line": 82,
+            "quote": "@router.get(\"/spool/dispatch-fan-304\")\nasync def dispatch_spool_fan_304(count: int = 500, ref: str = \"batch\", gate_ref: None = Depends(_wrk_gate)):\n    rows = [{\"idx\": idx, \"ref\": ref} for idx in range(count)]\n    return {\"rows\": rows}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-61b315f0806108e7bb65a11e",
+      "status": "supported",
+      "reason": "The handler dispatch_afterlane_021 returns a RedirectResponse using the attacker-controlled 'lane' query parameter without any validation, resulting in an open redirect (CWE-601). An attacker can supply an arbitrary URL, causing the server to redirect victims to malicious sites.",
+      "record": {
+        "candidate_id": "CAND-61b315f0806108e7bb65a11e",
+        "verdict": "supported",
+        "rationale": "The handler dispatch_afterlane_021 returns a RedirectResponse using the attacker-controlled 'lane' query parameter without any validation, resulting in an open redirect (CWE-601). An attacker can supply an arbitrary URL, causing the server to redirect victims to malicious sites.",
+        "entry_point": "GET /ops/after/dispatch-afterlane-021",
+        "attacker_control": "lane query parameter",
+        "preconditions": "Any request to the endpoint (no authentication required)",
+        "defenses_reviewed": "No validation or allowlist is performed on the lane parameter; the only dependency is _wrk_gate which does not affect the redirect target",
+        "security_impact": "Allows phishing and malicious redirection attacks, potentially facilitating credential theft or drive-by downloads.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-e95028539a9cd57cf841a142",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 36,
+            "end_line": 40,
+            "quote": "\n@router.get(\"/after/dispatch-afterlane-021\")\nasync def dispatch_afterlane_021(lane: str = \"/\", gate_ref: None = Depends(_wrk_gate)):\n    return RedirectResponse(lane)\n"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-45db64d73c13adacb14a7e01",
+      "status": "supported",
+      "reason": "The handler dispatch_blurb_tile_320 renders the attacker-controlled 'card' query parameter into an HTML response using Jinja2's safe filter, which disables escaping. This allows injection of arbitrary HTML/JS, resulting in reflected XSS.",
+      "record": {
+        "candidate_id": "CAND-45db64d73c13adacb14a7e01",
+        "verdict": "supported",
+        "rationale": "The handler dispatch_blurb_tile_320 renders the attacker-controlled 'card' query parameter into an HTML response using Jinja2's safe filter, which disables escaping. This allows injection of arbitrary HTML/JS, resulting in reflected XSS.",
+        "entry_point": "GET /ops/blurb/dispatch-tile-320",
+        "attacker_control": "card query parameter",
+        "preconditions": "none (any unauthenticated GET request can supply the 'card' parameter)",
+        "defenses_reviewed": "none – the handler does not perform any sanitization or validation of 'card' before rendering with safe filter",
+        "security_impact": "reflected cross-site scripting (XSS) enabling arbitrary script execution in the victim's browser, leading to credential theft, session hijacking, or other malicious actions",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-4c471790e59dbe852d35941f",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 84,
+            "end_line": 88,
+            "quote": "@router.get(\"/blurb/dispatch-tile-320\")\nasync def dispatch_blurb_tile_320(card: str = \"\u003cb\u003epending\u003c/b\u003e\", gate_ref: None = Depends(_wrk_gate)):\n    from jinja2 import Template\n    body = Template(\"{{ card|safe }}\").render(card=card)\n    return HTMLResponse(body)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-f6edc1f3d0a374dd878ef752",
+      "status": "unresolved",
+      "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 1 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-f6edc1f3d0a374dd878ef752: class-specific evidence refutes exploitability for this weakness class",
+      "record": null
+    },
+    {
+      "candidate_id": "CAND-8821cbcfedd55698a1bff507",
+      "status": "supported",
+      "reason": "dispatch_xml_fold_450 parses the raw request body as XML using lxml.etree.XMLParser with load_dtd=True, resolve_entities=True, and no_network=False, allowing external DTDs and entity expansion. An attacker controls the request body, enabling XML External Entity (XXE) attacks that can read arbitrary files, perform SSRF, or cause DoS. No validation or mitigation is applied before parsing.",
+      "record": {
+        "candidate_id": "CAND-8821cbcfedd55698a1bff507",
+        "verdict": "supported",
+        "rationale": "dispatch_xml_fold_450 parses the raw request body as XML using lxml.etree.XMLParser with load_dtd=True, resolve_entities=True, and no_network=False, allowing external DTDs and entity expansion. An attacker controls the request body, enabling XML External Entity (XXE) attacks that can read arbitrary files, perform SSRF, or cause DoS. No validation or mitigation is applied before parsing.",
+        "entry_point": "POST /ops/xml/dispatch-fold-450",
+        "attacker_control": "the HTTP request body containing attacker-controlled XML",
+        "preconditions": "an attacker can send a POST request to /ops/xml/dispatch-fold-450 with a crafted XML payload",
+        "defenses_reviewed": "none; the parser is configured to allow external DTD loading and entity resolution, and no sanitization or safe parser settings are applied",
+        "security_impact": "XXE can lead to server-side request forgery, file disclosure, data exfiltration, or denial of service on the server",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-933c7659367a37c4394f2a42",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 140,
+            "end_line": 161,
+            "quote": "    response.headers[\"Content-Security-Policy\"] = \"\"\n    return response\n\n@router.get(\"/badge/dispatch-gate-435\")\nasync def dispatch_badge_gate_435(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    badge = request.cookies.get(\"ops_badge\") or request.headers.get(\"x-ops-badge\", \"\")\n    if badge == \"lead\":\n        return {\"lane\": \"elevated\", \"payroll\": \"full\", \"casework\": \"open\"}\n    return {\"lane\": \"standard\"}\n\n@router.get(\"/trace/dispatch-panel-445\")\nasync def dispatch_trace_panel_445(gate_ref: None = Depends(_wrk_gate)):\n    trace_on = True\n    return {\"trace\": trace_on, \"module\": os.environ.get(\"APP_ENV\"), \"base\": str(BASE_EXPORT_DIR)}\n\n@router.post(\"/xml/dispatch-fold-450\")\nasync def dispatch_xml_fold_450(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from lxml import etree\n    parser = etree.XMLParser(load_dtd=True, resolve_entities=True, no_network=False)\n    doc = etree.fromstring(await request.body(), parser)\n    return {\"root\": doc.tag}\n"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-23e4c3c69bf233dd3180781a",
+      "status": "rejected",
+      "reason": "The handler generates a random string using Python's non‑cryptographic random module, but the value is merely returned to the caller and never used for authentication, CSRF protection, or any other security mechanism. Consequently, predictability of the random generator does not lead to a security breach.",
+      "record": {
+        "candidate_id": "CAND-23e4c3c69bf233dd3180781a",
+        "verdict": "rejected",
+        "rationale": "The handler generates a random string using Python's non‑cryptographic random module, but the value is merely returned to the caller and never used for authentication, CSRF protection, or any other security mechanism. Consequently, predictability of the random generator does not lead to a security breach.",
+        "entry_point": "GET /ops/nonce/dispatch-roll-405",
+        "attacker_control": "the 'length' query parameter controls the size of the generated code; however the generated code is not used for any security-sensitive purpose",
+        "preconditions": "possession of a valid x-internal-token header to pass the _wrk_gate dependency; ability to invoke the endpoint",
+        "defenses_reviewed": "_wrk_gate enforces internal token check (lines 16‑19); the endpoint returns the generated code directly without any further processing",
+        "security_impact": "none – the generated code is not used to protect resources or authenticate actions, so its predictability has no security impact",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-d72289dca68fedeadb696e25",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 121,
+            "end_line": 126,
+            "quote": "@router.get(\"/nonce/dispatch-roll-405\")\nasync def dispatch_nonce_roll_405(length: int = 24, gate_ref: None = Depends(_wrk_gate)):\n    import random\n    alphabet = \"abcdefghijklmnopqrstuvwxyz0123456789\"\n    code = \"\".join(random.choice(alphabet) for _ in range(length))\n    return {\"code\": code}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-361238fae39851f0422bee55",
+      "status": "unresolved",
+      "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget",
+      "record": null
+    },
+    {
+      "candidate_id": "CAND-221c3bf8b2684becd7aeb590",
+      "status": "unresolved",
+      "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget",
+      "record": null
+    },
+    {
+      "candidate_id": "CAND-818a17d75bc2d424496ce2fe",
+      "status": "supported",
+      "reason": "The handler dispatch_bundle_thaw_172 directly deserializes attacker-controlled data using pickle.loads without validation, enabling remote code execution. An attacker who can provide a request body or the 'blob' query parameter (optionally base64‑encoded via 'wrap=b64') controls the raw bytes passed to pickle.loads. The internal gate only checks a secret header, which if obtained grants access.",
+      "record": {
+        "candidate_id": "CAND-818a17d75bc2d424496ce2fe",
+        "verdict": "supported",
+        "rationale": "The handler dispatch_bundle_thaw_172 directly deserializes attacker-controlled data using pickle.loads without validation, enabling remote code execution. An attacker who can provide a request body or the 'blob' query parameter (optionally base64‑encoded via 'wrap=b64') controls the raw bytes passed to pickle.loads. The internal gate only checks a secret header, which if obtained grants access.",
+        "entry_point": "POST /ops/bundle/dispatch-thaw-172",
+        "attacker_control": "request body or query parameter 'blob' (and 'wrap' for base64), which become the raw bytes fed to pickle.loads",
+        "preconditions": "possession of a valid INTERNAL_OPS_TOKEN header to pass the _wrk_gate check",
+        "defenses_reviewed": "_wrk_gate header check only restricts access; no sanitisation of the pickle payload",
+        "security_impact": "Remote code execution on the server process via malicious pickle payload",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-eb08fdf1ae3a96601224ebc8",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 50,
+            "end_line": 62,
+            "quote": "@router.post(\"/bundle/dispatch-thaw-172\")\nasync def dispatch_bundle_thaw_172(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    import base64\n    import pickle\n    raw = await request.body()\n    if not raw:\n        raw = request.query_params.get(\"blob\", \"\").encode(\"utf-8\")\n    if request.query_params.get(\"wrap\") == \"b64\":\n        raw = base64.b64decode(raw)\n    if not raw:\n        raw = b\"\\x80\\x04}q\\x00.\"\n    bundle = pickle.loads(raw)\n    return {\"bundle\": repr(bundle)[:200]}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-d3cf97a13474e6e7c30d34ec",
+      "status": "supported",
+      "reason": "The Settings class defines a hardcoded secret_key default (\"dev-secret-do-not-use-in-production-this-is-long-enough\") which is used by security.hash_token to compute HMAC for session and API‑key tokens. Because the secret is embedded in source code, an attacker who can read the code (or who knows the default) can compute valid HMACs for arbitrary token values, allowing forgery of authentication tokens if the deployment does not override the secret via an .env file. This constitutes a hard‑coded secret vulnerability (CWE‑321) giving the attacker the ability to impersonate any user.\n\nPreconditions: the deployment relies on the default Settings (no .env overriding secret_key) or the source code is publicly visible, revealing the secret. The attacker can supply a raw token via the session cookie or X‑API‑Key header.\n\nDefenses Reviewed: the only mitigation is to provide a secret via environment variable; no runtime checks enforce this, so the default remains a risk.\n\nSecurity Impact: attacker‑controlled token forgery leading to session hijacking or unauthorized API access.\n",
+      "record": {
+        "candidate_id": "CAND-d3cf97a13474e6e7c30d34ec",
+        "verdict": "supported",
+        "rationale": "The Settings class defines a hardcoded secret_key default (\"dev-secret-do-not-use-in-production-this-is-long-enough\") which is used by security.hash_token to compute HMAC for session and API‑key tokens. Because the secret is embedded in source code, an attacker who can read the code (or who knows the default) can compute valid HMACs for arbitrary token values, allowing forgery of authentication tokens if the deployment does not override the secret via an .env file. This constitutes a hard‑coded secret vulnerability (CWE‑321) giving the attacker the ability to impersonate any user.\n\nPreconditions: the deployment relies on the default Settings (no .env overriding secret_key) or the source code is publicly visible, revealing the secret. The attacker can supply a raw token via the session cookie or X‑API‑Key header.\n\nDefenses Reviewed: the only mitigation is to provide a secret via environment variable; no runtime checks enforce this, so the default remains a risk.\n\nSecurity Impact: attacker‑controlled token forgery leading to session hijacking or unauthorized API access.\n",
+        "entry_point": "POST /api/jobs/{job_id}/proofs",
+        "attacker_control": "raw token supplied via session cookie or X‑API‑Key header (attacker‑chosen) which is hashed with the hardcoded secret",
+        "preconditions": "deployment uses default Settings.secret_key (no .env override) or attacker knows the hardcoded secret from source code",
+        "defenses_reviewed": "no runtime enforcement; reliance on environment variable override only",
+        "security_impact": "authentication token forgery enables impersonation and unauthorized actions",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-a5060a94c3a74115f2a88df8",
+            "path": "backend/app/config.py",
+            "start_line": 5,
+            "end_line": 25,
+            "quote": "class Settings(BaseSettings):\n    model_config = SettingsConfigDict(env_file=\".env\", env_file_encoding=\"utf-8\", extra=\"ignore\")\n\n    database_url: str = \"postgresql+psycopg2://dispatch:dispatch@localhost:5432/dispatch\"\n    secret_key: str = \"dev-secret-do-not-use-in-production-this-is-long-enough\"\n    upload_dir: str = \"./uploads\"\n    max_upload_size_mb: int = 10\n    session_lifetime_minutes: int = 720\n    cookie_secure: bool = False\n    cookie_domain: str = \"\"\n    allowed_origins: str = \"http://localhost:5173\"\n\n    @property\n    def upload_path(self) -\u003e Path:\n        p = Path(self.upload_dir).resolve()\n        p.mkdir(parents=True, exist_ok=True)\n        return p\n\n    @property\n    def cors_origins(self) -\u003e list[str]:\n        return [o.strip() for o in self.allowed_origins.split(\",\") if o.strip()]"
+          },
+          {
+            "evidence_id": "EV-36788932352eac8d288ef0a8",
+            "path": "backend/app/security.py",
+            "start_line": 36,
+            "end_line": 40,
+            "quote": "def hash_token(token: str) -\u003e str:\n    \"\"\"Hash a token with HMAC-SHA256 using the app secret as the key.\n    Tokens are random and high-entropy, so HMAC-SHA256 is sufficient and constant-time.\n    \"\"\"\n    return hmac.new(settings.secret_key.encode(\"utf-8\"), token.encode(\"utf-8\"), hashlib.sha256).hexdigest()"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-e86f9330a718efb2e881919b",
+      "status": "supported",
+      "reason": "The handler reads the Job record, checks proof requirement and allowed transitions, then updates the status and commits. There is no atomic check‑and‑set or row‑level lock (e.g., SELECT ... FOR UPDATE). Concurrent requests can interleave: one request may pass the proof check (line 68‑72) while another concurrently adds a proof, allowing the first to commit a completed status without a proof, or two status updates can overwrite each other, violating the defined state machine. This constitutes a classic race condition on shared mutable state (CWE‑362).",
+      "record": {
+        "candidate_id": "CAND-e86f9330a718efb2e881919b",
+        "verdict": "supported",
+        "rationale": "The handler reads the Job record, checks proof requirement and allowed transitions, then updates the status and commits. There is no atomic check‑and‑set or row‑level lock (e.g., SELECT ... FOR UPDATE). Concurrent requests can interleave: one request may pass the proof check (line 68‑72) while another concurrently adds a proof, allowing the first to commit a completed status without a proof, or two status updates can overwrite each other, violating the defined state machine. This constitutes a classic race condition on shared mutable state (CWE‑362).",
+        "entry_point": "POST /jobs/{job_id}/status",
+        "attacker_control": "job_id path parameter and payload.status (and optional payload.failure_reason)",
+        "preconditions": "Authenticated user with permission to modify the job (user_can_modify_job returns true).",
+        "defenses_reviewed": "Authorization via user_can_modify_job (line 63) and transition validation (lines 65‑67). No concurrency control is present.",
+        "security_impact": "Allows bypass of proof requirement and inconsistent job state, potentially leading to unauthorized completion of jobs or loss of audit integrity.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-298f01bc20fc21bc2dc0755a",
+            "path": "backend/app/routers/public_api.py",
+            "start_line": 52,
+            "end_line": 86,
+            "quote": "@router.post(\"/jobs/{job_id}/status\")\ndef api_update_status(\n    job_id: str,\n    payload: schemas.JobStatusChange,\n    request: Request,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(get_current_user),\n):\n    job = db.query(models.Job).filter(models.Job.id == job_id).one_or_none()\n    if not job:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    if not user_can_modify_job(db, user, job):\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    allowed = models.JOB_STATUS_TRANSITIONS.get(job.status, set())\n    if payload.status not in allowed:\n        raise HTTPException(status_code=400, detail=f\"Invalid transition from {job.status.value} to {payload.status.value}\")\n    if payload.status == models.JobStatus.completed:\n        if job.service_type and job.service_type.requires_proof:\n            has_proof = db.query(models.Proof).filter(models.Proof.job_id == job.id).first()\n            if not has_proof:\n                raise HTTPException(status_code=400, detail=\"Proof required\")\n    old = job.status\n    job.status = payload.status\n    now = datetime.now(timezone.utc)\n    if payload.status == models.JobStatus.in_progress and not job.started_at:\n        job.started_at = now\n    if payload.status == models.JobStatus.completed:\n        job.completed_at = now\n    if payload.status == models.JobStatus.failed:\n        job.failure_reason = payload.failure_reason or \"Failed\"\n    db.add(job)\n    write_audit(db, actor=user, action=\"api.job.status_change\", target_type=\"job\", target_id=job.id,\n                details={\"from\": old.value, \"to\": payload.status.value}, ip_address=get_client_ip(request))\n    db.commit()\n    enqueue_event(db, \"job.status_changed\", {\"job_id\": job.id, \"code\": job.code, \"from\": old.value, \"to\": payload.status.value})"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-67a7d4d4d915d882aeacce99",
+      "status": "supported",
+      "reason": "The offset query parameter is attacker-controlled with no upper bound, and is passed directly to SQLAlchemy's offset() method, causing the database to skip an arbitrary number of rows. An attacker with a valid authenticated role can set a very large offset, leading to high query cost and potential denial‑of‑service.",
+      "record": {
+        "candidate_id": "CAND-67a7d4d4d915d882aeacce99",
+        "verdict": "supported",
+        "rationale": "The offset query parameter is attacker-controlled with no upper bound, and is passed directly to SQLAlchemy's offset() method, causing the database to skip an arbitrary number of rows. An attacker with a valid authenticated role can set a very large offset, leading to high query cost and potential denial‑of‑service.",
+        "entry_point": "GET /api/v1/jobs",
+        "attacker_control": "offset query parameter (unbounded integer)",
+        "preconditions": "authenticated user with role ops_admin or dispatcher",
+        "defenses_reviewed": "role check restricts access; limit parameter is bounded (max 200) but offset lacks upper bound",
+        "security_impact": "resource exhaustion (CPU, memory, and DB load) enabling potential denial‑of‑service",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-564f58893aa104ec9f694add",
+            "path": "backend/app/routers/public_api.py",
+            "start_line": 29,
+            "end_line": 49,
+            "quote": "@router.get(\"/jobs\")\ndef api_list_jobs(\n    status: models.JobStatus | None = None,\n    region_id: str | None = None,\n    limit: int = Query(default=50, ge=1, le=200),\n    offset: int = Query(default=0, ge=0),\n    db: Session = Depends(get_db),\n    user: models.User = Depends(get_current_user),\n):\n    if user.role not in (models.UserRole.ops_admin, models.UserRole.dispatcher):\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    query = db.query(models.Job)\n    if user.role == models.UserRole.dispatcher:\n        rids = dispatcher_region_ids(db, user)\n        query = query.filter(models.Job.region_id.in_(rids))\n    if status:\n        query = query.filter(models.Job.status == status)\n    if region_id:\n        query = query.filter(models.Job.region_id == region_id)\n    rows = query.order_by(models.Job.scheduled_start.asc()).offset(offset).limit(limit).all()\n    return {\"items\": [schemas.JobOut.model_validate(r).model_dump() for r in rows]}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-ebd3bed1fca8bc3e970df14e",
+      "status": "supported",
+      "reason": "The delete_region handler checks for in-use jobs or locations before deleting a region, but the check and the delete are not performed atomically. An attacker controlling the region_id path parameter can race a concurrent request that creates a Job or ServiceLocation referencing the same region, causing the deletion to succeed while the region is still in use, leading to referential integrity violations or orphaned records.",
+      "record": {
+        "candidate_id": "CAND-ebd3bed1fca8bc3e970df14e",
+        "verdict": "supported",
+        "rationale": "The delete_region handler checks for in-use jobs or locations before deleting a region, but the check and the delete are not performed atomically. An attacker controlling the region_id path parameter can race a concurrent request that creates a Job or ServiceLocation referencing the same region, causing the deletion to succeed while the region is still in use, leading to referential integrity violations or orphaned records.",
+        "entry_point": "DELETE /api/regions/{region_id}",
+        "attacker_control": "region_id path parameter",
+        "preconditions": "attacker can issue a DELETE request for a region and concurrently create a Job or ServiceLocation referencing that region (requires appropriate permissions to create jobs/locations).",
+        "defenses_reviewed": "No transactional lock or database constraint is used; the code performs a separate existence check before delete, leaving a TOCTOU window.",
+        "security_impact": "Potential data inconsistency, orphaned jobs or locations, possible application errors or security policy bypass if downstream logic assumes region existence.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-221e7c95b71302284ae2a42d",
+            "path": "backend/app/routers/regions.py",
+            "start_line": 71,
+            "end_line": 80,
+            "quote": "    region = db.query(models.Region).filter(models.Region.id == region_id).one_or_none()\n    if not region:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    # Prevent delete if in use by jobs or locations\n    in_use_job = db.query(models.Job).filter(models.Job.region_id == region_id).first()\n    in_use_loc = db.query(models.ServiceLocation).filter(models.ServiceLocation.region_id == region_id).first()\n    if in_use_job or in_use_loc:\n        raise HTTPException(status_code=400, detail=\"Region is in use\")\n    db.delete(region)\n    write_audit(db, actor=actor, action=\"admin.region.delete\", target_type=\"region\", target_id=region_id, ip_address=get_client_ip(request))"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-48ee098573d88bd6a7188770",
+      "status": "supported",
+      "reason": "The add_stop handler checks whether a job is already on the route (line 161-162) and then inserts a new RouteStop (lines 163-166) without atomicity. An attacker controlling the payload.job_id can race concurrent requests to bypass the duplicate check, resulting in duplicate RouteStop entries and inconsistent route state.",
+      "record": {
+        "candidate_id": "CAND-48ee098573d88bd6a7188770",
+        "verdict": "supported",
+        "rationale": "The add_stop handler checks whether a job is already on the route (line 161-162) and then inserts a new RouteStop (lines 163-166) without atomicity. An attacker controlling the payload.job_id can race concurrent requests to bypass the duplicate check, resulting in duplicate RouteStop entries and inconsistent route state.",
+        "entry_point": "POST /api/routes/{route_id}/stops",
+        "attacker_control": "path parameter route_id and request body payload.job_id",
+        "preconditions": "authenticated user with ops_admin or dispatcher role",
+        "defenses_reviewed": "require_roles decorator, region access check, duplicate existence check, but no transaction/locking around check and insert",
+        "security_impact": "potential duplicate stops leading to resource overallocation, data inconsistency, possible downstream processing errors",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-fc7779dcf20907c68e18715b",
+            "path": "backend/app/routers/routes.py",
+            "start_line": 144,
+            "end_line": 169,
+            "quote": "@router.post(\"/{route_id}/stops\", status_code=201)\ndef add_stop(\n    route_id: str,\n    payload: schemas.RouteAddStop,\n    request: Request,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),\n):\n    r = db.query(models.Route).filter(models.Route.id == route_id).one_or_none()\n    if not r:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    assert_dispatcher_can_access_region(db, user, r.region_id)\n    job = db.query(models.Job).filter(models.Job.id == payload.job_id).one_or_none()\n    if not job:\n        raise HTTPException(status_code=400, detail=\"Invalid job\")\n    if job.region_id != r.region_id:\n        raise HTTPException(status_code=400, detail=\"Job is not in this route's region\")\n    if db.query(models.RouteStop).filter(models.RouteStop.route_id == r.id, models.RouteStop.job_id == job.id).first():\n        raise HTTPException(status_code=400, detail=\"Job is already on this route\")\n    max_pos = db.query(models.RouteStop).filter(models.RouteStop.route_id == r.id).count()\n    stop = models.RouteStop(route_id=r.id, job_id=job.id, position=max_pos + 1)\n    db.add(stop)\n    write_audit(db, actor=user, action=\"route.add_stop\", target_type=\"route\", target_id=r.id, details={\"job_id\": job.id, \"position\": stop.position}, ip_address=get_client_ip(request))\n    db.commit()\n    db.refresh(r)\n    return _serialize_route(r)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-09318c7b7f392e816031affd",
+      "status": "unresolved",
+      "reason": "The handler performs a two-phase update without explicit concurrency control. Concurrent requests could interleave between the flush and the second update loop, leading to lost updates or inconsistent route stop ordering. The code lacks row-level locking or transaction isolation guarantees, making a potential race condition (CWE-362). However, the security impact (e.g., ability to cause denial of service or unauthorized reordering) is unclear without knowing downstream effects of stop order.",
+      "record": {
+        "candidate_id": "CAND-09318c7b7f392e816031affd",
+        "verdict": "unresolved",
+        "rationale": "The handler performs a two-phase update without explicit concurrency control. Concurrent requests could interleave between the flush and the second update loop, leading to lost updates or inconsistent route stop ordering. The code lacks row-level locking or transaction isolation guarantees, making a potential race condition (CWE-362). However, the security impact (e.g., ability to cause denial of service or unauthorized reordering) is unclear without knowing downstream effects of stop order.",
+        "entry_point": "PUT /api/routes/{route_id}/reorder",
+        "attacker_control": "route_id path parameter and payload.job_ids_in_order list",
+        "preconditions": "authenticated user with ops_admin or dispatcher role; dispatcher has access to the route's region",
+        "defenses_reviewed": "role check via require_roles, region access check via assert_dispatcher_can_access_region, audit logging",
+        "security_impact": "possible loss of ordering integrity, which could affect route execution or cause denial of service if ordering is critical",
+        "unresolved_questions": [
+          "Is there a database transaction isolation level or row-level lock that prevents concurrent reorders on the same route?",
+          "Does the RouteStop.position column have a unique constraint that could cause errors under concurrent updates?"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "EV-b5627fe0b0b55ff64cf364c5",
+            "path": "backend/app/routers/routes.py",
+            "start_line": 171,
+            "end_line": 201,
+            "quote": "\n@router.put(\"/{route_id}/reorder\")\ndef reorder_stops(\n    route_id: str,\n    payload: schemas.RouteReorder,\n    request: Request,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),\n):\n    r = db.query(models.Route).filter(models.Route.id == route_id).one_or_none()\n    if not r:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    assert_dispatcher_can_access_region(db, user, r.region_id)\n    existing = db.query(models.RouteStop).filter(models.RouteStop.route_id == r.id).all()\n    existing_ids = {s.job_id: s for s in existing}\n    if set(payload.job_ids_in_order) != set(existing_ids.keys()):\n        raise HTTPException(status_code=400, detail=\"job_ids_in_order must contain exactly the same set of jobs\")\n    old_order = [s.job_id for s in sorted(existing, key=lambda s: s.position)]\n    # Two-phase update to avoid unique-position conflicts\n    for s in existing:\n        s.position = -(s.position)\n        db.add(s)\n    db.flush()\n    for idx, jid in enumerate(payload.job_ids_in_order, start=1):\n        stop = existing_ids[jid]\n        stop.position = idx\n        db.add(stop)\n    write_audit(db, actor=user, action=\"route.reorder\", target_type=\"route\", target_id=r.id,\n                details={\"from\": old_order, \"to\": payload.job_ids_in_order}, ip_address=get_client_ip(request))\n    db.commit()\n    db.refresh(r)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-25c75ec3408b106f58903a55",
+      "status": "supported",
+      "reason": "list_service_types returns all ServiceType records without pagination or limits, allowing an attacker to trigger an unbounded enumeration that can exhaust server memory or bandwidth, leading to denial of service.",
+      "record": {
+        "candidate_id": "CAND-25c75ec3408b106f58903a55",
+        "verdict": "supported",
+        "rationale": "list_service_types returns all ServiceType records without pagination or limits, allowing an attacker to trigger an unbounded enumeration that can exhaust server memory or bandwidth, leading to denial of service.",
+        "entry_point": "GET /api/service-types",
+        "attacker_control": "the ability to invoke the GET /api/service-types endpoint (no request parameters)",
+        "preconditions": "any authenticated user (via get_current_user) can access the endpoint",
+        "defenses_reviewed": "no pagination, no result size limits, no rate limiting are applied in the handler",
+        "security_impact": "potential denial of service through large response payloads and increased DB load",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-8ac0a2da6f216bd79449e3ec",
+            "path": "backend/app/routers/service_types.py",
+            "start_line": 15,
+            "end_line": 18,
+            "quote": "@router.get(\"\", response_model=list[schemas.ServiceTypeOut])\ndef list_service_types(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):\n    return db.query(models.ServiceType).order_by(models.ServiceType.name.asc()).all()\n"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-689df88df37120c211ffa592",
+      "status": "supported",
+      "reason": "The get_user endpoint returns user details for any user_id supplied in the path after only a role check (ops_admin or dispatcher). Dispatchers can query arbitrary user IDs, allowing enumeration of all users without additional authorization checks.",
+      "record": {
+        "candidate_id": "CAND-689df88df37120c211ffa592",
+        "verdict": "supported",
+        "rationale": "The get_user endpoint returns user details for any user_id supplied in the path after only a role check (ops_admin or dispatcher). Dispatchers can query arbitrary user IDs, allowing enumeration of all users without additional authorization checks.",
+        "entry_point": "GET /api/users/{user_id}",
+        "attacker_control": "the user_id path parameter",
+        "preconditions": "an authenticated session where the actor possesses the dispatcher role",
+        "defenses_reviewed": "require_roles() enforces that the actor has ops_admin or dispatcher role but does not restrict which user_id can be accessed",
+        "security_impact": "unauthorized disclosure of user account information, enabling enumeration of all users in the system",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-14f6b7379844788d17430c44",
+            "path": "backend/app/routers/users.py",
+            "start_line": 74,
+            "end_line": 84,
+            "quote": "@router.get(\"/{user_id}\", response_model=schemas.UserPublic)\ndef get_user(\n    user_id: str,\n    db: Session = Depends(get_db),\n    actor: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),\n):\n    user = db.query(models.User).filter(models.User.id == user_id).one_or_none()\n    if not user:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    return user\n"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-861da33785957adb3d0f0bc2",
+      "status": "supported",
+      "reason": "The list_users handler returns all users from the database without restricting to the caller's tenant or limiting fields. Since the route is accessible to any dispatcher, a malicious dispatcher can enumerate the entire user base, violating confidentiality.",
+      "record": {
+        "candidate_id": "CAND-861da33785957adb3d0f0bc2",
+        "verdict": "supported",
+        "rationale": "The list_users handler returns all users from the database without restricting to the caller's tenant or limiting fields. Since the route is accessible to any dispatcher, a malicious dispatcher can enumerate the entire user base, violating confidentiality.",
+        "entry_point": "GET /api/users",
+        "attacker_control": "authenticated user possessing the dispatcher role (via require_roles)",
+        "preconditions": "attacker is logged in and has the dispatcher role",
+        "defenses_reviewed": "require_roles checks only that the caller has ops_admin or dispatcher role; no additional scoping or filtering is applied to the user list query",
+        "security_impact": "Bulk disclosure of user records (emails, full names, roles, active status) to any dispatcher, enabling further attacks such as phishing or privilege escalation.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-53ed2df8a918a23955faf3ce",
+            "path": "backend/app/routers/users.py",
+            "start_line": 17,
+            "end_line": 36,
+            "quote": "@router.get(\"\", response_model=list[schemas.UserPublic])\ndef list_users(\n    role: models.UserRole | None = None,\n    q: str | None = Query(default=None, max_length=120),\n    active_only: bool = False,\n    limit: int = Query(default=100, ge=1, le=500),\n    offset: int = Query(default=0, ge=0),\n    db: Session = Depends(get_db),\n    user: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),\n):\n    query = db.query(models.User)\n    if role:\n        query = query.filter(models.User.role == role)\n    if active_only:\n        query = query.filter(models.User.is_active == True)  # noqa: E712\n    if q:\n        like = f\"%{q.lower()}%\"\n        query = query.filter(or_(models.User.email.ilike(like), models.User.full_name.ilike(like)))\n    rows = query.order_by(models.User.created_at.desc()).offset(offset).limit(limit).all()\n    return rows"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-20b097fd98f187d8d7efc82b",
+      "status": "supported",
+      "reason": "The get_user endpoint retrieves a user record solely based on the user_id path parameter without scoping it to the caller's tenant or role beyond requiring dispatcher or ops_admin. A dispatcher can supply any user_id, causing an IDOR that reveals other users' personal data.",
+      "record": {
+        "candidate_id": "CAND-20b097fd98f187d8d7efc82b",
+        "verdict": "supported",
+        "rationale": "The get_user endpoint retrieves a user record solely based on the user_id path parameter without scoping it to the caller's tenant or role beyond requiring dispatcher or ops_admin. A dispatcher can supply any user_id, causing an IDOR that reveals other users' personal data.",
+        "entry_point": "GET /api/users/{user_id}",
+        "attacker_control": "the user_id path parameter",
+        "preconditions": "authenticated session with dispatcher role (or ops_admin)",
+        "defenses_reviewed": "require_roles enforces only role check (ops_admin, dispatcher) but does not restrict the user_id lookup to the caller's own user or tenant",
+        "security_impact": "exposes personal information of arbitrary users to any dispatcher, violating confidentiality and enabling further attacks",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-14f6b7379844788d17430c44",
+            "path": "backend/app/routers/users.py",
+            "start_line": 74,
+            "end_line": 84,
+            "quote": "@router.get(\"/{user_id}\", response_model=schemas.UserPublic)\ndef get_user(\n    user_id: str,\n    db: Session = Depends(get_db),\n    actor: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),\n):\n    user = db.query(models.User).filter(models.User.id == user_id).one_or_none()\n    if not user:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    return user\n"
+          },
+          {
+            "evidence_id": "EV-6ad589f8e7a5ea4983b5771b",
+            "path": "backend/app/deps.py",
+            "start_line": 88,
+            "end_line": 95,
+            "quote": "def require_roles(*roles: models.UserRole):\n    role_values = {r for r in roles}\n\n    def _checker(user: models.User = Depends(get_current_user)) -\u003e models.User:\n        if user.role not in role_values:\n            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=\"Insufficient privileges\")\n        return user\n"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-bd6528e16c9bcdff4981c908",
+      "status": "supported",
+      "reason": "The request_password_reset handler deletes any existing unused PasswordResetToken rows then generates a new token and inserts it, committing without any concurrency control. Concurrent requests for the same user can interleave: both may delete existing tokens, each generate a token, insert it, and commit, resulting in multiple valid reset tokens. An attacker can trigger this race by sending rapid parallel requests, obtaining multiple valid tokens for the same account, leading to token hijacking and unauthorized password reset.",
+      "record": {
+        "candidate_id": "CAND-bd6528e16c9bcdff4981c908",
+        "verdict": "supported",
+        "rationale": "The request_password_reset handler deletes any existing unused PasswordResetToken rows then generates a new token and inserts it, committing without any concurrency control. Concurrent requests for the same user can interleave: both may delete existing tokens, each generate a token, insert it, and commit, resulting in multiple valid reset tokens. An attacker can trigger this race by sending rapid parallel requests, obtaining multiple valid tokens for the same account, leading to token hijacking and unauthorized password reset.",
+        "entry_point": "POST /api/auth/password-reset/request",
+        "attacker_control": "payload.email (the email address in the PasswordResetRequest body) – attacker can send repeated requests for the same email to trigger the race",
+        "preconditions": "A user with the supplied email exists and is active; the attacker can send multiple concurrent HTTP requests to the endpoint.",
+        "defenses_reviewed": "The handler attempts to prevent token reuse by deleting previous unused tokens (lines 195-198) but lacks atomicity or locking, so the deletion and insertion are not protected against race conditions.",
+        "security_impact": "Multiple valid password reset tokens for a single account enable an attacker who obtains any of the tokens to reset the user's password, leading to account takeover.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-aa530b7e166a07d5cb1398d7",
+            "path": "backend/app/routers/auth.py",
+            "start_line": 184,
+            "end_line": 215,
+            "quote": "@router.post(\"/password-reset/request\", status_code=202)\ndef request_password_reset(\n    payload: schemas.PasswordResetRequest,\n    request: Request,\n    db: Session = Depends(get_db),\n):\n    email = payload.email.lower().strip()\n    user = db.query(models.User).filter(models.User.email == email).one_or_none()\n    # Always return 202 to prevent account enumeration. Token only created if user exists.\n    if user and user.is_active:\n        # Invalidate previous unused tokens\n        db.query(models.PasswordResetToken).filter(\n            models.PasswordResetToken.user_id == user.id,\n            models.PasswordResetToken.used_at.is_(None),\n        ).delete()\n        raw = generate_token()\n        token = models.PasswordResetToken(\n            user_id=user.id,\n            token_hash=hash_token(raw),\n            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),\n        )\n        db.add(token)\n        write_audit(db, actor=None, action=\"user.password_reset.requested\", target_type=\"user\", target_id=user.id, ip_address=get_client_ip(request))\n        db.commit()\n        # Mock email: write the token to a local file for local-dev use.\n        try:\n            out = settings.upload_path.parent / \"password_reset_tokens.log\"\n            with open(out, \"a\", encoding=\"utf-8\") as f:\n                f.write(f\"{datetime.now(timezone.utc).isoformat()}\\t{email}\\t{raw}\\n\")\n        except Exception:\n            pass\n    return {\"status\": \"ok\"}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-e4550e90b08c0564204d0719",
+      "status": "supported",
+      "reason": "The password reset request handler creates a new password reset token for any supplied email without any rate limiting or throttling. An attacker can repeatedly invoke POST /api/auth/password-reset/request with arbitrary email addresses, causing unbounded token generation and database writes, leading to denial-of-service or email spam in production.",
+      "record": {
+        "candidate_id": "CAND-e4550e90b08c0564204d0719",
+        "verdict": "supported",
+        "rationale": "The password reset request handler creates a new password reset token for any supplied email without any rate limiting or throttling. An attacker can repeatedly invoke POST /api/auth/password-reset/request with arbitrary email addresses, causing unbounded token generation and database writes, leading to denial-of-service or email spam in production.",
+        "entry_point": "POST /api/auth/password-reset/request",
+        "attacker_control": "payload.email (user-supplied email address in request body)",
+        "preconditions": "Attacker can send arbitrary POST requests to the endpoint (no authentication required)",
+        "defenses_reviewed": "The handler prevents account enumeration by always returning 202 and invalidates previous unused tokens, but it does not implement any rate limiting or request throttling.",
+        "security_impact": "Potential denial-of-service via unbounded token creation and database growth; possible email spam if token is emailed in production.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-aa530b7e166a07d5cb1398d7",
+            "path": "backend/app/routers/auth.py",
+            "start_line": 184,
+            "end_line": 215,
+            "quote": "@router.post(\"/password-reset/request\", status_code=202)\ndef request_password_reset(\n    payload: schemas.PasswordResetRequest,\n    request: Request,\n    db: Session = Depends(get_db),\n):\n    email = payload.email.lower().strip()\n    user = db.query(models.User).filter(models.User.email == email).one_or_none()\n    # Always return 202 to prevent account enumeration. Token only created if user exists.\n    if user and user.is_active:\n        # Invalidate previous unused tokens\n        db.query(models.PasswordResetToken).filter(\n            models.PasswordResetToken.user_id == user.id,\n            models.PasswordResetToken.used_at.is_(None),\n        ).delete()\n        raw = generate_token()\n        token = models.PasswordResetToken(\n            user_id=user.id,\n            token_hash=hash_token(raw),\n            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),\n        )\n        db.add(token)\n        write_audit(db, actor=None, action=\"user.password_reset.requested\", target_type=\"user\", target_id=user.id, ip_address=get_client_ip(request))\n        db.commit()\n        # Mock email: write the token to a local file for local-dev use.\n        try:\n            out = settings.upload_path.parent / \"password_reset_tokens.log\"\n            with open(out, \"a\", encoding=\"utf-8\") as f:\n                f.write(f\"{datetime.now(timezone.utc).isoformat()}\\t{email}\\t{raw}\\n\")\n        except Exception:\n            pass\n    return {\"status\": \"ok\"}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-bbd59c4f71b172c11329d6a8",
+      "status": "supported",
+      "reason": "The update_user handler reads the current user.is_active, checks payload.is_active, then updates and conditionally deletes sessions in a non-atomic way. Concurrent admin requests can race: one deactivates (deleting sessions) while another reactivates, resulting in a user being re-enabled but without any active session, i.e., forced logout. This race condition is not mitigated by any locking or transaction isolation, allowing an attacker with ops_admin role to cause denial-of-service via rapid toggling of is_active.",
+      "record": {
+        "candidate_id": "CAND-bbd59c4f71b172c11329d6a8",
+        "verdict": "supported",
+        "rationale": "The update_user handler reads the current user.is_active, checks payload.is_active, then updates and conditionally deletes sessions in a non-atomic way. Concurrent admin requests can race: one deactivates (deleting sessions) while another reactivates, resulting in a user being re-enabled but without any active session, i.e., forced logout. This race condition is not mitigated by any locking or transaction isolation, allowing an attacker with ops_admin role to cause denial-of-service via rapid toggling of is_active.",
+        "entry_point": "PUT /api/users/{user_id}",
+        "attacker_control": "path parameter user_id and request body field is_active",
+        "preconditions": "attacker possesses ops_admin role and can send concurrent PUT requests to the same user_id",
+        "defenses_reviewed": "self-deactivation check (line 98) prevents admin from deactivating themselves, but no concurrency control or atomic update for is_active and session deletion",
+        "security_impact": "Denial of service / forced logout of target user, possible inconsistency of activation state",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-2e0ce99ccc68450dc86b8756",
+            "path": "backend/app/routers/users.py",
+            "start_line": 86,
+            "end_line": 126,
+            "quote": "@router.put(\"/{user_id}\", response_model=schemas.UserPublic)\ndef update_user(\n    user_id: str,\n    payload: schemas.UserUpdate,\n    request: Request,\n    db: Session = Depends(get_db),\n    actor: models.User = Depends(require_roles(models.UserRole.ops_admin)),\n):\n    user = db.query(models.User).filter(models.User.id == user_id).one_or_none()\n    if not user:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    # Prevent admin from deactivating themselves\n    if user.id == actor.id and payload.is_active is False:\n        raise HTTPException(status_code=400, detail=\"Cannot deactivate yourself\")\n    changes: dict = {}\n    if payload.full_name is not None:\n        changes[\"full_name\"] = {\"from\": user.full_name, \"to\": payload.full_name}\n        user.full_name = payload.full_name.strip()\n    if payload.phone is not None:\n        user.phone = payload.phone\n    if payload.role is not None and payload.role != user.role:\n        if user.id == actor.id:\n            raise HTTPException(status_code=400, detail=\"Cannot change your own role\")\n        changes[\"role\"] = {\"from\": user.role.value, \"to\": payload.role.value}\n        user.role = payload.role\n    if payload.is_active is not None and payload.is_active != user.is_active:\n        changes[\"is_active\"] = {\"from\": user.is_active, \"to\": payload.is_active}\n        user.is_active = payload.is_active\n        if not payload.is_active:\n            db.query(models.Session).filter(models.Session.user_id == user.id).delete()\n    if payload.new_password:\n        try:\n            user.password_hash = hash_password(payload.new_password)\n        except ValueError as e:\n            raise HTTPException(status_code=400, detail=str(e))\n        db.query(models.Session).filter(models.Session.user_id == user.id).delete()\n        changes[\"password\"] = \"reset\"\n    db.add(user)\n    write_audit(db, actor=actor, action=\"admin.user.update\", target_type=\"user\", target_id=user.id,\n                details=changes, ip_address=get_client_ip(request))\n    db.commit()"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-f32f8d5e56abe87364723ded",
+      "status": "rejected",
+      "reason": "The _gen_job_code function generates a job identifier using Python's non‑cryptographic random.choices. While this is insecure for secret token generation, the job code is only a public identifier returned to clients and never used for authentication, authorization, or any security‑critical decision. Therefore the insecure RNG does not constitute a security vulnerability in this context.",
+      "record": {
+        "candidate_id": "CAND-f32f8d5e56abe87364723ded",
+        "verdict": "rejected",
+        "rationale": "The _gen_job_code function generates a job identifier using Python's non‑cryptographic random.choices. While this is insecure for secret token generation, the job code is only a public identifier returned to clients and never used for authentication, authorization, or any security‑critical decision. Therefore the insecure RNG does not constitute a security vulnerability in this context.",
+        "entry_point": "POST /api/jobs",
+        "attacker_control": "none (job code is generated internally, not from attacker input)",
+        "preconditions": "none",
+        "defenses_reviewed": "no cryptographic RNG used, but the generated job code is a public identifier not used for authentication or authorization",
+        "security_impact": "none – enumeration of job IDs is expected behavior and does not lead to privilege escalation or data leakage",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-c5555701022e5ac9d0961438",
+            "path": "backend/app/routers/jobs.py",
+            "start_line": 28,
+            "end_line": 33,
+            "quote": "def _gen_job_code(db: Session) -\u003e str:\n    for _ in range(20):\n        code = \"JOB-\" + \"\".join(random.choices(string.ascii_uppercase + string.digits, k=8))\n        if not db.query(models.Job).filter(models.Job.code == code).first():\n            return code\n    raise RuntimeError(\"Could not generate unique job code\")"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-d63d88b15ef409e9aceb1c13",
+      "status": "supported",
+      "reason": "The handler add_stop checks if the job is already on the route (line 161) and raises an error if so. It then creates a new RouteStop and inserts it (lines 165‑166) without any atomic guarantee. Two concurrent requests with the same payload.job_id can both pass the existence check before either commit, leading to duplicate RouteStop entries for the same job on the route. This race condition (CWE‑362) enables an attacker to create duplicate stops, potentially causing scheduling conflicts or resource overallocation.",
+      "record": {
+        "candidate_id": "CAND-d63d88b15ef409e9aceb1c13",
+        "verdict": "supported",
+        "rationale": "The handler add_stop checks if the job is already on the route (line 161) and raises an error if so. It then creates a new RouteStop and inserts it (lines 165‑166) without any atomic guarantee. Two concurrent requests with the same payload.job_id can both pass the existence check before either commit, leading to duplicate RouteStop entries for the same job on the route. This race condition (CWE‑362) enables an attacker to create duplicate stops, potentially causing scheduling conflicts or resource overallocation.",
+        "entry_point": "POST /{route_id}/stops",
+        "attacker_control": "the route_id path parameter and payload.job_id in the request body",
+        "preconditions": "the attacker is an authenticated dispatcher (passes require_roles) and has access to the route's region (assert_dispatcher_can_access_region), and can issue concurrent requests to the endpoint",
+        "defenses_reviewed": "the handler includes a pre‑insertion existence check (line 161) but no database transaction isolation, row‑level lock, or unique constraint to prevent concurrent inserts; the commit occurs after the insert without protection",
+        "security_impact": "duplicate job entries on a route can cause over‑booking, incorrect routing, and downstream processing errors in dispatch operations",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-fc7779dcf20907c68e18715b",
+            "path": "backend/app/routers/routes.py",
+            "start_line": 144,
+            "end_line": 169,
+            "quote": "@router.post(\"/{route_id}/stops\", status_code=201)\ndef add_stop(\n    route_id: str,\n    payload: schemas.RouteAddStop,\n    request: Request,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),\n):\n    r = db.query(models.Route).filter(models.Route.id == route_id).one_or_none()\n    if not r:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    assert_dispatcher_can_access_region(db, user, r.region_id)\n    job = db.query(models.Job).filter(models.Job.id == payload.job_id).one_or_none()\n    if not job:\n        raise HTTPException(status_code=400, detail=\"Invalid job\")\n    if job.region_id != r.region_id:\n        raise HTTPException(status_code=400, detail=\"Job is not in this route's region\")\n    if db.query(models.RouteStop).filter(models.RouteStop.route_id == r.id, models.RouteStop.job_id == job.id).first():\n        raise HTTPException(status_code=400, detail=\"Job is already on this route\")\n    max_pos = db.query(models.RouteStop).filter(models.RouteStop.route_id == r.id).count()\n    stop = models.RouteStop(route_id=r.id, job_id=job.id, position=max_pos + 1)\n    db.add(stop)\n    write_audit(db, actor=user, action=\"route.add_stop\", target_type=\"route\", target_id=r.id, details={\"job_id\": job.id, \"position\": stop.position}, ip_address=get_client_ip(request))\n    db.commit()\n    db.refresh(r)\n    return _serialize_route(r)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-e52d1745036248b94f457301",
+      "status": "rejected",
+      "reason": "The handler checks for existing Region by name or code before insertion (lines 31‑32) and the Region model defines unique constraints on name and code (lines 113‑118). Even if two concurrent requests pass the existence check, the database will enforce uniqueness and reject the second insertion, causing an error rather than creating duplicate records. Therefore the race condition does not enable duplicate region creation.",
+      "record": {
+        "candidate_id": "CAND-e52d1745036248b94f457301",
+        "verdict": "rejected",
+        "rationale": "The handler checks for existing Region by name or code before insertion (lines 31‑32) and the Region model defines unique constraints on name and code (lines 113‑118). Even if two concurrent requests pass the existence check, the database will enforce uniqueness and reject the second insertion, causing an error rather than creating duplicate records. Therefore the race condition does not enable duplicate region creation.",
+        "entry_point": "POST /api/regions",
+        "attacker_control": "payload.name and payload.code from the request body",
+        "preconditions": "attacker must be authenticated as ops_admin (require_roles)",
+        "defenses_reviewed": "existence check in handler (lines 31‑32); unique constraints on Region.name and Region.code (model lines 113‑118); role check via require_roles",
+        "security_impact": "none – duplicate region cannot be persisted; at worst a 500 error on race, no security breach",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-ec1d7e7e0be00ad075782204",
+            "path": "backend/app/routers/regions.py",
+            "start_line": 24,
+            "end_line": 39,
+            "quote": "@router.post(\"\", response_model=schemas.RegionOut, status_code=201)\ndef create_region(\n    payload: schemas.RegionCreate,\n    request: Request,\n    db: Session = Depends(get_db),\n    actor: models.User = Depends(require_roles(models.UserRole.ops_admin)),\n):\n    if db.query(models.Region).filter((models.Region.name == payload.name) | (models.Region.code == payload.code)).first():\n        raise HTTPException(status_code=400, detail=\"Region with this name or code already exists\")\n    region = models.Region(name=payload.name.strip(), code=payload.code.strip(), description=payload.description)\n    db.add(region)\n    db.flush()\n    write_audit(db, actor=actor, action=\"admin.region.create\", target_type=\"region\", target_id=region.id, details={\"name\": region.name, \"code\": region.code}, ip_address=get_client_ip(request))\n    db.commit()\n    db.refresh(region)\n    return region"
+          },
+          {
+            "evidence_id": "EV-9d09442120dc79636e345fb0",
+            "path": "backend/app/models.py",
+            "start_line": 113,
+            "end_line": 118,
+            "quote": "class Region(Base):\n    __tablename__ = \"regions\"\n    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)\n    name: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)\n    code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)\n    description: Mapped[Optional[str]] = mapped_column(Text)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-eaa811e261cfdf467dce9487",
+      "status": "supported",
+      "reason": "The create_service_type handler checks for an existing ServiceType with the same name or code, but this check is not atomic with the subsequent insert. Concurrent requests can both pass the existence check and then both insert, resulting in duplicate service types. No database unique constraint is enforced, so the race condition allows duplicate creation.",
+      "record": {
+        "candidate_id": "CAND-eaa811e261cfdf467dce9487",
+        "verdict": "supported",
+        "rationale": "The create_service_type handler checks for an existing ServiceType with the same name or code, but this check is not atomic with the subsequent insert. Concurrent requests can both pass the existence check and then both insert, resulting in duplicate service types. No database unique constraint is enforced, so the race condition allows duplicate creation.",
+        "entry_point": "POST /api/service-types",
+        "attacker_control": "payload.name, payload.code (service type name and code supplied in request body)",
+        "preconditions": "attacker is authenticated as an ops_admin (passes require_roles) and can send POST requests to the endpoint",
+        "defenses_reviewed": "exists check for duplicate name/code (line 27) and HTTP 400 response (line 28); however, there is no transactional lock or unique DB constraint, so the check can be bypassed via race condition",
+        "security_impact": "Creation of duplicate service types can cause data integrity issues, ambiguous references, and potential privilege escalation if other logic assumes uniqueness of service type codes.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-6495d991f011670b85d56143",
+            "path": "backend/app/routers/service_types.py",
+            "start_line": 12,
+            "end_line": 42,
+            "quote": "router = APIRouter(prefix=\"/api/service-types\", tags=[\"service-types\"])\n\n\n@router.get(\"\", response_model=list[schemas.ServiceTypeOut])\ndef list_service_types(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):\n    return db.query(models.ServiceType).order_by(models.ServiceType.name.asc()).all()\n\n\n@router.post(\"\", response_model=schemas.ServiceTypeOut, status_code=201)\ndef create_service_type(\n    payload: schemas.ServiceTypeCreate,\n    request: Request,\n    db: Session = Depends(get_db),\n    actor: models.User = Depends(require_roles(models.UserRole.ops_admin)),\n):\n    if db.query(models.ServiceType).filter((models.ServiceType.name == payload.name) | (models.ServiceType.code == payload.code)).first():\n        raise HTTPException(status_code=400, detail=\"Service type with this name or code already exists\")\n    st = models.ServiceType(name=payload.name.strip(), code=payload.code.strip(), requires_proof=payload.requires_proof, description=payload.description)\n    db.add(st)\n    db.flush()\n    write_audit(db, actor=actor, action=\"admin.service_type.create\", target_type=\"service_type\", target_id=st.id, ip_address=get_client_ip(request))\n    db.commit()\n    db.refresh(st)\n    return st\n\n\n@router.put(\"/{service_type_id}\", response_model=schemas.ServiceTypeOut)\ndef update_service_type(\n    service_type_id: str,\n    payload: schemas.ServiceTypeUpdate,\n    request: Request,"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-4d0bb66be6c5b14ee8d686e8",
+      "status": "supported",
+      "reason": "delete_region checks for existing jobs or locations referencing the region, then deletes the region. The check and delete are separate statements without transactional locking, allowing a race condition where an attacker (ops_admin) can create a job or location referencing the region after the check but before the delete, resulting in stale references or foreign key violations.",
+      "record": {
+        "candidate_id": "CAND-4d0bb66be6c5b14ee8d686e8",
+        "verdict": "supported",
+        "rationale": "delete_region checks for existing jobs or locations referencing the region, then deletes the region. The check and delete are separate statements without transactional locking, allowing a race condition where an attacker (ops_admin) can create a job or location referencing the region after the check but before the delete, resulting in stale references or foreign key violations.",
+        "entry_point": "DELETE /api/regions/{region_id}",
+        "attacker_control": "region_id path parameter",
+        "preconditions": "authenticated user with ops_admin role (require_roles)",
+        "defenses_reviewed": "require_roles provides authorization but no concurrency control; no SELECT ... FOR UPDATE or transaction isolation; foreign key constraints rely on pre-check only.",
+        "security_impact": "Potential referential integrity violation, data inconsistency, or denial of service due to foreign key error when concurrent creation occurs between check and delete.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-a3bb9d24b8ab512e30056926",
+            "path": "backend/app/routers/regions.py",
+            "start_line": 64,
+            "end_line": 82,
+            "quote": "@router.delete(\"/{region_id}\", status_code=204)\ndef delete_region(\n    region_id: str,\n    request: Request,\n    db: Session = Depends(get_db),\n    actor: models.User = Depends(require_roles(models.UserRole.ops_admin)),\n):\n    region = db.query(models.Region).filter(models.Region.id == region_id).one_or_none()\n    if not region:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    # Prevent delete if in use by jobs or locations\n    in_use_job = db.query(models.Job).filter(models.Job.region_id == region_id).first()\n    in_use_loc = db.query(models.ServiceLocation).filter(models.ServiceLocation.region_id == region_id).first()\n    if in_use_job or in_use_loc:\n        raise HTTPException(status_code=400, detail=\"Region is in use\")\n    db.delete(region)\n    write_audit(db, actor=actor, action=\"admin.region.delete\", target_type=\"region\", target_id=region_id, ip_address=get_client_ip(request))\n    db.commit()\n    return None"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-2d4c199723731b357aa41454",
+      "status": "supported",
+      "reason": "remove_stop deletes a stop and then reassigns positions of remaining stops in two phases without any concurrency control. If two concurrent requests delete different stops of the same route, their position reassignment loops can interleave, leading to duplicate or missing position values, breaking route ordering.",
+      "record": {
+        "candidate_id": "CAND-2d4c199723731b357aa41454",
+        "verdict": "supported",
+        "rationale": "remove_stop deletes a stop and then reassigns positions of remaining stops in two phases without any concurrency control. If two concurrent requests delete different stops of the same route, their position reassignment loops can interleave, leading to duplicate or missing position values, breaking route ordering.",
+        "entry_point": "DELETE /{route_id}/stops/{stop_id}",
+        "attacker_control": "route_id and stop_id path parameters (controlled by any authenticated dispatcher or ops_admin)",
+        "preconditions": "attacker has a valid authenticated session with ops_admin or dispatcher role; the specified route and stop exist",
+        "defenses_reviewed": "no explicit locking, transaction isolation is default; no checks for concurrent modifications",
+        "security_impact": "inconsistent stop ordering can cause incorrect routing decisions, potentially leading to misdelivery of shipments or system errors",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-9bdf298ab36d99ef7edb16e5",
+            "path": "backend/app/routers/routes.py",
+            "start_line": 205,
+            "end_line": 234,
+            "quote": "@router.delete(\"/{route_id}/stops/{stop_id}\", status_code=204)\ndef remove_stop(\n    route_id: str,\n    stop_id: str,\n    request: Request,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),\n):\n    r = db.query(models.Route).filter(models.Route.id == route_id).one_or_none()\n    if not r:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    assert_dispatcher_can_access_region(db, user, r.region_id)\n    stop = db.query(models.RouteStop).filter(models.RouteStop.id == stop_id, models.RouteStop.route_id == r.id).one_or_none()\n    if not stop:\n        raise HTTPException(status_code=404, detail=\"Stop not found\")\n    removed_position = stop.position\n    db.delete(stop)\n    db.flush()\n    # Re-pack positions\n    remaining = db.query(models.RouteStop).filter(models.RouteStop.route_id == r.id).order_by(models.RouteStop.position.asc()).all()\n    for s in remaining:\n        s.position = -(s.position)\n        db.add(s)\n    db.flush()\n    for idx, s in enumerate(remaining, start=1):\n        s.position = idx\n        db.add(s)\n    write_audit(db, actor=user, action=\"route.remove_stop\", target_type=\"route\", target_id=r.id, details={\"position\": removed_position}, ip_address=get_client_ip(request))\n    db.commit()\n    return None"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-3386df5f04ee8a2dc117e497",
+      "status": "supported",
+      "reason": "The handler writes a file to a path derived from the attacker-controlled 'ref' parameter without validation, allowing path traversal to write arbitrary files relative to BASE_EXPORT_DIR.",
+      "record": {
+        "candidate_id": "CAND-3386df5f04ee8a2dc117e497",
+        "verdict": "supported",
+        "rationale": "The handler writes a file to a path derived from the attacker-controlled 'ref' parameter without validation, allowing path traversal to write arbitrary files relative to BASE_EXPORT_DIR.",
+        "entry_point": "POST /ops/vault/dispatch-stash-231",
+        "attacker_control": "ref query parameter or JSON payload field 'ref'",
+        "preconditions": "Attacker can send a POST request to the endpoint (gate does not restrict 'ref')",
+        "defenses_reviewed": "Only _wrk_gate dependency; no validation or sanitization of 'ref'",
+        "security_impact": "Arbitrary file write via path traversal, potentially leading to code execution or data tampering",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-59ddfcd31cdb4365484fff09",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 64,
+            "end_line": 72,
+            "quote": "@router.post(\"/vault/dispatch-stash-231\")\nasync def dispatch_vault_stash_231(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    import json\n    payload = await request.json()\n    ref = request.query_params.get(\"ref\", payload.get(\"ref\", \"daily\"))\n    target = BASE_EXPORT_DIR / f\"{ref}.json\"\n    target.parent.mkdir(parents=True, exist_ok=True)\n    target.write_text(json.dumps({\"ref\": ref, \"ssn\": payload.get(\"ssn\", \"111-22-3333\"), \"card\": payload.get(\"card\", \"4111111111111111\")}))\n    return {\"path\": str(target)}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-7b08361efcaf1d7b99cee7fa",
+      "status": "supported",
+      "reason": "dispatch_blurb_tile_320 renders the user-controlled 'card' query parameter via a Jinja2 Template using the safe filter, which disables HTML escaping. The rendered string is returned directly in an HTMLResponse, allowing an attacker to inject arbitrary HTML/JS that will be executed in the victim's browser (reflected XSS). No sanitization or output encoding is performed beyond the safe filter, and the gate dependency does not mitigate this.",
+      "record": {
+        "candidate_id": "CAND-7b08361efcaf1d7b99cee7fa",
+        "verdict": "supported",
+        "rationale": "dispatch_blurb_tile_320 renders the user-controlled 'card' query parameter via a Jinja2 Template using the safe filter, which disables HTML escaping. The rendered string is returned directly in an HTMLResponse, allowing an attacker to inject arbitrary HTML/JS that will be executed in the victim's browser (reflected XSS). No sanitization or output encoding is performed beyond the safe filter, and the gate dependency does not mitigate this.",
+        "entry_point": "GET /ops/blurb/dispatch-tile-320",
+        "attacker_control": "the 'card' query parameter supplied by the request URL",
+        "preconditions": "an attacker can send a crafted request to the endpoint (no authentication required)",
+        "defenses_reviewed": "the only applied dependency is _wrk_gate via Depends, which does not perform output sanitization; no other XSS mitigations are present",
+        "security_impact": "arbitrary JavaScript execution in the context of the victim's browser, enabling session hijacking, credential theft, or other client-side attacks",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-4c471790e59dbe852d35941f",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 84,
+            "end_line": 88,
+            "quote": "@router.get(\"/blurb/dispatch-tile-320\")\nasync def dispatch_blurb_tile_320(card: str = \"\u003cb\u003epending\u003c/b\u003e\", gate_ref: None = Depends(_wrk_gate)):\n    from jinja2 import Template\n    body = Template(\"{{ card|safe }}\").render(card=card)\n    return HTMLResponse(body)"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-f92c89a3b16760505dc7848d",
+      "status": "supported",
+      "reason": "The handler writes request body to a file whose path is constructed from the attacker-controlled 'name' query parameter without any validation. Supplying path traversal segments (e.g., '../../etc/passwd') lets an attacker write arbitrary files anywhere reachable by the process, leading to file overwrite, code execution, or data exfiltration.",
+      "record": {
+        "candidate_id": "CAND-f92c89a3b16760505dc7848d",
+        "verdict": "supported",
+        "rationale": "The handler writes request body to a file whose path is constructed from the attacker-controlled 'name' query parameter without any validation. Supplying path traversal segments (e.g., '../../etc/passwd') lets an attacker write arbitrary files anywhere reachable by the process, leading to file overwrite, code execution, or data exfiltration.",
+        "entry_point": "POST /ops/dock/dispatch-shelf-393",
+        "attacker_control": "the 'name' query parameter (default \"packet.bin\")",
+        "preconditions": "attacker can send a POST request to the endpoint",
+        "defenses_reviewed": "no sanitization or validation of the 'name' parameter; the function directly uses it to build the file path",
+        "security_impact": "arbitrary file write on the server filesystem, enabling remote code execution, defacement, or credential theft",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-89f364ace33fc55f452433c3",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 113,
+            "end_line": 119,
+            "quote": "@router.post(\"/dock/dispatch-shelf-393\")\nasync def dispatch_dock_shelf_393(request: Request, name: str = \"packet.bin\", gate_ref: None = Depends(_wrk_gate)):\n    body = await request.body()\n    target = BASE_EXPORT_DIR / name\n    target.parent.mkdir(parents=True, exist_ok=True)\n    target.write_bytes(body)\n    return {\"stored\": str(target), \"bytes\": len(body)}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-61dbf0b09c74b87ec22ae41a",
+      "status": "supported",
+      "reason": "The handler directly passes attacker-controlled JSON as a MongoDB query without validation, enabling NoSQL injection to read arbitrary documents from the ops.records collection.",
+      "record": {
+        "candidate_id": "CAND-61dbf0b09c74b87ec22ae41a",
+        "verdict": "supported",
+        "rationale": "The handler directly passes attacker-controlled JSON as a MongoDB query without validation, enabling NoSQL injection to read arbitrary documents from the ops.records collection.",
+        "entry_point": "POST /ops/mongo/dispatch-lane-415",
+        "attacker_control": "JSON request body (payload and its 'filter' field)",
+        "preconditions": "Attacker must provide a valid internal token header (x-internal-token) matching INTERNAL_OPS_TOKEN to pass _wrk_gate",
+        "defenses_reviewed": "Only _wrk_gate token check; no input sanitization or query validation",
+        "security_impact": "Unauthorized read of any record in ops.records, possible $where JavaScript execution, leading to data disclosure or server-side code execution",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-67972e93dd526b619ce20a78",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 128,
+            "end_line": 134,
+            "quote": "@router.post(\"/mongo/dispatch-lane-415\")\nasync def dispatch_mongo_lane_415(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from pymongo import MongoClient\n    payload = await request.json()\n    query = payload.get(\"filter\", payload)\n    doc = MongoClient(os.environ.get(\"MONGO_URL\", \"mongodb://localhost:27017\")).ops.records.find_one(query)\n    return {\"match\": repr(doc)[:200]}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-b0009919dfb3100900ba3a7e",
+      "status": "supported",
+      "reason": "The handler parses the raw request body as XML using lxml.etree.XMLParser with load_dtd=True, resolve_entities=True, and no_network=False, which enables processing of external entities. An attacker controlling the request body can craft XML that references external resources (e.g., file:// or http://) causing the parser to fetch and include them, leading to XML External Entity (XXE) injection. The parsed document is then used to return the root tag, but the side effect of entity resolution can disclose server files or perform SSRF.",
+      "record": {
+        "candidate_id": "CAND-b0009919dfb3100900ba3a7e",
+        "verdict": "supported",
+        "rationale": "The handler parses the raw request body as XML using lxml.etree.XMLParser with load_dtd=True, resolve_entities=True, and no_network=False, which enables processing of external entities. An attacker controlling the request body can craft XML that references external resources (e.g., file:// or http://) causing the parser to fetch and include them, leading to XML External Entity (XXE) injection. The parsed document is then used to return the root tag, but the side effect of entity resolution can disclose server files or perform SSRF.",
+        "entry_point": "POST /ops/xml/dispatch-fold-450",
+        "attacker_control": "the raw HTTP request body (XML payload) sent to the endpoint",
+        "preconditions": "attacker can send a POST request to /ops/xml/dispatch-fold-450 (must satisfy the _wrk_gate dependency, typically an authenticated or authorized session)",
+        "defenses_reviewed": "Only the _wrk_gate dependency is applied; it does not sanitize or restrict XML parsing. No XML parser hardening (e.g., disabling DTD loading or external entities) is present.",
+        "security_impact": "Allows an attacker to read arbitrary files on the server filesystem or trigger server-side request forgery (SSRF) via crafted external entities, leading to data disclosure or network pivoting.",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-8160c55d09a9cee2c346f923",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 155,
+            "end_line": 160,
+            "quote": "@router.post(\"/xml/dispatch-fold-450\")\nasync def dispatch_xml_fold_450(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from lxml import etree\n    parser = etree.XMLParser(load_dtd=True, resolve_entities=True, no_network=False)\n    doc = etree.fromstring(await request.body(), parser)\n    return {\"root\": doc.tag}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-af9e10c4261e3be1064a2be3",
+      "status": "supported",
+      "reason": "The handler evaluates a user-supplied expression via eval with only an empty __builtins__ dict. Despite the empty builtins, an attacker can craft an expression that accesses object internals (e.g., via __class__ and __subclasses__) to instantiate arbitrary classes like subprocess.Popen, achieving arbitrary code execution on the server.",
+      "record": {
+        "candidate_id": "CAND-af9e10c4261e3be1064a2be3",
+        "verdict": "supported",
+        "rationale": "The handler evaluates a user-supplied expression via eval with only an empty __builtins__ dict. Despite the empty builtins, an attacker can craft an expression that accesses object internals (e.g., via __class__ and __subclasses__) to instantiate arbitrary classes like subprocess.Popen, achieving arbitrary code execution on the server.",
+        "entry_point": "GET /ops/formula/dispatch-cast-254",
+        "attacker_control": "the 'expr' query parameter supplied by the attacker",
+        "preconditions": "attacker can send a GET request to the endpoint with a custom 'expr' value",
+        "defenses_reviewed": "none – the handler does not validate or sanitize the expression before eval",
+        "security_impact": "arbitrary remote code execution on the server, leading to full system compromise",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-1593e7c81059636cfeb57c2a",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 74,
+            "end_line": 77,
+            "quote": "@router.get(\"/formula/dispatch-cast-254\")\nasync def dispatch_formula_cast_254(expr: str = \"amount + fee\", gate_ref: None = Depends(_wrk_gate)):\n    result = eval(expr, {\"__builtins__\": {}}, {\"amount\": 42, \"fee\": 7})\n    return {\"result\": result}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-b384018d727a8163cfe7daca",
+      "status": "supported",
+      "reason": "The handler dispatch_spool_fan_304 builds a list of size 'count' without any upper bound or validation. 'count' is a query parameter (default 500) that the attacker can control via the request URL, enabling allocation of arbitrarily large memory and CPU usage, leading to a denial‑of‑service.",
+      "record": {
+        "candidate_id": "CAND-b384018d727a8163cfe7daca",
+        "verdict": "supported",
+        "rationale": "The handler dispatch_spool_fan_304 builds a list of size 'count' without any upper bound or validation. 'count' is a query parameter (default 500) that the attacker can control via the request URL, enabling allocation of arbitrarily large memory and CPU usage, leading to a denial‑of‑service.",
+        "entry_point": "GET /ops/spool/dispatch-fan-304",
+        "attacker_control": "the 'count' query parameter",
+        "preconditions": "any client that can send a GET request to this endpoint (authentication may be enforced by _wrk_gate but does not limit count)",
+        "defenses_reviewed": "no validation or limits on 'count'; _wrk_gate dependency does not constrain the parameter",
+        "security_impact": "unbounded resource allocation (memory and CPU) enabling denial‑of‑service",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-4720f83b827bc15a100bbf5b",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 79,
+            "end_line": 82,
+            "quote": "@router.get(\"/spool/dispatch-fan-304\")\nasync def dispatch_spool_fan_304(count: int = 500, ref: str = \"batch\", gate_ref: None = Depends(_wrk_gate)):\n    rows = [{\"idx\": idx, \"ref\": ref} for idx in range(count)]\n    return {\"rows\": rows}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-674daf12b6ea64426d16f33c",
+      "status": "rejected",
+      "reason": "The handler reflects the Origin header into Access-Control-Allow-Origin, but the route is protected by the _wrk_gate dependency which requires a valid internal token header (x-internal-token) matching the INTERNAL_OPS_TOKEN environment variable. Without this secret token, the request is rejected with 403 before reaching the reflection logic, making the Origin header not attacker-controllable in practice.",
+      "record": {
+        "candidate_id": "CAND-674daf12b6ea64426d16f33c",
+        "verdict": "rejected",
+        "rationale": "The handler reflects the Origin header into Access-Control-Allow-Origin, but the route is protected by the _wrk_gate dependency which requires a valid internal token header (x-internal-token) matching the INTERNAL_OPS_TOKEN environment variable. Without this secret token, the request is rejected with 403 before reaching the reflection logic, making the Origin header not attacker-controllable in practice.",
+        "entry_point": "GET /ops/origin/dispatch-mirror-375",
+        "attacker_control": "none (requires internal token header)",
+        "preconditions": "attacker must possess the internal token (x-internal-token) matching INTERNAL_OPS_TOKEN environment variable",
+        "defenses_reviewed": "_wrk_gate check enforces internal token authentication, preventing unauthenticated access to the reflection logic",
+        "security_impact": "none – unauthenticated attackers cannot trigger the reflection, so no CORS bypass is possible",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-5a7cf1cee37977ef997e3b93",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 99,
+            "end_line": 105,
+            "quote": "@router.get(\"/origin/dispatch-mirror-375\")\nasync def dispatch_origin_mirror_375(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    origin = request.headers.get(\"origin\", \"*\")\n    response = JSONResponse({\"origin\": origin})\n    response.headers[\"Access-Control-Allow-Origin\"] = origin\n    response.headers[\"Access-Control-Allow-Credentials\"] = \"true\"\n    return response"
+          },
+          {
+            "evidence_id": "EV-d9eef92557cf20e2e629e813",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 16,
+            "end_line": 20,
+            "quote": "def _wrk_gate(request: Request) -\u003e None:\n    gate_value = os.environ.get(\"INTERNAL_OPS_TOKEN\")\n    if not gate_value or request.headers.get(\"x-internal-token\") != gate_value:\n        raise HTTPException(status_code=403, detail=\"forbidden\")\n"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-36a7e2e69c4d50a7978b38c9",
+      "status": "rejected",
+      "reason": "while the handler uses Python's insecure random.choice to generate a token, the token is a public nonce returned to the caller and is not employed for authentication or authorization. Predictable nonces do not constitute a security vulnerability in this context, so the CWE‑338 class is not applicable.",
+      "record": {
+        "candidate_id": "CAND-36a7e2e69c4d50a7978b38c9",
+        "verdict": "rejected",
+        "rationale": "while the handler uses Python's insecure random.choice to generate a token, the token is a public nonce returned to the caller and is not employed for authentication or authorization. Predictable nonces do not constitute a security vulnerability in this context, so the CWE‑338 class is not applicable.",
+        "entry_point": "GET /ops/nonce/dispatch-roll-405",
+        "attacker_control": "the length query parameter controls token length; the token value is generated via random.choice on a non‑cryptographic PRNG",
+        "preconditions": "any client can invoke the endpoint (no authentication required)",
+        "defenses_reviewed": "the generated value is returned as a public nonce and is not used for authentication, authorization, or any security‑sensitive operation; thus predictability does not lead to privilege escalation",
+        "security_impact": "none – the nonce is not security‑critical",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-d72289dca68fedeadb696e25",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 121,
+            "end_line": 126,
+            "quote": "@router.get(\"/nonce/dispatch-roll-405\")\nasync def dispatch_nonce_roll_405(length: int = 24, gate_ref: None = Depends(_wrk_gate)):\n    import random\n    alphabet = \"abcdefghijklmnopqrstuvwxyz0123456789\"\n    code = \"\".join(random.choice(alphabet) for _ in range(length))\n    return {\"code\": code}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-b62c35a20521bba0bbb9bbf4",
+      "status": "supported",
+      "reason": "The handler writes to a file whose name is derived directly from the attacker-controlled `ref` parameter (query or JSON body). No validation or sanitization is performed, allowing path traversal (e.g., \"../secret\") to write files outside the intended directory. This yields unauthorized file write on the server.",
+      "record": {
+        "candidate_id": "CAND-b62c35a20521bba0bbb9bbf4",
+        "verdict": "supported",
+        "rationale": "The handler writes to a file whose name is derived directly from the attacker-controlled `ref` parameter (query or JSON body). No validation or sanitization is performed, allowing path traversal (e.g., \"../secret\") to write files outside the intended directory. This yields unauthorized file write on the server.",
+        "entry_point": "POST /ops/vault/dispatch-stash-231",
+        "attacker_control": "the `ref` query parameter or JSON body field",
+        "preconditions": "an authenticated request passing the `_wrk_gate` dependency",
+        "defenses_reviewed": "none; the handler does not validate or sanitize `ref` before constructing the file path",
+        "security_impact": "arbitrary file creation/modification on the server filesystem, potentially leading to code execution or data tampering",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-59ddfcd31cdb4365484fff09",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 64,
+            "end_line": 72,
+            "quote": "@router.post(\"/vault/dispatch-stash-231\")\nasync def dispatch_vault_stash_231(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    import json\n    payload = await request.json()\n    ref = request.query_params.get(\"ref\", payload.get(\"ref\", \"daily\"))\n    target = BASE_EXPORT_DIR / f\"{ref}.json\"\n    target.parent.mkdir(parents=True, exist_ok=True)\n    target.write_text(json.dumps({\"ref\": ref, \"ssn\": payload.get(\"ssn\", \"111-22-3333\"), \"card\": payload.get(\"card\", \"4111111111111111\")}))\n    return {\"path\": str(target)}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-f984a27718450d3987c249c4",
+      "status": "supported",
+      "reason": "The handler dispatch_dock_shelf_393 writes the request body to a file whose path is constructed from the attacker-controlled 'name' parameter without validation. An attacker can supply path traversal strings (e.g., \"../../evil.txt\") to write arbitrary files under the process's writable directories, leading to unauthorized file write.",
+      "record": {
+        "candidate_id": "CAND-f984a27718450d3987c249c4",
+        "verdict": "supported",
+        "rationale": "The handler dispatch_dock_shelf_393 writes the request body to a file whose path is constructed from the attacker-controlled 'name' parameter without validation. An attacker can supply path traversal strings (e.g., \"../../evil.txt\") to write arbitrary files under the process's writable directories, leading to unauthorized file write.",
+        "entry_point": "POST /ops/dock/dispatch-shelf-393",
+        "attacker_control": "the 'name' query parameter (string) supplied by the client",
+        "preconditions": "the attacker can send a POST request to the endpoint with a chosen 'name' value and request body",
+        "defenses_reviewed": "No validation or sanitization of the 'name' parameter; the gate dependency _wrk_gate does not constrain the file path",
+        "security_impact": "arbitrary file write on the server, potentially leading to code execution, data corruption, or privilege escalation",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-89f364ace33fc55f452433c3",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 113,
+            "end_line": 119,
+            "quote": "@router.post(\"/dock/dispatch-shelf-393\")\nasync def dispatch_dock_shelf_393(request: Request, name: str = \"packet.bin\", gate_ref: None = Depends(_wrk_gate)):\n    body = await request.body()\n    target = BASE_EXPORT_DIR / name\n    target.parent.mkdir(parents=True, exist_ok=True)\n    target.write_bytes(body)\n    return {\"stored\": str(target), \"bytes\": len(body)}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-7617602ae4d97c8661582da3",
+      "status": "supported",
+      "reason": "dispatch_mongo_lane_415 reads the request JSON payload, uses the 'filter' field (or entire payload) as the MongoDB query without validation, allowing an attacker who can provide a request body to retrieve arbitrary records via find_one. The only defense is the _wrk_gate dependency that checks a secret header token, which does not restrict the query content itself.",
+      "record": {
+        "candidate_id": "CAND-7617602ae4d97c8661582da3",
+        "verdict": "supported",
+        "rationale": "dispatch_mongo_lane_415 reads the request JSON payload, uses the 'filter' field (or entire payload) as the MongoDB query without validation, allowing an attacker who can provide a request body to retrieve arbitrary records via find_one. The only defense is the _wrk_gate dependency that checks a secret header token, which does not restrict the query content itself.",
+        "entry_point": "POST /ops/mongo/dispatch-lane-415",
+        "attacker_control": "JSON request body (payload), specifically the 'filter' field used as the MongoDB query",
+        "preconditions": "A valid internal token must be supplied in the x-internal-token header matching the INTERNAL_OPS_TOKEN environment variable",
+        "defenses_reviewed": "_wrk_gate checks the internal token but does not validate or restrict the MongoDB query parameters",
+        "security_impact": "IDOR leading to unauthorized disclosure of arbitrary MongoDB records, potentially exposing sensitive operational data",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-67972e93dd526b619ce20a78",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 128,
+            "end_line": 134,
+            "quote": "@router.post(\"/mongo/dispatch-lane-415\")\nasync def dispatch_mongo_lane_415(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from pymongo import MongoClient\n    payload = await request.json()\n    query = payload.get(\"filter\", payload)\n    doc = MongoClient(os.environ.get(\"MONGO_URL\", \"mongodb://localhost:27017\")).ops.records.find_one(query)\n    return {\"match\": repr(doc)[:200]}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-416f42e06546825319f1a2f4",
+      "status": "unresolved",
+      "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget",
+      "record": null
+    },
+    {
+      "candidate_id": "CAND-9bf7ffe4714d08772f499c8b",
+      "status": "supported",
+      "reason": "dispatch_bundle_thaw_172 reads raw data from the request body or the 'blob' query parameter, optionally base64-decodes it, and then directly passes it to pickle.loads without any validation or safe‑loading guard. An attacker who can supply a crafted pickle payload can achieve arbitrary code execution on the server process. Access to the endpoint is gated by _wrk_gate which requires a valid internal token header, but if an attacker obtains that token the exploit is fully viable.",
+      "record": {
+        "candidate_id": "CAND-9bf7ffe4714d08772f499c8b",
+        "verdict": "supported",
+        "rationale": "dispatch_bundle_thaw_172 reads raw data from the request body or the 'blob' query parameter, optionally base64-decodes it, and then directly passes it to pickle.loads without any validation or safe‑loading guard. An attacker who can supply a crafted pickle payload can achieve arbitrary code execution on the server process. Access to the endpoint is gated by _wrk_gate which requires a valid internal token header, but if an attacker obtains that token the exploit is fully viable.",
+        "entry_point": "POST /ops/bundle/dispatch-thaw-172",
+        "attacker_control": "the request body or the 'blob' query parameter (and optionally the 'wrap' flag) control the bytes passed to pickle.loads",
+        "preconditions": "the attacker must possess a valid internal token (x-internal-token header) accepted by _wrk_gate",
+        "defenses_reviewed": "the _wrk_gate dependency checks for an internal token (dispatch_operations.py lines 16-19) but provides no validation of the pickle payload",
+        "security_impact": "arbitrary code execution leading to full server compromise",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-eb08fdf1ae3a96601224ebc8",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 50,
+            "end_line": 62,
+            "quote": "@router.post(\"/bundle/dispatch-thaw-172\")\nasync def dispatch_bundle_thaw_172(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    import base64\n    import pickle\n    raw = await request.body()\n    if not raw:\n        raw = request.query_params.get(\"blob\", \"\").encode(\"utf-8\")\n    if request.query_params.get(\"wrap\") == \"b64\":\n        raw = base64.b64decode(raw)\n    if not raw:\n        raw = b\"\\x80\\x04}q\\x00.\"\n    bundle = pickle.loads(raw)\n    return {\"bundle\": repr(bundle)[:200]}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-f45e5f1607e3c80f75df63ce",
+      "status": "supported",
+      "reason": "dispatch_xml_fold_450 parses attacker-controlled XML request body using lxml.etree.XMLParser with load_dtd=True and resolve_entities=True, allowing external entity expansion. No defenses are applied to disable DTD loading or entity resolution. This enables XML External Entity (XXE) injection, allowing an attacker to read arbitrary files or perform SSRF.",
+      "record": {
+        "candidate_id": "CAND-f45e5f1607e3c80f75df63ce",
+        "verdict": "supported",
+        "rationale": "dispatch_xml_fold_450 parses attacker-controlled XML request body using lxml.etree.XMLParser with load_dtd=True and resolve_entities=True, allowing external entity expansion. No defenses are applied to disable DTD loading or entity resolution. This enables XML External Entity (XXE) injection, allowing an attacker to read arbitrary files or perform SSRF.",
+        "entry_point": "POST /ops/xml/dispatch-fold-450",
+        "attacker_control": "the raw XML payload sent in the POST request body",
+        "preconditions": "an attacker can send a crafted XML document to the endpoint",
+        "defenses_reviewed": "none; the parser is configured to allow DTD loading and entity resolution",
+        "security_impact": "XXE can lead to disclosure of server files, internal network scanning, or SSRF attacks",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-8160c55d09a9cee2c346f923",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 155,
+            "end_line": 160,
+            "quote": "@router.post(\"/xml/dispatch-fold-450\")\nasync def dispatch_xml_fold_450(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from lxml import etree\n    parser = etree.XMLParser(load_dtd=True, resolve_entities=True, no_network=False)\n    doc = etree.fromstring(await request.body(), parser)\n    return {\"root\": doc.tag}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-87931c42ccaef6ada1674742",
+      "status": "supported",
+      "reason": "The handler uses the attacker-controlled `ref` parameter (from query string or JSON body) to construct a file path under BASE_EXPORT_DIR without validation. By supplying path traversal sequences such as `../evil`, an attacker can cause arbitrary file write outside the intended directory, leading to file overwrite or creation of files in arbitrary locations.",
+      "record": {
+        "candidate_id": "CAND-87931c42ccaef6ada1674742",
+        "verdict": "supported",
+        "rationale": "The handler uses the attacker-controlled `ref` parameter (from query string or JSON body) to construct a file path under BASE_EXPORT_DIR without validation. By supplying path traversal sequences such as `../evil`, an attacker can cause arbitrary file write outside the intended directory, leading to file overwrite or creation of files in arbitrary locations.",
+        "entry_point": "POST /ops/vault/dispatch-stash-231",
+        "attacker_control": "the `ref` parameter from the request query string or JSON body",
+        "preconditions": "ability to send a POST request to the endpoint (any required authentication is unknown, but the gate `_wrk_gate` does not validate the `ref` value)",
+        "defenses_reviewed": "no sanitization or validation of `ref` is performed; only `_wrk_gate` is applied, which does not constrain the path",
+        "security_impact": "arbitrary file write can lead to overwriting critical files, privilege escalation, or remote code execution depending on the server's file system permissions",
+        "unresolved_questions": null,
+        "evidence": [
+          {
+            "evidence_id": "EV-59ddfcd31cdb4365484fff09",
+            "path": "backend/app/dispatch_operations.py",
+            "start_line": 64,
+            "end_line": 72,
+            "quote": "@router.post(\"/vault/dispatch-stash-231\")\nasync def dispatch_vault_stash_231(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    import json\n    payload = await request.json()\n    ref = request.query_params.get(\"ref\", payload.get(\"ref\", \"daily\"))\n    target = BASE_EXPORT_DIR / f\"{ref}.json\"\n    target.parent.mkdir(parents=True, exist_ok=True)\n    target.write_text(json.dumps({\"ref\": ref, \"ssn\": payload.get(\"ssn\", \"111-22-3333\"), \"card\": payload.get(\"card\", \"4111111111111111\")}))\n    return {\"path\": str(target)}"
+          }
+        ],
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1"
+      }
+    },
+    {
+      "candidate_id": "CAND-824407bfc530bb93a47b809d",
+      "status": "unresolved",
+      "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: invalid_tool_args at Grep — invalid regex \"enqueue_event(\": error parsing regexp: missing closing ): `enqueue_event(`",
+      "record": null
+    }
+  ]
+}

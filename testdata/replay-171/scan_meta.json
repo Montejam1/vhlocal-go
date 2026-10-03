@@ -1,0 +1,5753 @@
+{
+  "started_at": 1790655455.4271586,
+  "finished_at": 1790666164.236528,
+  "repo": "testdata/replay-171/target",
+  "results_dir": "testdata/replay-171",
+  "model": "gpt-oss:120b",
+  "verify_model": null,
+  "host": "http://127.0.0.1:11434",
+  "num_ctx": 131072,
+  "max_partitions": 8,
+  "phases_requested": [
+    "1",
+    "1t",
+    "2",
+    "2b",
+    "3",
+    "3d",
+    "4"
+  ],
+  "phases_completed": [
+    "1",
+    "1t",
+    "2",
+    "3d",
+    "4"
+  ],
+  "phases_skipped": null,
+  "phase_timings": {
+    "1": 89.3,
+    "1t": 31.5,
+    "2": 5765.1,
+    "2b": 3985.9,
+    "3": 836.7,
+    "3d": 0.3,
+    "4": 0
+  },
+  "partitions": [
+    "SG-1",
+    "SG-2",
+    "SG-3",
+    "SG-4",
+    "SG-5",
+    "SG-6",
+    "SG-7",
+    "SG-8",
+    "SG-9",
+    "SG-10",
+    "SG-11",
+    "SG-12",
+    "SG-13",
+    "SG-14",
+    "SG-15",
+    "SG-16",
+    "SG-17",
+    "SG-18",
+    "SG-19",
+    "SG-20",
+    "SG-21",
+    "SG-22",
+    "SG-23"
+  ],
+  "partition_source": "model_retry",
+  "partition_fallback": true,
+  "partition_parse_error": "no parseable Subgraph Partitions table",
+  "partition_collapsed": false,
+  "coverage_partitions_added": [
+    "SG-6",
+    "SG-7",
+    "SG-8",
+    "SG-9",
+    "SG-10",
+    "SG-11",
+    "SG-12",
+    "SG-13",
+    "SG-14",
+    "SG-15",
+    "SG-16",
+    "SG-17",
+    "SG-18",
+    "SG-19",
+    "SG-20",
+    "SG-21",
+    "SG-22",
+    "SG-23"
+  ],
+  "coverage_files_added": [
+    "backend/app/dispatch_operations.py",
+    "backend/app/main.py",
+    "backend/app/routers/admin_misc.py",
+    "backend/app/routers/audit.py",
+    "backend/app/routers/auth.py",
+    "backend/app/routers/customers.py",
+    "backend/app/routers/dashboards.py",
+    "backend/app/routers/incidents.py",
+    "backend/app/routers/io_csv.py",
+    "backend/app/routers/jobs.py",
+    "backend/app/routers/notifications.py",
+    "backend/app/routers/proofs.py",
+    "backend/app/routers/public_api.py",
+    "backend/app/routers/regions.py",
+    "backend/app/routers/routes.py",
+    "backend/app/routers/service_types.py",
+    "backend/app/routers/users.py",
+    "backend/app/routers/workers.py"
+  ],
+  "coverage_uncovered_remaining": null,
+  "threat_model_partitions": null,
+  "coverage_enforced": true,
+  "vuln_classes": [
+    "INJ",
+    "NAV",
+    "LOG"
+  ],
+  "agents": [
+    {
+      "label": "1",
+      "phase": "1",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "complete",
+      "prompt_tokens": 276328,
+      "completion_tokens": 13350,
+      "produced": false
+    },
+    {
+      "label": "1t",
+      "phase": "1t",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 130293,
+      "completion_tokens": 4712,
+      "produced": false
+    },
+    {
+      "label": "hunt:sg-1:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 26,
+      "stopped_reason": "complete",
+      "prompt_tokens": 530725,
+      "completion_tokens": 5910,
+      "partition": "SG-1",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-1:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 35,
+      "stopped_reason": "complete",
+      "prompt_tokens": 755461,
+      "completion_tokens": 12906,
+      "partition": "SG-1",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-1:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 29,
+      "stopped_reason": "complete",
+      "prompt_tokens": 513745,
+      "completion_tokens": 13030,
+      "partition": "SG-1",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-1:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 21,
+      "stopped_reason": "complete",
+      "prompt_tokens": 572377,
+      "completion_tokens": 5003,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-1",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-1:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "complete",
+      "prompt_tokens": 305718,
+      "completion_tokens": 4257,
+      "partition": "SG-1",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-1:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "complete",
+      "prompt_tokens": 433929,
+      "completion_tokens": 7446,
+      "partition": "SG-1",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-1:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "complete",
+      "prompt_tokens": 174240,
+      "completion_tokens": 3662,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-1",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-1:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "complete",
+      "prompt_tokens": 200311,
+      "completion_tokens": 5774,
+      "partition": "SG-1",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-1:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 16,
+      "stopped_reason": "complete",
+      "prompt_tokens": 270076,
+      "completion_tokens": 7415,
+      "partition": "SG-1",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-2:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 22,
+      "stopped_reason": "complete",
+      "prompt_tokens": 337873,
+      "completion_tokens": 7390,
+      "partition": "SG-2",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-2:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 30,
+      "stopped_reason": "complete",
+      "prompt_tokens": 763057,
+      "completion_tokens": 3514,
+      "partition": "SG-2",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-2:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 48,
+      "stopped_reason": "complete",
+      "prompt_tokens": 902148,
+      "completion_tokens": 9615,
+      "partition": "SG-2",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-2:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "complete",
+      "prompt_tokens": 554786,
+      "completion_tokens": 11017,
+      "partition": "SG-2",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-2:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 24,
+      "stopped_reason": "complete",
+      "prompt_tokens": 629296,
+      "completion_tokens": 8194,
+      "partition": "SG-2",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-2:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 29,
+      "stopped_reason": "complete",
+      "prompt_tokens": 798998,
+      "completion_tokens": 12960,
+      "partition": "SG-2",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-2:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 214531,
+      "completion_tokens": 3649,
+      "partition": "SG-2",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-2:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "complete",
+      "prompt_tokens": 179663,
+      "completion_tokens": 5220,
+      "partition": "SG-2",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-2:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "complete",
+      "prompt_tokens": 329553,
+      "completion_tokens": 4798,
+      "partition": "SG-2",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-3:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 65240,
+      "completion_tokens": 4999,
+      "partition": "SG-3",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-3:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 41772,
+      "completion_tokens": 3359,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-3",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-3:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 51521,
+      "completion_tokens": 4278,
+      "partition": "SG-3",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-3:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 69728,
+      "completion_tokens": 4941,
+      "partition": "SG-3",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-3:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 85091,
+      "completion_tokens": 8154,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-3",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-3:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 77798,
+      "completion_tokens": 5065,
+      "partition": "SG-3",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-3:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 74369,
+      "completion_tokens": 6492,
+      "partition": "SG-3",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-3:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 78064,
+      "completion_tokens": 7694,
+      "partition": "SG-3",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-3:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 97204,
+      "completion_tokens": 7683,
+      "partition": "SG-3",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-4:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 203804,
+      "completion_tokens": 7861,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-4",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-4:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "complete",
+      "prompt_tokens": 287321,
+      "completion_tokens": 10742,
+      "partition": "SG-4",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-4:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 25,
+      "stopped_reason": "complete",
+      "prompt_tokens": 376593,
+      "completion_tokens": 8351,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-4",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-4:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "complete",
+      "prompt_tokens": 177530,
+      "completion_tokens": 6512,
+      "partition": "SG-4",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-4:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 189269,
+      "completion_tokens": 3948,
+      "partition": "SG-4",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-4:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 28,
+      "stopped_reason": "complete",
+      "prompt_tokens": 657863,
+      "completion_tokens": 8522,
+      "partition": "SG-4",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-4:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 44563,
+      "completion_tokens": 2418,
+      "partition": "SG-4",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-4:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 123740,
+      "completion_tokens": 7574,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-4",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-4:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 97462,
+      "completion_tokens": 3940,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-4",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-5:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 130732,
+      "completion_tokens": 3840,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-5",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-5:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 18,
+      "stopped_reason": "complete",
+      "prompt_tokens": 347935,
+      "completion_tokens": 8689,
+      "partition": "SG-5",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-5:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 19,
+      "stopped_reason": "complete",
+      "prompt_tokens": 405799,
+      "completion_tokens": 12637,
+      "partition": "SG-5",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-5:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 247673,
+      "completion_tokens": 4321,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-5",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-5:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 131446,
+      "completion_tokens": 3477,
+      "partition": "SG-5",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-5:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 29,
+      "stopped_reason": "complete",
+      "prompt_tokens": 774274,
+      "completion_tokens": 8627,
+      "partition": "SG-5",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-5:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 24,
+      "stopped_reason": "complete",
+      "prompt_tokens": 455984,
+      "completion_tokens": 6330,
+      "partition": "SG-5",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-5:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 121801,
+      "completion_tokens": 5099,
+      "partition": "SG-5",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-5:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 145135,
+      "completion_tokens": 5568,
+      "partition": "SG-5",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-6:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 61476,
+      "completion_tokens": 4165,
+      "partition": "SG-6",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-6:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 114402,
+      "completion_tokens": 6454,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-6",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-6:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 80946,
+      "completion_tokens": 7226,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-6",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-6:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 113572,
+      "completion_tokens": 5920,
+      "partition": "SG-6",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-6:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 3,
+      "stopped_reason": "complete",
+      "prompt_tokens": 40323,
+      "completion_tokens": 2916,
+      "partition": "SG-6",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-6:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 69556,
+      "completion_tokens": 5544,
+      "partition": "SG-6",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-6:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 65443,
+      "completion_tokens": 5358,
+      "partition": "SG-6",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-6:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 62234,
+      "completion_tokens": 4198,
+      "partition": "SG-6",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-6:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 47099,
+      "completion_tokens": 4094,
+      "partition": "SG-6",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-7:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 43860,
+      "completion_tokens": 566,
+      "partition": "SG-7",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-7:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 67712,
+      "completion_tokens": 1097,
+      "partition": "SG-7",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-7:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 43815,
+      "completion_tokens": 626,
+      "partition": "SG-7",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-7:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 45401,
+      "completion_tokens": 819,
+      "partition": "SG-7",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-7:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 46902,
+      "completion_tokens": 647,
+      "partition": "SG-7",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-7:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 60676,
+      "completion_tokens": 816,
+      "partition": "SG-7",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-7:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 65708,
+      "completion_tokens": 1688,
+      "partition": "SG-7",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-7:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 51641,
+      "completion_tokens": 1405,
+      "partition": "SG-7",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-7:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 53214,
+      "completion_tokens": 1485,
+      "partition": "SG-7",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-8:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 95208,
+      "completion_tokens": 1556,
+      "partition": "SG-8",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-8:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 73429,
+      "completion_tokens": 2437,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-8",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-8:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 99743,
+      "completion_tokens": 2373,
+      "partition": "SG-8",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-8:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 89176,
+      "completion_tokens": 2016,
+      "partition": "SG-8",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-8:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 83479,
+      "completion_tokens": 1460,
+      "partition": "SG-8",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-8:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 68829,
+      "completion_tokens": 1389,
+      "partition": "SG-8",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-8:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 176211,
+      "completion_tokens": 5552,
+      "partition": "SG-8",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-8:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "complete",
+      "prompt_tokens": 220813,
+      "completion_tokens": 6772,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-8",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-8:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 140314,
+      "completion_tokens": 4585,
+      "partition": "SG-8",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-9:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 45003,
+      "completion_tokens": 741,
+      "partition": "SG-9",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-9:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 69694,
+      "completion_tokens": 1166,
+      "partition": "SG-9",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-9:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 137101,
+      "completion_tokens": 1527,
+      "partition": "SG-9",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-9:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 64002,
+      "completion_tokens": 1094,
+      "partition": "SG-9",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-9:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 83203,
+      "completion_tokens": 1202,
+      "partition": "SG-9",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-9:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 93628,
+      "completion_tokens": 1940,
+      "partition": "SG-9",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-9:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 109225,
+      "completion_tokens": 2423,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-9",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-9:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 42239,
+      "completion_tokens": 981,
+      "partition": "SG-9",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-9:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 262232,
+      "completion_tokens": 3387,
+      "partition": "SG-9",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-10:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 188906,
+      "completion_tokens": 3126,
+      "partition": "SG-10",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-10:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "complete",
+      "prompt_tokens": 331668,
+      "completion_tokens": 3926,
+      "partition": "SG-10",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-10:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "complete",
+      "prompt_tokens": 215150,
+      "completion_tokens": 2366,
+      "partition": "SG-10",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-10:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 71324,
+      "completion_tokens": 1342,
+      "partition": "SG-10",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-10:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 72334,
+      "completion_tokens": 1387,
+      "partition": "SG-10",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-10:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 70375,
+      "completion_tokens": 915,
+      "partition": "SG-10",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-10:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 82743,
+      "completion_tokens": 2632,
+      "partition": "SG-10",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-10:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 77390,
+      "completion_tokens": 2644,
+      "partition": "SG-10",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-10:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 112615,
+      "completion_tokens": 3843,
+      "partition": "SG-10",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-11:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "complete",
+      "prompt_tokens": 265784,
+      "completion_tokens": 4314,
+      "partition": "SG-11",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-11:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 101459,
+      "completion_tokens": 1629,
+      "partition": "SG-11",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-11:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 205383,
+      "completion_tokens": 3425,
+      "partition": "SG-11",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-11:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 51822,
+      "completion_tokens": 952,
+      "partition": "SG-11",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-11:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 163481,
+      "completion_tokens": 4246,
+      "partition": "SG-11",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-11:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 51872,
+      "completion_tokens": 1191,
+      "partition": "SG-11",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-11:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 63560,
+      "completion_tokens": 1734,
+      "partition": "SG-11",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-11:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 3,
+      "stopped_reason": "complete",
+      "prompt_tokens": 33988,
+      "completion_tokens": 1455,
+      "partition": "SG-11",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-11:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 46364,
+      "completion_tokens": 2029,
+      "partition": "SG-11",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-12:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 61797,
+      "completion_tokens": 882,
+      "partition": "SG-12",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-12:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 75668,
+      "completion_tokens": 1673,
+      "partition": "SG-12",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-12:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 90541,
+      "completion_tokens": 1731,
+      "partition": "SG-12",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-12:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 65939,
+      "completion_tokens": 1398,
+      "partition": "SG-12",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-12:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 65711,
+      "completion_tokens": 1243,
+      "partition": "SG-12",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-12:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 85543,
+      "completion_tokens": 1423,
+      "partition": "SG-12",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-12:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 120858,
+      "completion_tokens": 3041,
+      "partition": "SG-12",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-12:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 47526,
+      "completion_tokens": 1275,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-12",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-12:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 82752,
+      "completion_tokens": 1524,
+      "partition": "SG-12",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-13:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 19,
+      "stopped_reason": "complete",
+      "prompt_tokens": 320438,
+      "completion_tokens": 4380,
+      "partition": "SG-13",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-13:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 22,
+      "stopped_reason": "complete",
+      "prompt_tokens": 581907,
+      "completion_tokens": 4795,
+      "partition": "SG-13",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-13:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 21,
+      "stopped_reason": "complete",
+      "prompt_tokens": 304605,
+      "completion_tokens": 4650,
+      "partition": "SG-13",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-13:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 112207,
+      "completion_tokens": 3686,
+      "partition": "SG-13",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-13:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 168311,
+      "completion_tokens": 5845,
+      "partition": "SG-13",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-13:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 98824,
+      "completion_tokens": 1886,
+      "partition": "SG-13",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-13:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "complete",
+      "prompt_tokens": 287906,
+      "completion_tokens": 6965,
+      "partition": "SG-13",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-13:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 210753,
+      "completion_tokens": 4768,
+      "partition": "SG-13",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-13:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 128551,
+      "completion_tokens": 4381,
+      "partition": "SG-13",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-14:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 54232,
+      "completion_tokens": 924,
+      "partition": "SG-14",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-14:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 214840,
+      "completion_tokens": 3034,
+      "partition": "SG-14",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-14:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 170524,
+      "completion_tokens": 2766,
+      "partition": "SG-14",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-14:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 77735,
+      "completion_tokens": 2073,
+      "partition": "SG-14",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-14:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 56412,
+      "completion_tokens": 2112,
+      "partition": "SG-14",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-14:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 94783,
+      "completion_tokens": 2441,
+      "partition": "SG-14",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-14:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 120568,
+      "completion_tokens": 2480,
+      "repair_attempts": 1,
+      "partition": "SG-14",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-14:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 58946,
+      "completion_tokens": 2184,
+      "partition": "SG-14",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-14:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 262600,
+      "completion_tokens": 5530,
+      "partition": "SG-14",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-15:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 272641,
+      "completion_tokens": 3194,
+      "partition": "SG-15",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-15:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 125292,
+      "completion_tokens": 2274,
+      "partition": "SG-15",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-15:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "complete",
+      "prompt_tokens": 305783,
+      "completion_tokens": 3302,
+      "partition": "SG-15",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-15:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 108193,
+      "completion_tokens": 2408,
+      "partition": "SG-15",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-15:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 176790,
+      "completion_tokens": 4137,
+      "partition": "SG-15",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-15:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 81072,
+      "completion_tokens": 3439,
+      "partition": "SG-15",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-15:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 168542,
+      "completion_tokens": 4482,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-15",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-15:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 69856,
+      "completion_tokens": 2072,
+      "partition": "SG-15",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-15:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 297603,
+      "completion_tokens": 4645,
+      "partition": "SG-15",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-16:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 18,
+      "stopped_reason": "complete",
+      "prompt_tokens": 320382,
+      "completion_tokens": 3666,
+      "partition": "SG-16",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-16:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 94121,
+      "completion_tokens": 2075,
+      "partition": "SG-16",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-16:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "complete",
+      "prompt_tokens": 215715,
+      "completion_tokens": 3656,
+      "partition": "SG-16",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-16:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 61231,
+      "completion_tokens": 1034,
+      "partition": "SG-16",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-16:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 95604,
+      "completion_tokens": 1220,
+      "partition": "SG-16",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-16:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 64874,
+      "completion_tokens": 1547,
+      "partition": "SG-16",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-16:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 42745,
+      "completion_tokens": 1312,
+      "partition": "SG-16",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-16:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 42578,
+      "completion_tokens": 1111,
+      "partition": "SG-16",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-16:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 3,
+      "stopped_reason": "complete",
+      "prompt_tokens": 30081,
+      "completion_tokens": 753,
+      "partition": "SG-16",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-17:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 166955,
+      "completion_tokens": 4995,
+      "partition": "SG-17",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-17:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 63878,
+      "completion_tokens": 1860,
+      "partition": "SG-17",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-17:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 92237,
+      "completion_tokens": 2601,
+      "partition": "SG-17",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-17:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 81078,
+      "completion_tokens": 1404,
+      "partition": "SG-17",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-17:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 91268,
+      "completion_tokens": 1718,
+      "partition": "SG-17",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-17:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 118537,
+      "completion_tokens": 3333,
+      "partition": "SG-17",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-17:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 113776,
+      "completion_tokens": 3855,
+      "partition": "SG-17",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-17:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 105991,
+      "completion_tokens": 4317,
+      "partition": "SG-17",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-17:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "complete",
+      "prompt_tokens": 144648,
+      "completion_tokens": 3684,
+      "partition": "SG-17",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-18:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 18,
+      "stopped_reason": "complete",
+      "prompt_tokens": 434130,
+      "completion_tokens": 5026,
+      "partition": "SG-18",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-18:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 24,
+      "stopped_reason": "complete",
+      "prompt_tokens": 387468,
+      "completion_tokens": 8383,
+      "partition": "SG-18",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-18:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 24,
+      "stopped_reason": "complete",
+      "prompt_tokens": 511952,
+      "completion_tokens": 6924,
+      "partition": "SG-18",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-18:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 95562,
+      "completion_tokens": 1994,
+      "partition": "SG-18",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-18:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 65925,
+      "completion_tokens": 1860,
+      "partition": "SG-18",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-18:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 130893,
+      "completion_tokens": 1843,
+      "partition": "SG-18",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-18:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 72401,
+      "completion_tokens": 1660,
+      "partition": "SG-18",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-18:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 222445,
+      "completion_tokens": 5010,
+      "partition": "SG-18",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-18:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "complete",
+      "prompt_tokens": 245586,
+      "completion_tokens": 6314,
+      "partition": "SG-18",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-19:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 24,
+      "stopped_reason": "complete",
+      "prompt_tokens": 521025,
+      "completion_tokens": 3851,
+      "partition": "SG-19",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-19:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 30,
+      "stopped_reason": "complete",
+      "prompt_tokens": 531463,
+      "completion_tokens": 7693,
+      "partition": "SG-19",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-19:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 18,
+      "stopped_reason": "complete",
+      "prompt_tokens": 327946,
+      "completion_tokens": 4300,
+      "partition": "SG-19",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-19:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 91690,
+      "completion_tokens": 2330,
+      "partition": "SG-19",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-19:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 98743,
+      "completion_tokens": 3193,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-19",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-19:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 126968,
+      "completion_tokens": 2243,
+      "partition": "SG-19",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-19:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 3,
+      "stopped_reason": "complete",
+      "prompt_tokens": 31749,
+      "completion_tokens": 1589,
+      "partition": "SG-19",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-19:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 87731,
+      "completion_tokens": 2566,
+      "partition": "SG-19",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-19:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 215865,
+      "completion_tokens": 5560,
+      "partition": "SG-19",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-20:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 171529,
+      "completion_tokens": 2359,
+      "partition": "SG-20",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-20:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 83706,
+      "completion_tokens": 1168,
+      "partition": "SG-20",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-20:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 150656,
+      "completion_tokens": 1504,
+      "partition": "SG-20",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-20:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 88602,
+      "completion_tokens": 1966,
+      "partition": "SG-20",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-20:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 120155,
+      "completion_tokens": 3686,
+      "partition": "SG-20",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-20:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 66060,
+      "completion_tokens": 2314,
+      "partition": "SG-20",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-20:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 61819,
+      "completion_tokens": 2497,
+      "partition": "SG-20",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-20:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 97819,
+      "completion_tokens": 2880,
+      "partition": "SG-20",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-20:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "complete",
+      "prompt_tokens": 191110,
+      "completion_tokens": 4089,
+      "partition": "SG-20",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-21:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 160263,
+      "completion_tokens": 2473,
+      "partition": "SG-21",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-21:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "complete",
+      "prompt_tokens": 309765,
+      "completion_tokens": 6001,
+      "partition": "SG-21",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-21:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "complete",
+      "prompt_tokens": 274354,
+      "completion_tokens": 4771,
+      "partition": "SG-21",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-21:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 83695,
+      "completion_tokens": 1485,
+      "partition": "SG-21",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-21:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 90502,
+      "completion_tokens": 1903,
+      "partition": "SG-21",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-21:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 150646,
+      "completion_tokens": 3870,
+      "partition": "SG-21",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-21:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 96112,
+      "completion_tokens": 3396,
+      "partition": "SG-21",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-21:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 85064,
+      "completion_tokens": 2299,
+      "partition": "SG-21",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-21:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "complete",
+      "prompt_tokens": 226793,
+      "completion_tokens": 4997,
+      "partition": "SG-21",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-22:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "complete",
+      "prompt_tokens": 276487,
+      "completion_tokens": 4370,
+      "partition": "SG-22",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-22:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "complete",
+      "prompt_tokens": 243280,
+      "completion_tokens": 3640,
+      "partition": "SG-22",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-22:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 185295,
+      "completion_tokens": 3665,
+      "partition": "SG-22",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-22:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 112033,
+      "completion_tokens": 3299,
+      "partition": "SG-22",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-22:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 109679,
+      "completion_tokens": 2803,
+      "partition": "SG-22",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-22:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 81489,
+      "completion_tokens": 2601,
+      "partition": "SG-22",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-22:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 224505,
+      "completion_tokens": 4858,
+      "partition": "SG-22",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-22:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 62136,
+      "completion_tokens": 1736,
+      "partition": "SG-22",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-22:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 109133,
+      "completion_tokens": 3258,
+      "partition": "SG-22",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-23:inj.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "complete",
+      "prompt_tokens": 337315,
+      "completion_tokens": 3778,
+      "partition": "SG-23",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-23:inj.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 26,
+      "stopped_reason": "complete",
+      "prompt_tokens": 467486,
+      "completion_tokens": 6540,
+      "partition": "SG-23",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-23:inj.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "complete",
+      "prompt_tokens": 278628,
+      "completion_tokens": 3957,
+      "partition": "SG-23",
+      "vuln_class": "INJ",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-23:nav.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 165692,
+      "completion_tokens": 3970,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-23",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-23:nav.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 143150,
+      "completion_tokens": 3146,
+      "partition": "SG-23",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-23:nav.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 106345,
+      "completion_tokens": 3425,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-23",
+      "vuln_class": "NAV",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-23:log.s1",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 127407,
+      "completion_tokens": 4401,
+      "partition": "SG-23",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-23:log.s2",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 48872,
+      "completion_tokens": 2931,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "partition": "SG-23",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sg-23:log.s3",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 92489,
+      "completion_tokens": 3142,
+      "partition": "SG-23",
+      "vuln_class": "LOG",
+      "produced": true
+    },
+    {
+      "label": "hunt:sink",
+      "phase": "2",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "complete",
+      "prompt_tokens": 254239,
+      "completion_tokens": 4942,
+      "produced": true
+    },
+    {
+      "label": "verify:CAND-fa6905c56a11f339e09325e3",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 95199,
+      "completion_tokens": 4024,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-85926fda87ca9d3bacd3480a",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 130096,
+      "completion_tokens": 4757,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-38a2af0a1b7c65fb2805c91c",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 107067,
+      "completion_tokens": 5971,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-8978e33f3231eb4c7a5ec02b",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 72564,
+      "completion_tokens": 3630,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-4f2df0128b72ea3091447bdc",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 13894,
+      "completion_tokens": 1506,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-6a775f8ddca95b6239af18c7",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 16,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 128217,
+      "completion_tokens": 5802,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-75503afcb89eca99a1bb66dd",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 19,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 605489,
+      "completion_tokens": 5927,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-5074d8bb9dedfe690fb7ee6a",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 50988,
+      "completion_tokens": 2759,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-ae9d4d1ffdeee1db5869a069",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 105668,
+      "completion_tokens": 2709,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-fe230f6d72b96d8f00eb0fa5",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 138819,
+      "completion_tokens": 4447,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-a0921ebc711f398055e054a9",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 172771,
+      "completion_tokens": 2706,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-16f9eb1f4be8353d0b9460ea",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 324942,
+      "completion_tokens": 2755,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-bb066500e0b183cbd60652e2",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 19,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 143966,
+      "completion_tokens": 4818,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-ccc1e02e67b4ed8ff8bae79e",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "complete",
+      "prompt_tokens": 120048,
+      "completion_tokens": 4534,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-d69ac1c98c8912f4c0c20d69",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 158036,
+      "completion_tokens": 3535,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-46d7b038922e3d09e4717ef3",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 16,
+      "stopped_reason": "complete",
+      "prompt_tokens": 115285,
+      "completion_tokens": 5199,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-d7615cbac704f0c891b3b23d",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 91219,
+      "completion_tokens": 4127,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-d3cf97a13474e6e7c30d34ec",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 128067,
+      "completion_tokens": 4659,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-1aa1d2d9d54a6eaab2c30d12",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 67579,
+      "completion_tokens": 4927,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-3d1a32fe80c25e6f1166c8e1",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 75247,
+      "completion_tokens": 4153,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-0ec863f9f29483732f09d5f2",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 323809,
+      "completion_tokens": 2795,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-1db6543fa23307cbb91eacaf",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 58677,
+      "completion_tokens": 3738,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-73fc65f7a28b6d240830e488",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 58296,
+      "completion_tokens": 5277,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-060304a095db105a86d8eacb",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "complete",
+      "prompt_tokens": 69066,
+      "completion_tokens": 4858,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-7dcb3247a7da0b537d9a9495",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 2,
+      "stopped_reason": "complete",
+      "prompt_tokens": 6667,
+      "completion_tokens": 643,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-8cee3de4b08cf2ed7912ade5",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 43233,
+      "completion_tokens": 2583,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-325da680b4c928e2a853a4d7",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "complete",
+      "prompt_tokens": 107824,
+      "completion_tokens": 4550,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-f45e5f1607e3c80f75df63ce",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 21385,
+      "completion_tokens": 1380,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-0c1cc353da7186008a23f722",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 35998,
+      "completion_tokens": 2433,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-b8c215fc94c93581db03b67a",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 37247,
+      "completion_tokens": 2460,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-3386df5f04ee8a2dc117e497",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 135676,
+      "completion_tokens": 4367,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-93e1f28f97ca78cc0e0af8d7",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 42159,
+      "completion_tokens": 3260,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-282fde8746f5ae857be2de39",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 30574,
+      "completion_tokens": 2956,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-3d39d7181c05e7a32a92c86c",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 17969,
+      "completion_tokens": 1672,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-cdaf5bc83779dd9c75ad1e87",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 154556,
+      "completion_tokens": 4295,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-bac16cac54bead8488313da8",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 69522,
+      "completion_tokens": 4059,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-df0556f2ec9295f89cfe234a",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 97296,
+      "completion_tokens": 5229,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-2ea9696d0a8ba4ea18837480",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 18,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 107649,
+      "completion_tokens": 3828,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-cef7a4c0d1e6170b051777ad",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 83528,
+      "completion_tokens": 4665,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-689df88df37120c211ffa592",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 39656,
+      "completion_tokens": 2019,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-20b097fd98f187d8d7efc82b",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 125586,
+      "completion_tokens": 3819,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-d64c219333a5a825a538fbf3",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "complete",
+      "prompt_tokens": 147100,
+      "completion_tokens": 6387,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-0d3d52e7fe2975ead6dfdc11",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 54156,
+      "completion_tokens": 3132,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-214959ba915ae88ce6e4dbd9",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 111279,
+      "completion_tokens": 4400,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-9f4b5d703369c1d519c091ed",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 51935,
+      "completion_tokens": 3525,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-78ad0391960791ee7a51abf2",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 72622,
+      "completion_tokens": 2714,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-48ee098573d88bd6a7188770",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 111536,
+      "completion_tokens": 4631,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-6d658a1afc55b8dd0e58be95",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 117369,
+      "completion_tokens": 3817,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-b0d45835e5978231d43fdf44",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 15688,
+      "completion_tokens": 2002,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-d63d88b15ef409e9aceb1c13",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 184167,
+      "completion_tokens": 3333,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-6cebc20661f319c9ea3e583e",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 63967,
+      "completion_tokens": 5471,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-63d4c66c8fed316692d7956b",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 31702,
+      "completion_tokens": 1912,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-eaa811e261cfdf467dce9487",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 102630,
+      "completion_tokens": 4605,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-c9830a94284773eaf17fe814",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 91286,
+      "completion_tokens": 4930,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-30ff69e180fe9be1fa426c02",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 18,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 95963,
+      "completion_tokens": 5974,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-cc6473a6cc78d446ce36f4a2",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 96155,
+      "completion_tokens": 4584,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-861da33785957adb3d0f0bc2",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 165970,
+      "completion_tokens": 4455,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-a2898f8d7a8fe413e9cb6461",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 63598,
+      "completion_tokens": 3847,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-3c8c6098f495a95d8e99e90c",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 16,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 94010,
+      "completion_tokens": 5791,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-87b268f61c77305ae4db050d",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 59597,
+      "completion_tokens": 2996,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-64f82d01b67a62d82a310ab6",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 104858,
+      "completion_tokens": 5194,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-4e3ab9a23bfe3810b33006da",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 16,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 115547,
+      "completion_tokens": 5764,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-bd523d1087fd2eb3badaff9f",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 96503,
+      "completion_tokens": 4831,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-9216e440ddda506575d2cb18",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 16,
+      "stopped_reason": "complete",
+      "prompt_tokens": 117269,
+      "completion_tokens": 4595,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-3663c7f5f0c7ea2d3c702f04",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 77049,
+      "completion_tokens": 2880,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-77a9929389b144989b70345b",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 147539,
+      "completion_tokens": 5568,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-61b315f0806108e7bb65a11e",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 28203,
+      "completion_tokens": 1910,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-14843f01434010be67e1248d",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 16,
+      "stopped_reason": "complete",
+      "prompt_tokens": 79509,
+      "completion_tokens": 4210,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-1f5dca3f002579fffd97f4a7",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "complete",
+      "prompt_tokens": 161165,
+      "completion_tokens": 5983,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-3044992ce3acfdf4ad350fad",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 46979,
+      "completion_tokens": 3543,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-d4f7b80378d1e26ea24f242b",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 62161,
+      "completion_tokens": 3121,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-a6b240664b02427990024545",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 20501,
+      "completion_tokens": 3293,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-45db64d73c13adacb14a7e01",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 21017,
+      "completion_tokens": 2076,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-649b7ac2ad11645f726fa7de",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 93925,
+      "completion_tokens": 5071,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-8821cbcfedd55698a1bff507",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 3,
+      "stopped_reason": "complete",
+      "prompt_tokens": 9801,
+      "completion_tokens": 811,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-082241c5969cbfe7607cd9ef",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 146148,
+      "completion_tokens": 3853,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-78c4512fd56eca5ac21025fe",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 36900,
+      "completion_tokens": 2027,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-a98bed1f76c2d216b8523e2c",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 350649,
+      "completion_tokens": 2818,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-a452c4bbf3a1aa851ba2d3cf",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 73248,
+      "completion_tokens": 5184,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-8c08a5b4759d258d03dbfe33",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 31524,
+      "completion_tokens": 3613,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-523134ed5e0d4d7751501f8f",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 98155,
+      "completion_tokens": 2661,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-c7f3512202a3dad3d396033f",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 16,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 126100,
+      "completion_tokens": 4644,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-ee4cc41897c5d46036b750c8",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "complete",
+      "prompt_tokens": 91144,
+      "completion_tokens": 2779,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-9b7dd244252048378e86f65c",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 118180,
+      "completion_tokens": 3827,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-82306cca5fc3164a6520a3c0",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 18927,
+      "completion_tokens": 1755,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-85cb3fa183c187878d963828",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 3,
+      "stopped_reason": "complete",
+      "prompt_tokens": 9961,
+      "completion_tokens": 949,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-c2d6b3c5e9b40e8f98f4f7b5",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 41043,
+      "completion_tokens": 2973,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-0e739a693d75797ae3fd9551",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 69964,
+      "completion_tokens": 3233,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-433d64fe4dd1f3185c6adbc1",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 38901,
+      "completion_tokens": 3470,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-841f302ddfed56d8f3e2fa2e",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 36845,
+      "completion_tokens": 2899,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-7fab7280516dfc3c58a10a0a",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 23639,
+      "completion_tokens": 1902,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-ad0d5b2b047feb92c54be67f",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 58068,
+      "completion_tokens": 3472,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-0c4e9f6e6e25bbf69d9f36e9",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 61365,
+      "completion_tokens": 3639,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-3a99b6a31868807c99c3ccc6",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 55317,
+      "completion_tokens": 4536,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-f3287cf4d8059a9dfa8c33ff",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 16,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 102884,
+      "completion_tokens": 6009,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-a70ebf21439abfc5ee307cc1",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 131728,
+      "completion_tokens": 4621,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-82b974661f39930488381fb2",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 106179,
+      "completion_tokens": 5548,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-c3b6701c38c1591e5b4b9ef3",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 80016,
+      "completion_tokens": 5566,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-d1ca0c5f19ea44837a5f1c74",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 16,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 88073,
+      "completion_tokens": 5219,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-cac41c8f4035e32e49b10a19",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 37419,
+      "completion_tokens": 2537,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-9407b3f4056698de3c615bcf",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 99979,
+      "completion_tokens": 3710,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-c86e31535b94e07999cab8dd",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 75172,
+      "completion_tokens": 4132,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-87931c42ccaef6ada1674742",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 102752,
+      "completion_tokens": 4701,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-b384018d727a8163cfe7daca",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 3,
+      "stopped_reason": "complete",
+      "prompt_tokens": 14935,
+      "completion_tokens": 1368,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-7b08361efcaf1d7b99cee7fa",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 14216,
+      "completion_tokens": 867,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-1ad7e421cc11cfcbdb85b696",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 72929,
+      "completion_tokens": 4119,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-7c0c86726f9189607a9994db",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 3,
+      "stopped_reason": "complete",
+      "prompt_tokens": 11590,
+      "completion_tokens": 1194,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-f92c89a3b16760505dc7848d",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 83894,
+      "completion_tokens": 4313,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-7bc8eb2f27948a1f372562d1",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 96907,
+      "completion_tokens": 3722,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-3554b78780703e82e3b66407",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 26196,
+      "completion_tokens": 2042,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-37fcb8e0ad21d6b65818a76c",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 39227,
+      "completion_tokens": 3432,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-c295c4c7f2b56efe45067f37",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 174926,
+      "completion_tokens": 2382,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-5021798a7259fee684446542",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 37720,
+      "completion_tokens": 2775,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-b812b7cd6fe78436aa7153a2",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 44156,
+      "completion_tokens": 3906,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-416f42e06546825319f1a2f4",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 51086,
+      "completion_tokens": 4162,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-f6fa4b7cfc4c3300bd99fdc1",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 33931,
+      "completion_tokens": 2533,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-0706ece4c2fe13b967439c20",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 28147,
+      "completion_tokens": 1633,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-10e066d6ffa1ba87bef18220",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 77120,
+      "completion_tokens": 3992,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-33421ef5afac2547d5d8d1eb",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 18,
+      "stopped_reason": "complete",
+      "prompt_tokens": 70005,
+      "completion_tokens": 3626,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-c53db8ab7eda2caa3e0c2816",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 18,
+      "stopped_reason": "complete",
+      "prompt_tokens": 83999,
+      "completion_tokens": 5437,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-9e7c59eea388bc151c84c6ce",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 23676,
+      "completion_tokens": 2685,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-848dd00148d4534fab5ac919",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 14463,
+      "completion_tokens": 1747,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-8c295b53396f5030480a3310",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 53581,
+      "completion_tokens": 3108,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-f6edc1f3d0a374dd878ef752",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 31976,
+      "completion_tokens": 2574,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-4c30ae3a70c1b0aea813ac07",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 14878,
+      "completion_tokens": 2104,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-af9e10c4261e3be1064a2be3",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 54322,
+      "completion_tokens": 4086,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-5f65bcd2b5fe55d002fe65bd",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 58973,
+      "completion_tokens": 4124,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-818a17d75bc2d424496ce2fe",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 55599,
+      "completion_tokens": 3756,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-44a78baf2040e333c6f8e627",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 14898,
+      "completion_tokens": 1976,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-205b5da3faf2c30067fd85f6",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 41674,
+      "completion_tokens": 3057,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-8a19192fc4afa0fefb35d32e",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 33617,
+      "completion_tokens": 2538,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-221c3bf8b2684becd7aeb590",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 73406,
+      "completion_tokens": 4230,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-361238fae39851f0422bee55",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 90698,
+      "completion_tokens": 3297,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-b4400c2db8c8556221f04f5f",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "complete",
+      "prompt_tokens": 101384,
+      "completion_tokens": 4193,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-b7acbe152a0c637999e2a8ff",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 19092,
+      "completion_tokens": 2096,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-e796748df72d16e43fb5b856",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 14425,
+      "completion_tokens": 1076,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-27cdb39a294b8e8c76b2ca87",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 2,
+      "stopped_reason": "complete",
+      "prompt_tokens": 7120,
+      "completion_tokens": 702,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-ff9dd9943ac4f4efd080f83f",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 30039,
+      "completion_tokens": 2181,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-fc50f2703c1c1f2c24cd0781",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 59810,
+      "completion_tokens": 3700,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-2359cd7f3467e993519b5dbb",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 34827,
+      "completion_tokens": 2615,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-473256a1a8cfd1cb5128b796",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 75196,
+      "completion_tokens": 5078,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-6193567fe84ce069da296c51",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 50901,
+      "completion_tokens": 3137,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-cf2740c9c9e85933489b7afd",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 34586,
+      "completion_tokens": 2667,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-e3c6e28f4007738a7504219b",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 54281,
+      "completion_tokens": 4022,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-0340bd1aaed43fafbe54469f",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 16,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 142849,
+      "completion_tokens": 6192,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-1911f78b6c4435e9ebc9d5c1",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 93402,
+      "completion_tokens": 4082,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-17d1309224a3bea6e56f0f15",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 32709,
+      "completion_tokens": 2155,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-22344e1bbd3dc05bf8a1ed63",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 106087,
+      "completion_tokens": 4592,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-20207be0897536d75b35af6b",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 222137,
+      "completion_tokens": 3923,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-57d549a96f48bf5c1418e60c",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 88936,
+      "completion_tokens": 5701,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-efba0ee6177d59ce8920ee0b",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 46409,
+      "completion_tokens": 3941,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-fc986203728768e6029069e1",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 104344,
+      "completion_tokens": 5989,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-d17219a16315083f0fd13706",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 26342,
+      "completion_tokens": 2279,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-d84eb9d03ffc3699472a7371",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 25887,
+      "completion_tokens": 1932,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-6ca63140aabf043e10bcf5fd",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 103751,
+      "completion_tokens": 3839,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-e5d3ce2d2748655403783683",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 76453,
+      "completion_tokens": 5210,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-d353a646068820386b906017",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 34344,
+      "completion_tokens": 2537,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-36a7e2e69c4d50a7978b38c9",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 21725,
+      "completion_tokens": 2113,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-d4dd834687600c26a7c3563c",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 12,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 64281,
+      "completion_tokens": 4456,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-a969bc8706a601c97ae92da0",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 113712,
+      "completion_tokens": 4789,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-302c420fa62a0f874bf2d3b0",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 53452,
+      "completion_tokens": 3930,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-84f5cb00f525cab7e5d0096b",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 15,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 77863,
+      "completion_tokens": 4376,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-25ce83758073af8bd398e672",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 41806,
+      "completion_tokens": 3188,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-ad260ace46a67f1fcceb0276",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 58381,
+      "completion_tokens": 4268,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-aece94b2d1074432cc4b1163",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 55689,
+      "completion_tokens": 3525,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-81358b34d138e79e98b874ce",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 54400,
+      "completion_tokens": 4230,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-824407bfc530bb93a47b809d",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 140099,
+      "completion_tokens": 6305,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-5c35f0a133647a0f99efe96d",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 135630,
+      "completion_tokens": 7010,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-051b78b4b4d485a89f164bae",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 181311,
+      "completion_tokens": 8412,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-4de0c0718ed32f2ac3f06359",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 20,
+      "stopped_reason": "max_turns",
+      "prompt_tokens": 157915,
+      "completion_tokens": 3026,
+      "produced": false
+    },
+    {
+      "label": "verify:CAND-672fa5c01897f80068afaa31",
+      "phase": "2b",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "tool_repair",
+      "prompt_tokens": 28905,
+      "completion_tokens": 3024,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 22903,
+      "completion_tokens": 2062,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 31007,
+      "completion_tokens": 3916,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 27297,
+      "completion_tokens": 2172,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 33334,
+      "completion_tokens": 1274,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 97828,
+      "completion_tokens": 2765,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 26816,
+      "completion_tokens": 1525,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 30849,
+      "completion_tokens": 1602,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 42787,
+      "completion_tokens": 1783,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 40007,
+      "completion_tokens": 2156,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 29947,
+      "completion_tokens": 2046,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 17685,
+      "completion_tokens": 1568,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 22105,
+      "completion_tokens": 2187,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 29101,
+      "completion_tokens": 2433,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 35552,
+      "completion_tokens": 2694,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 17,
+      "stopped_reason": "complete",
+      "prompt_tokens": 104002,
+      "completion_tokens": 3838,
+      "repair_attempts": 2,
+      "repair_successes": 2,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 37632,
+      "completion_tokens": 2599,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 33369,
+      "completion_tokens": 2553,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 20743,
+      "completion_tokens": 1244,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 33031,
+      "completion_tokens": 1996,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 11,
+      "stopped_reason": "complete",
+      "prompt_tokens": 59548,
+      "completion_tokens": 2749,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 35040,
+      "completion_tokens": 721,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 24266,
+      "completion_tokens": 1717,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 28814,
+      "completion_tokens": 2583,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 35274,
+      "completion_tokens": 2629,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 24167,
+      "completion_tokens": 1277,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 38985,
+      "completion_tokens": 3840,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 30662,
+      "completion_tokens": 1731,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 23252,
+      "completion_tokens": 1339,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 13,
+      "stopped_reason": "complete",
+      "prompt_tokens": 70432,
+      "completion_tokens": 2976,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 102780,
+      "completion_tokens": 3336,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 14,
+      "stopped_reason": "complete",
+      "prompt_tokens": 69238,
+      "completion_tokens": 3848,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 48798,
+      "completion_tokens": 3071,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 20411,
+      "completion_tokens": 1072,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 27449,
+      "completion_tokens": 1859,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 49565,
+      "completion_tokens": 2197,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 16964,
+      "completion_tokens": 1208,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 29667,
+      "completion_tokens": 1099,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 19390,
+      "completion_tokens": 1193,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 30850,
+      "completion_tokens": 2108,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 5,
+      "stopped_reason": "complete",
+      "prompt_tokens": 23257,
+      "completion_tokens": 1247,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 31896,
+      "completion_tokens": 2200,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 36139,
+      "completion_tokens": 2494,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 50214,
+      "completion_tokens": 1792,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 26710,
+      "completion_tokens": 1548,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 8,
+      "stopped_reason": "complete",
+      "prompt_tokens": 37021,
+      "completion_tokens": 2348,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 20213,
+      "completion_tokens": 1254,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 21168,
+      "completion_tokens": 2720,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 21037,
+      "completion_tokens": 1804,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 6,
+      "stopped_reason": "complete",
+      "prompt_tokens": 34979,
+      "completion_tokens": 2205,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 48481,
+      "completion_tokens": 1919,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 26270,
+      "completion_tokens": 2141,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 7,
+      "stopped_reason": "complete",
+      "prompt_tokens": 32314,
+      "completion_tokens": 1512,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 10,
+      "stopped_reason": "complete",
+      "prompt_tokens": 42825,
+      "completion_tokens": 2575,
+      "repair_attempts": 1,
+      "repair_successes": 1,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 4,
+      "stopped_reason": "complete",
+      "prompt_tokens": 19981,
+      "completion_tokens": 1043,
+      "produced": false
+    },
+    {
+      "label": "3",
+      "phase": "3",
+      "model": "gpt-oss:120b",
+      "turns": 9,
+      "stopped_reason": "complete",
+      "prompt_tokens": 42971,
+      "completion_tokens": 2092,
+      "produced": false
+    },
+    {
+      "label": "3d",
+      "phase": "3d",
+      "model": "deterministic",
+      "turns": 0,
+      "stopped_reason": "complete",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "produced": false
+    },
+    {
+      "label": "4",
+      "phase": "4",
+      "model": "deterministic",
+      "turns": 0,
+      "stopped_reason": "complete",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "produced": false
+    }
+  ],
+  "usage": {
+    "calls": 4782,
+    "completion_tokens": 1557967,
+    "prompt_tokens": 53477164,
+    "repairs": 44
+  },
+  "cancelled": false,
+  "engine_version": "dev",
+  "tool_envelope": [
+    "Read",
+    "Grep",
+    "Glob",
+    "Write"
+  ],
+  "bash_enabled": false,
+  "git_commit": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+  "git_branch": "main",
+  "git_dirty": false,
+  "seeded_from_prior": "",
+  "seed_routes_requested": false,
+  "seed_routes_applied": false,
+  "seed_prior_requested": false,
+  "seed_prior_applied": false,
+  "effective_config": {
+    "requested": {
+      "app_name": "FastAPI_Seeded",
+      "backend": "ollama",
+      "concurrency": 1,
+      "enforce_coverage": true,
+      "host": "http://127.0.0.1:11434",
+      "hunt_samples": 3,
+      "iac_lens": false,
+      "ledger": false,
+      "max_budget_usd": 0,
+      "max_output_tokens": "[redacted]",
+      "max_partitions": 8,
+      "model": "gpt-oss:120b",
+      "phase2_mode": "split",
+      "phases": "all",
+      "quality_strictness": "balanced",
+      "reasoning_effort": null,
+      "redact": false,
+      "remediate": true,
+      "repo": "testdata/replay-171/target",
+      "seed_prior": false,
+      "seed_routes": false,
+      "threat_model": true
+    },
+    "applied": {
+      "app_name": "FastAPI_Seeded",
+      "backend": "ollama",
+      "concurrency": 1,
+      "enforce_coverage": true,
+      "host": "http://127.0.0.1:11434",
+      "hunt_samples": 3,
+      "iac_lens": false,
+      "ledger": false,
+      "max_budget_usd": 0,
+      "max_output_tokens": 32768,
+      "max_partitions": 8,
+      "model": "gpt-oss:120b",
+      "num_ctx": 131072,
+      "phase2_mode": "split",
+      "phases": [
+        "1",
+        "1t",
+        "2",
+        "2b",
+        "3",
+        "3d",
+        "4"
+      ],
+      "quality_strictness": "balanced",
+      "reasoning_effort": "",
+      "redact": false,
+      "remediate": true,
+      "resume": false,
+      "seed_prior": false,
+      "seed_routes": false,
+      "temperature": "provider-default",
+      "threat_model": true
+    }
+  },
+  "concurrency_requested": 1,
+  "concurrency_effective": 1,
+  "prompt_capture_version": 1,
+  "outcome": {
+    "units": {
+      "total": 100,
+      "assigned": 93,
+      "attempted": 93,
+      "reviewed_with_findings": 7,
+      "reviewed_no_issue": 93,
+      "partial": 0,
+      "failed": 0,
+      "skipped": 0,
+      "unsupported": 0,
+      "not_reviewed": 0
+    },
+    "candidates": {
+      "supported": 43,
+      "rejected": 7,
+      "unresolved": 121
+    },
+    "failed_assignments": [],
+    "failed_candidates": [
+      {
+        "candidate_id": "CAND-0340bd1aaed43fafbe54469f",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 16 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-0340bd1aaed43fafbe54469f: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-051b78b4b4d485a89f164bae",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 20 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-051b78b4b4d485a89f164bae: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-060304a095db105a86d8eacb",
+        "class": "invalid_tool_args",
+        "reason": "A race condition could cause the delete to fail due to a foreign key violation, resulting in a 500 error. This does not appear to lead to unauthorized data disclosure, escalation, or integrity breach beyond a denial‑of‑service, but the exact impact depends on how the application surfaces the error. The presence of the check‑then‑act pattern without locking suggests a potential TOCTUO, yet the security impact is unclear."
+      },
+      {
+        "candidate_id": "CAND-0706ece4c2fe13b967439c20",
+        "class": "invalid_tool_args",
+        "reason": "If the attacker can provide a valid internal token, they can control the `lane` parameter, which is used as the redirect target without validation, resulting in an open redirect (CWE-601). The existing gate provides authentication, but the vulnerability remains if the token is compromised."
+      },
+      {
+        "candidate_id": "CAND-082241c5969cbfe7607cd9ef",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 13 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-082241c5969cbfe7607cd9ef: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-0c4e9f6e6e25bbf69d9f36e9",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 12 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-0c4e9f6e6e25bbf69d9f36e9: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-0d3d52e7fe2975ead6dfdc11",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 9 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-0d3d52e7fe2975ead6dfdc11: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-0ec863f9f29483732f09d5f2",
+        "class": "turn_exhaustion",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget"
+      },
+      {
+        "candidate_id": "CAND-10e066d6ffa1ba87bef18220",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 14 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-10e066d6ffa1ba87bef18220: evidence must cover the cited primary location (the containing handler/defenses)"
+      },
+      {
+        "candidate_id": "CAND-16f9eb1f4be8353d0b9460ea",
+        "class": "turn_exhaustion",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget"
+      },
+      {
+        "candidate_id": "CAND-17d1309224a3bea6e56f0f15",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 7 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-17d1309224a3bea6e56f0f15: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-1911f78b6c4435e9ebc9d5c1",
+        "class": "invalid_tool_args",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: invalid_tool_args at capture_evidence — path must be repo-relative"
+      },
+      {
+        "candidate_id": "CAND-1aa1d2d9d54a6eaab2c30d12",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 12 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-1aa1d2d9d54a6eaab2c30d12: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-1ad7e421cc11cfcbdb85b696",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 13 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-1ad7e421cc11cfcbdb85b696: class-specific evidence refutes exploitability for this weakness class"
+      },
+      {
+        "candidate_id": "CAND-1db6543fa23307cbb91eacaf",
+        "class": "invalid_tool_args",
+        "reason": "The code performs a check‑then‑act sequence: it queries for dependent jobs/locations, then, if none are found, deletes the region. Between the check and the `db.commit()`, another concurrent request could create a `Job` or `ServiceLocation` referencing the same `region_id`. The foreign‑key constraint would then cause the delete to fail (IntegrityError) or, if constraints are not enforced, could leave dangling references, violating data integrity. This constitutes a classic CWE‑367 race condition. However, the actual security impact depends on database transaction isolation and error handling, which are not evident from the provided code."
+      },
+      {
+        "candidate_id": "CAND-20207be0897536d75b35af6b",
+        "class": "turn_exhaustion",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget"
+      },
+      {
+        "candidate_id": "CAND-214959ba915ae88ce6e4dbd9",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 12 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — evidence_ids must reference evidence captured this session: EV-ec1bd34e"
+      },
+      {
+        "candidate_id": "CAND-22344e1bbd3dc05bf8a1ed63",
+        "class": "invalid_tool_args",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: invalid_tool_args at Read — file not found: backend/app/components/settings.py"
+      },
+      {
+        "candidate_id": "CAND-2359cd7f3467e993519b5dbb",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 7 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-2359cd7f3467e993519b5dbb: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-25ce83758073af8bd398e672",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 11 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-25ce83758073af8bd398e672: evidence must cover the cited primary location (the containing handler/defenses)"
+      },
+      {
+        "candidate_id": "CAND-282fde8746f5ae857be2de39",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 7 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-282fde8746f5ae857be2de39: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-2ea9696d0a8ba4ea18837480",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 18 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at chat — provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"attacker_control\\\":\\\"Hardcoded  ... ... ... ... ... ... ...... ... ... ... ... ... ... ... ... ... ... ... ... ... ......\\\"? (???)??\\n\\n\\n\\nWe need to correct submission format: must include exact source location (a…[truncated]"
+      },
+      {
+        "candidate_id": "CAND-302c420fa62a0f874bf2d3b0",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 13 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-302c420fa62a0f874bf2d3b0: evidence must cover the cited primary location (the containing handler/defenses)"
+      },
+      {
+        "candidate_id": "CAND-30ff69e180fe9be1fa426c02",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 18 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-30ff69e180fe9be1fa426c02: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-33421ef5afac2547d5d8d1eb",
+        "class": "invalid_tool_args",
+        "reason": "The handler reads the ops_badge value from cookie or header and, if it equals 'lead', returns elevated privileges (lane: elevated, payroll: full, casework: open). No further authorization checks are performed beyond the internal token gate. Therefore, if an attacker can provide a valid internal token, they can exploit the badge header/cookie to obtain privileged data."
+      },
+      {
+        "candidate_id": "CAND-3386df5f04ee8a2dc117e497",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 10 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-3386df5f04ee8a2dc117e497: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-3554b78780703e82e3b66407",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 6 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-3554b78780703e82e3b66407: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-361238fae39851f0422bee55",
+        "class": "turn_exhaustion",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget"
+      },
+      {
+        "candidate_id": "CAND-36a7e2e69c4d50a7978b38c9",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 5 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-36a7e2e69c4d50a7978b38c9: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-38a2af0a1b7c65fb2805c91c",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 15 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-38a2af0a1b7c65fb2805c91c: evidence must cover the cited primary location (the containing handler/defenses)"
+      },
+      {
+        "candidate_id": "CAND-3a99b6a31868807c99c3ccc6",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 10 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-3a99b6a31868807c99c3ccc6: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-3c8c6098f495a95d8e99e90c",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 16 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-3c8c6098f495a95d8e99e90c: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-3d1a32fe80c25e6f1166c8e1",
+        "class": "not_attempted",
+        "reason": "The code reads the job record, checks allowed transitions, and then updates the status without any atomic operation or row-level lock. This opens a classic race condition where multiple requests can base their allowed‑transition check on a stale status, potentially leading to inconsistent or unintended state transitions. However, the exact security impact (e.g., bypassing proof requirement or unauthorized status change) is not evident from the current logic; the allowed transitions themselves prevent most harmful states. Therefore the exploitability remains uncertain."
+      },
+      {
+        "candidate_id": "CAND-416f42e06546825319f1a2f4",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 10 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-416f42e06546825319f1a2f4: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-44a78baf2040e333c6f8e627",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 4 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-44a78baf2040e333c6f8e627: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-473256a1a8cfd1cb5128b796",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 14 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-473256a1a8cfd1cb5128b796: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-4c30ae3a70c1b0aea813ac07",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 4 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-4c30ae3a70c1b0aea813ac07: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-4de0c0718ed32f2ac3f06359",
+        "class": "invalid_tool_args",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: invalid_tool_args at capture_evidence — path must be repo-relative"
+      },
+      {
+        "candidate_id": "CAND-4e3ab9a23bfe3810b33006da",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 16 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-4e3ab9a23bfe3810b33006da: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-5021798a7259fee684446542",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 10 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at chat — provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"file_path\\\":\\\"backend/app/dispatch_operations.py\\\",\\\"limit\\\":20\\\",\\\"offset\\\":0}', err=invalid character '\\\"' after object key:value pair\"}"
+      },
+      {
+        "candidate_id": "CAND-57d549a96f48bf5c1418e60c",
+        "class": "turn_exhaustion",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget"
+      },
+      {
+        "candidate_id": "CAND-5c35f0a133647a0f99efe96d",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 2 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-5c35f0a133647a0f99efe96d: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-5f65bcd2b5fe55d002fe65bd",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 12 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-5f65bcd2b5fe55d002fe65bd: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-6193567fe84ce069da296c51",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 10 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-6193567fe84ce069da296c51: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-649b7ac2ad11645f726fa7de",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 2 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-649b7ac2ad11645f726fa7de: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-64f82d01b67a62d82a310ab6",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 20 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-64f82d01b67a62d82a310ab6: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-672fa5c01897f80068afaa31",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 7 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-672fa5c01897f80068afaa31: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-6a775f8ddca95b6239af18c7",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 16 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-6a775f8ddca95b6239af18c7: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-6ca63140aabf043e10bcf5fd",
+        "class": "turn_exhaustion",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget"
+      },
+      {
+        "candidate_id": "CAND-6cebc20661f319c9ea3e583e",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 14 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-6cebc20661f319c9ea3e583e: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-6d658a1afc55b8dd0e58be95",
+        "class": "invalid_tool_args",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: invalid_tool_args at functions/Read — unknown tool"
+      },
+      {
+        "candidate_id": "CAND-73fc65f7a28b6d240830e488",
+        "class": "not_attempted",
+        "reason": "The delete_region handler checks for existing Job or ServiceLocation references before deleting the region. This check and the subsequent delete are separate statements within the same transaction, leaving a race window where another transaction could insert a referencing record after the check but before the delete. The database enforces foreign key constraints, which may cause the delete to fail or the subsequent insert to be rejected, leading to a possible integrity error. It is unclear whether this can be exploited to achieve a security impact such as unauthorized data manipulation or denial of service."
+      },
+      {
+        "candidate_id": "CAND-75503afcb89eca99a1bb66dd",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 19 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-75503afcb89eca99a1bb66dd: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-77a9929389b144989b70345b",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 17 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-77a9929389b144989b70345b: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-78c4512fd56eca5ac21025fe",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 9 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-78c4512fd56eca5ac21025fe: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-7bc8eb2f27948a1f372562d1",
+        "class": "turn_exhaustion",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget"
+      },
+      {
+        "candidate_id": "CAND-7fab7280516dfc3c58a10a0a",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 6 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-7fab7280516dfc3c58a10a0a: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-81358b34d138e79e98b874ce",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 13 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-81358b34d138e79e98b874ce: evidence must cover the cited primary location (the containing handler/defenses)"
+      },
+      {
+        "candidate_id": "CAND-818a17d75bc2d424496ce2fe",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 9 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-818a17d75bc2d424496ce2fe: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-824407bfc530bb93a47b809d",
+        "class": "invalid_tool_args",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 2 recoverable tool failure(s); dominant failure: invalid_tool_args at submit_verification — CAND-824407bfc530bb93a47b809d: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-82b974661f39930488381fb2",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 17 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-82b974661f39930488381fb2: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-841f302ddfed56d8f3e2fa2e",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 9 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-841f302ddfed56d8f3e2fa2e: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-848dd00148d4534fab5ac919",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 4 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-848dd00148d4534fab5ac919: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-84f5cb00f525cab7e5d0096b",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 15 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-84f5cb00f525cab7e5d0096b: evidence must cover the cited primary location (the containing handler/defenses)"
+      },
+      {
+        "candidate_id": "CAND-85926fda87ca9d3bacd3480a",
+        "class": "invalid_tool_args",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 2 recoverable tool failure(s); dominant failure: invalid_tool_args at submit_verification — CAND-85926fda87ca9d3bacd3480a: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-861da33785957adb3d0f0bc2",
+        "class": "invalid_tool_args",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 2 recoverable tool failure(s); dominant failure: invalid_tool_args at submit_verification — CAND-861da33785957adb3d0f0bc2: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-87931c42ccaef6ada1674742",
+        "class": "turn_exhaustion",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget"
+      },
+      {
+        "candidate_id": "CAND-87b268f61c77305ae4db050d",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 12 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-87b268f61c77305ae4db050d: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-8a19192fc4afa0fefb35d32e",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 8 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-8a19192fc4afa0fefb35d32e: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-8c295b53396f5030480a3310",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 9 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-8c295b53396f5030480a3310: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-8cee3de4b08cf2ed7912ade5",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 9 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-8cee3de4b08cf2ed7912ade5: class-specific evidence refutes exploitability for this weakness class"
+      },
+      {
+        "candidate_id": "CAND-93e1f28f97ca78cc0e0af8d7",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 10 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-93e1f28f97ca78cc0e0af8d7: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-9407b3f4056698de3c615bcf",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 15 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-9407b3f4056698de3c615bcf: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-9e7c59eea388bc151c84c6ce",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 5 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-9e7c59eea388bc151c84c6ce: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-9f4b5d703369c1d519c091ed",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 10 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-9f4b5d703369c1d519c091ed: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-a0921ebc711f398055e054a9",
+        "class": "invalid_tool_args",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: invalid_tool_args at Grep — invalid regex \"Incident(\": error parsing regexp: missing closing ): `Incident(`"
+      },
+      {
+        "candidate_id": "CAND-a2898f8d7a8fe413e9cb6461",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 12 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-a2898f8d7a8fe413e9cb6461: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-a452c4bbf3a1aa851ba2d3cf",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 11 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-a452c4bbf3a1aa851ba2d3cf: a supported or rejected verdict requires cited source evidence"
+      },
+      {
+        "candidate_id": "CAND-a6b240664b02427990024545",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 5 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-a6b240664b02427990024545: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-a70ebf21439abfc5ee307cc1",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 1 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-a70ebf21439abfc5ee307cc1: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-a969bc8706a601c97ae92da0",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 17 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-a969bc8706a601c97ae92da0: evidence must cover the cited primary location (the containing handler/defenses)"
+      },
+      {
+        "candidate_id": "CAND-a98bed1f76c2d216b8523e2c",
+        "class": "turn_exhaustion",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget"
+      },
+      {
+        "candidate_id": "CAND-ad0d5b2b047feb92c54be67f",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 12 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-ad0d5b2b047feb92c54be67f: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-ad260ace46a67f1fcceb0276",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 11 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-ad260ace46a67f1fcceb0276: evidence must cover the cited primary location (the containing handler/defenses)"
+      },
+      {
+        "candidate_id": "CAND-ae9d4d1ffdeee1db5869a069",
+        "class": "tool_envelope",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 1 recoverable tool failure(s); dominant failure: tool_envelope at capture_evidence — path must be repo-relative"
+      },
+      {
+        "candidate_id": "CAND-aece94b2d1074432cc4b1163",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 13 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-aece94b2d1074432cc4b1163: evidence must cover the cited primary location (the containing handler/defenses)"
+      },
+      {
+        "candidate_id": "CAND-af9e10c4261e3be1064a2be3",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 10 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-af9e10c4261e3be1064a2be3: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-b0d45835e5978231d43fdf44",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 5 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at chat — provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"file_path\\\":\\\"backend/app/exact?\\\",\\\"limit\\\":\\\"\\\",\\\"offset\\\":\\\"\\\"]}', err=invalid character ']' after object key:value pair\"}"
+      },
+      {
+        "candidate_id": "CAND-b7acbe152a0c637999e2a8ff",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 6 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at chat — provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"file_path\\\":\\\"backend/app/relevant\\\",\\\"...\\\"}', err=invalid character '}' after object key\"}"
+      },
+      {
+        "candidate_id": "CAND-b812b7cd6fe78436aa7153a2",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 10 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-b812b7cd6fe78436aa7153a2: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-b8c215fc94c93581db03b67a",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 9 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at chat — provider could not parse the tool call: {\"error\":\"error parsing tool call: raw='{\\\"file_path\\\":\\\"backend/app/main.py\\\",\\\"limit\\\":200\\\",\\\"...\\\"}', err=invalid character '\\\"' after object key:value pair\"}"
+      },
+      {
+        "candidate_id": "CAND-bac16cac54bead8488313da8",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 12 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-bac16cac54bead8488313da8: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-bb066500e0b183cbd60652e2",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 19 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-bb066500e0b183cbd60652e2: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-bd523d1087fd2eb3badaff9f",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 14 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-bd523d1087fd2eb3badaff9f: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-c295c4c7f2b56efe45067f37",
+        "class": "invalid_tool_args",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: invalid_tool_args at Grep — invalid regex \"write(\": error parsing regexp: missing closing ): `write(`"
+      },
+      {
+        "candidate_id": "CAND-c2d6b3c5e9b40e8f98f4f7b5",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 8 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-c2d6b3c5e9b40e8f98f4f7b5: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-c3b6701c38c1591e5b4b9ef3",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 15 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-c3b6701c38c1591e5b4b9ef3: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-c7f3512202a3dad3d396033f",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 16 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-c7f3512202a3dad3d396033f: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-c86e31535b94e07999cab8dd",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 14 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-c86e31535b94e07999cab8dd: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-cac41c8f4035e32e49b10a19",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 9 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-cac41c8f4035e32e49b10a19: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-cc6473a6cc78d446ce36f4a2",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 1 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-cc6473a6cc78d446ce36f4a2: a supported decision cannot carry unresolved questions"
+      },
+      {
+        "candidate_id": "CAND-cdaf5bc83779dd9c75ad1e87",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 1 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-cdaf5bc83779dd9c75ad1e87: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-cef7a4c0d1e6170b051777ad",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 15 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-cef7a4c0d1e6170b051777ad: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-cf2740c9c9e85933489b7afd",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 8 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-cf2740c9c9e85933489b7afd: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-d1ca0c5f19ea44837a5f1c74",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 16 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-d1ca0c5f19ea44837a5f1c74: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-d353a646068820386b906017",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 8 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-d353a646068820386b906017: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-d3cf97a13474e6e7c30d34ec",
+        "class": "invalid_tool_args",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: invalid_tool_args at capture_evidence — path must be repo-relative"
+      },
+      {
+        "candidate_id": "CAND-d4dd834687600c26a7c3563c",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 12 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-d4dd834687600c26a7c3563c: evidence must cover the cited primary location (the containing handler/defenses)"
+      },
+      {
+        "candidate_id": "CAND-d4f7b80378d1e26ea24f242b",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 10 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-d4f7b80378d1e26ea24f242b: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-d63d88b15ef409e9aceb1c13",
+        "class": "turn_exhaustion",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: turn_exhaustion at turn limit — no decision submitted within the turn budget"
+      },
+      {
+        "candidate_id": "CAND-df0556f2ec9295f89cfe234a",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 12 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-df0556f2ec9295f89cfe234a: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-e3c6e28f4007738a7504219b",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 11 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-e3c6e28f4007738a7504219b: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-eaa811e261cfdf467dce9487",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 15 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-eaa811e261cfdf467dce9487: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-f3287cf4d8059a9dfa8c33ff",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 16 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-f3287cf4d8059a9dfa8c33ff: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-f6edc1f3d0a374dd878ef752",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 7 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-f6edc1f3d0a374dd878ef752: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-f6fa4b7cfc4c3300bd99fdc1",
+        "class": "not_attempted",
+        "reason": "The handler directly uses attacker-controlled JSON payload as a MongoDB query without sanitization, leading to potential IDOR. However, access is gated by an internal token check, which is assumed secret. Without the token, the request is rejected. The exploitability depends on the secrecy of the token; this is currently unknown."
+      },
+      {
+        "candidate_id": "CAND-f92c89a3b16760505dc7848d",
+        "class": "invalid_tool_args",
+        "reason": "no decision submitted — session ended: max_turns after 20 turn(s), 0 recoverable tool failure(s); dominant failure: invalid_tool_args at capture_evidence — path must be repo-relative"
+      },
+      {
+        "candidate_id": "CAND-fa6905c56a11f339e09325e3",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 15 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-fa6905c56a11f339e09325e3: candidate needs an exact source location"
+      },
+      {
+        "candidate_id": "CAND-fc50f2703c1c1f2c24cd0781",
+        "class": "invalid_tool_args",
+        "reason": "The handler constructs a file path by concatenating BASE_EXPORT_DIR with a user-controlled 'ref' and a fixed '.json' suffix, then writes to that path. No sanitization or normalization of 'ref' occurs, allowing path traversal to write files outside the intended export directory. However, the route is gated by an internal token check, which is intended to be secret. Without the token, the endpoint is inaccessible. The exploitability therefore depends on whether an attacker can obtain or guess the INTERNAL_OPS_TOKEN."
+      },
+      {
+        "candidate_id": "CAND-fc986203728768e6029069e1",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 13 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-fc986203728768e6029069e1: review entry point does not match the cited source handler"
+      },
+      {
+        "candidate_id": "CAND-fe230f6d72b96d8f00eb0fa5",
+        "class": "invalid_submission",
+        "reason": "no decision submitted — session ended: tool_repair after 13 turn(s), 3 recoverable tool failure(s); dominant failure: invalid_submission at submit_verification — CAND-fe230f6d72b96d8f00eb0fa5: candidate needs an exact source location"
+      }
+    ],
+    "missing_artifacts": [
+      "no reproduction disposition for CAND-20b097fd98f187d8d7efc82b",
+      "no reproduction disposition for CAND-3044992ce3acfdf4ad350fad",
+      "no reproduction disposition for CAND-3663c7f5f0c7ea2d3c702f04",
+      "no reproduction disposition for CAND-433d64fe4dd1f3185c6adbc1",
+      "unregistered artifact: poc/CAND-3044992ce3acfdf4ad350fad_test.py",
+      "unregistered artifact: poc/open_redirect_afterlane_021_test.py",
+      "unregistered artifact: poc/test_get_user_idor.py",
+      "unregistered artifact: poc/test_worker_idor.py"
+    ],
+    "disabled_optional_phases": [],
+    "recovery_steps": [
+      "re-run with --resume: not every requested phase completed",
+      "raise the verification turn limit or use a stronger --verify-model: sessions exhausted their turns",
+      "use a model that follows the tool contract (see verification_sessions.json last_contract_violation)",
+      "re-run phase 3 (reproduction) to register the missing artifacts listed in artifact_manifest.json",
+      "inspect the scan log (log?tail=) around the failing unit/candidate for the exact model response"
+    ]
+  },
+  "aborted": "",
+  "scan_tag": "2026-09-28-221735",
+  "recon_model": "",
+  "reproduce_model": "",
+  "backend": "ollama",
+  "phase2_mode": "split",
+  "ledger": false,
+  "redact": false,
+  "remediate": true,
+  "max_budget_usd": 0,
+  "hunt_samples": 3,
+  "iac_lens": false,
+  "budget_spent_usd": 0,
+  "budget_halted_reason": "",
+  "budget_priced": true,
+  "hunt_halted_reason": "",
+  "quality_strictness": "balanced",
+  "artifact_errors": [
+    "no reproduction disposition for CAND-20b097fd98f187d8d7efc82b",
+    "no reproduction disposition for CAND-3044992ce3acfdf4ad350fad",
+    "no reproduction disposition for CAND-3663c7f5f0c7ea2d3c702f04",
+    "no reproduction disposition for CAND-433d64fe4dd1f3185c6adbc1",
+    "unregistered artifact: poc/CAND-3044992ce3acfdf4ad350fad_test.py",
+    "unregistered artifact: poc/open_redirect_afterlane_021_test.py",
+    "unregistered artifact: poc/test_get_user_idor.py",
+    "unregistered artifact: poc/test_worker_idor.py"
+  ]
+}

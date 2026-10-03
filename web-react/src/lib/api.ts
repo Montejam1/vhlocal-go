@@ -1,5 +1,6 @@
 import type {
   ActivityEvent,
+  ReportModel,
   AppDetail,
   AppSummary,
   Cdx,
@@ -15,6 +16,25 @@ import type {
 } from "./types";
 
 // Same-origin in prod (Python serves the built app); in dev Vite proxies /api.
+// Feature 014 evidence shapes. `state` is always present so the UI can explain
+// unknown / not_started / running_no_files / ready / empty / unavailable /
+// not_recorded / no_records / no_lines instead of showing an empty list.
+export type EvidenceState = string;
+export type EvidenceArtifacts = { state: EvidenceState; files: { path: string; size: number }[]; total?: number; next_offset?: number; reason?: string; error?: string };
+export type PromptRecord = { seq: number; ts: string; phase: string; label: string; role: string; model: string; kind: string; system: string; task: string; truncated?: boolean; redactions?: string[]; tool_calls?: string[]; error?: string };
+export type EvidencePrompts = { state: EvidenceState; records: PromptRecord[]; total?: number; next_after?: number; reason?: string; error?: string };
+export type EvidenceLog = { state: EvidenceState; lines: string[]; cursor: number; total?: number; reason?: string; error?: string };
+export type ReportFetch = { status: number; text: string | null; error?: string };
+
+// getJSONSignal parses JSON for ANY status (evidence endpoints carry a state body on
+// 202/404/503 too) and supports cancellation; a network failure rejects.
+async function getJSONSignal<T>(path: string, signal?: AbortSignal): Promise<T & { httpStatus: number }> {
+  const r = await fetch(path, { headers: { Accept: "application/json" }, signal });
+  let data: unknown = {};
+  try { data = await r.json(); } catch { /* non-JSON body */ }
+  return Object.assign({}, data as T, { httpStatus: r.status });
+}
+
 async function getJSON<T>(path: string): Promise<T> {
   const r = await fetch(path, { headers: { Accept: "application/json" } });
   if (!r.ok) throw new Error(`${r.status} ${r.statusText} — ${path}`);
@@ -56,8 +76,36 @@ export const api = {
     const r = await fetch(api.reportFileUrl(id, path));
     return r.ok ? r.text() : null;
   },
+  // Feature 014 (FR-025): 404 (absent) stays distinct from 5xx/network (error) —
+  // callers must never render a server failure as "no artifact".
+  // Feature 015: the authoritative report model; null when the scan predates it
+  // (404), a thrown error for any server/network failure.
+  reportModel: async (id: string, signal?: AbortSignal): Promise<ReportModel | null> => {
+    const r = await api.reportFetch(id, "report_model.json", signal);
+    if (r.error) throw new Error(r.error);
+    if (r.status === 404 || r.text == null) return null;
+    return JSON.parse(r.text) as ReportModel;
+  },
+  reportFetch: async (id: string, path: string, signal?: AbortSignal): Promise<ReportFetch> => {
+    try {
+      const r = await fetch(api.reportFileUrl(id, path), { signal });
+      if (r.ok) return { status: r.status, text: await r.text() };
+      if (r.status === 404) return { status: 404, text: null };
+      return { status: r.status, text: null, error: `HTTP ${r.status}` };
+    } catch (e) {
+      if ((e as Error).name === "AbortError") throw e;
+      return { status: 0, text: null, error: String((e as Error).message || e) };
+    }
+  },
 
   scans: () => getJSON<{ jobs: Job[]; busy: boolean }>("/api/scans"),
+  // Feature 014: scan evidence with explicit states (never a bare empty list).
+  scanArtifacts: (id: string, offset = 0, limit = 200, signal?: AbortSignal) =>
+    getJSONSignal<EvidenceArtifacts>(`/api/scans/${encodeURIComponent(id)}/artifacts?offset=${offset}&limit=${limit}`, signal),
+  scanPrompts: (id: string, after = 0, limit = 100, signal?: AbortSignal) =>
+    getJSONSignal<EvidencePrompts>(`/api/scans/${encodeURIComponent(id)}/prompts?after=${after}&limit=${limit}`, signal),
+  scanLog: (id: string, tail = 500, after = 0, signal?: AbortSignal) =>
+    getJSONSignal<EvidenceLog>(`/api/scans/${encodeURIComponent(id)}/log?tail=${tail}&after=${after}`, signal),
   stats: () => getJSON<Stats>("/api/stats"),
   config: () => getJSON<ConfigResp>("/api/config"),
   cancelScan: (id: string) => postJSON(`/api/scans/${encodeURIComponent(id)}/cancel`, {}),

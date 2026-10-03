@@ -131,7 +131,13 @@ export function Dashboard() {
 
       {/* Latest scan */}
       <h2 className="mt-6 mb-3 text-lg font-semibold text-text-1">Latest scan</h2>
-      {latest && cfg.data ? (
+      {scans.error ? (
+        <div className="rounded-md border border-err/40 bg-err-weak px-3 py-2 text-sm text-err">
+          Couldn’t load scans: {scans.error}
+        </div>
+      ) : scans.loading && !scans.data ? (
+        <div className="py-6 text-center text-text-3">Loading scans…</div>
+      ) : latest && cfg.data ? (
         <LatestScan job={latest} phases={cfg.data.phases} />
       ) : (
         <div className="py-6 text-center text-text-3">No scans yet.</div>

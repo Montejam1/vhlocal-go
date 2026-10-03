@@ -191,12 +191,17 @@
 
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px">
         <input type="checkbox" id="enforceCoverage" style="width:auto" checked>
-        <span>Enforce coverage (trace every enumerated route — may add agents)</span>
+        <span>Enforce coverage (off skips augmentation; uncovered scope still reported)</span>
       </label>
 
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px">
         <input type="checkbox" id="seedRoutes" style="width:auto">
-        <span>Seed recon with the route list</span>
+        <span>Seed recon with the deterministic route list (leads only)</span>
+      </label>
+
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px">
+        <input type="checkbox" id="seedPrior" style="width:auto">
+        <span>Seed recon with a prior report's findings (leads; re-verified)</span>
       </label>
 
       <div style="margin-top:10px">
@@ -218,7 +223,7 @@
       </div>
 
       <div style="margin-top:10px">
-        <label for="concurrency">Parallel agents (needs OLLAMA_NUM_PARALLEL)</label>
+        <label for="concurrency">Parallel agents (1–8; 1 = serial)</label>
         <input id="concurrency" type="number" value="1" min="1" max="8">
       </div>
 
@@ -278,13 +283,48 @@
 // Escapes first, then applies inline/block rules — so model-authored content
 // can never inject markup into this page. Deliberately small: headings,
 // tables, code, lists, rules, links, emphasis. Anything else stays literal.
-function mdRender(src){
+// Feature 015 (C-A9): relative report links resolve through the owning report's
+// confined file endpoint; only http(s):/mailto: and #anchors pass; else text.
+const ALLOWED_SCHEMES = ["http:", "https:", "mailto:"];
+function mdHref(href, base){
+  href = String(href || "").trim();
+  if (!href) return null;
+  if (href[0] === "#") return href;
+  const m = href.match(/^([a-zA-Z][a-zA-Z0-9+.-]*:)/);
+  if (m) return ALLOWED_SCHEMES.indexOf(m[1].toLowerCase()) >= 0 ? href : null;
+  if (href.indexOf("//") === 0 || href[0] === "/") return null;
+  if (!base) return null;
+  return base + "?path=" + encodeURIComponent(href.replace(/^\.\//, "").split("#")[0]) + (href.indexOf("#") >= 0 ? "#" + href.split("#")[1] : "");
+}
+// Feature 015 (C-A16): this UI does not ship the Mermaid renderer; a diagram fence is
+// shown as a node/flow table plus its source, with a pointer to the main UI.
+function diagramTableHTML(src){
   const esc = t => t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const nodes = new Map(), edges = [];
+  const nodeRe = /^([A-Za-z_][A-Za-z0-9_-]*)(?:\[\(|\(\(|\[|\(|\{|>)?(?:"([^"]*)"|([^\]\)\}|]*))?/;
+  src.split('\n').slice(1).forEach(raw => {
+    const line = raw.replace(/%%[^\n]*/, '').trim();
+    if (!line || line === 'end' || /^(subgraph|style|classDef|class|click|linkStyle)\b/.test(line)) return;
+    let prev = null;
+    line.split(/\s*(-->|-\.->|==>|---|-\.-|===)\s*(?:\|[^|]*\|)?\s*/).forEach(p => {
+      const m = p.trim().match(nodeRe); if (!m) return;
+      if (!nodes.has(m[1])) nodes.set(m[1], (m[2] || m[3] || m[1]).trim());
+      if (prev) edges.push([prev, m[1]]); prev = m[1];
+    });
+  });
+  return `<div class="dgm-table"><b>Diagram as a table</b> <small>— diagram rendering is available in the main UI</small>
+    <table><tr><th>Node</th><th>Label</th></tr>${[...nodes].map(([id,l]) => `<tr><td><code>${esc(id)}</code></td><td>${esc(l)}</td></tr>`).join('') || '<tr><td colspan="2">none</td></tr>'}</table>
+    <table><tr><th>From</th><th></th><th>To</th></tr>${edges.map(([a,b]) => `<tr><td><code>${esc(a)}</code></td><td>→</td><td><code>${esc(b)}</code></td></tr>`).join('') || '<tr><td colspan="3">none</td></tr>'}</table>
+    <details><summary>Diagram source</summary><pre class="mdcode">${esc(src)}</pre></details></div>`;
+}
+function mdRender(src, base){
+  const esc = t => t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const link = (text, href) => { const h = mdHref(href, base); return h ? '<a href="' + h.replace(/"/g, '&quot;') + '"' + (h[0] === "#" ? "" : ' target="_blank" rel="noopener"') + '>' + text + '</a>' : text; };
   const inline = t => esc(t)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    .replace(/`([^`]+)`/g, '<code></code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong></strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '<em></em>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, href) => link(text, href));
 
   const lines = src.replace(/\r\n?/g,'\n').split('\n');
   const out = []; let i = 0;
@@ -298,6 +338,7 @@ function mdRender(src){
       const buf = []; i++;
       while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
       i++;
+      if (lang.toLowerCase() === 'mermaid'){ out.push(diagramTableHTML(buf.join('\n'))); continue; }
       out.push('<pre class="mdcode">'+esc(buf.join('\n'))+'</pre>');
       continue;
     }
@@ -585,14 +626,25 @@ async function loadFiles(id) {
   }
 }
 
+// Feature 014: the Log endpoint returns {state, lines, cursor}; states are explained
+// (legacy entrypoint: Artifacts + Log only — no Prompts tab; "legacy-unavailable").
+const EV_MSG = {
+  unknown: 'This scan is unknown to the server.', not_started: 'Queued — the engine has not started this scan yet.',
+  running_no_files: 'Scan is running — nothing has been written yet.', empty: 'This scan finished without writing any files.',
+  unavailable: 'The results directory is unavailable (missing or unreadable).', no_lines: 'No log lines were recorded for this scan.',
+};
 async function loadLog(id) {
   const body = $('tabbody');
   body.innerHTML = '<div class="empty">Loading…</div>';
   try {
-    const r = await fetch('/api/scans/' + id + '/log');
-    const t = await r.text();
+    const r = await fetch('/api/scans/' + id + '/log?tail=500');
+    const d = await r.json();
+    if (!d.lines || !d.lines.length) {
+      body.innerHTML = `<div class="empty">${esc(EV_MSG[d.state] || 'No log lines.')}${d.reason ? ' (' + esc(d.reason) + ')' : ''}</div>`;
+      return;
+    }
     body.innerHTML = `<div style="font-size:11px;color:var(--dim);margin-bottom:6px">`
-      + `This scan's lines from the central log.</div><pre>${esc(t)}</pre>`;
+      + `This scan's tagged lines from the central log.</div><pre>${esc(d.lines.join('\n'))}</pre>`;
     const pre = body.querySelector('pre');
     if (pre) pre.scrollTop = pre.scrollHeight;
   } catch (e) {
@@ -607,7 +659,7 @@ window.viewFile = async function(id, path) {
     const r = await fetch(`/api/scans/${id}/file?path=` + encodeURIComponent(path));
     const t = await r.text();
     v.innerHTML = `<h2>${esc(path)}</h2>` + (path.endsWith('.md')
-      ? `<div class="md">${mdRender(t)}</div>` : `<pre>${esc(t)}</pre>`);
+      ? `<div class="md">${mdRender(t, '/api/scans/' + encodeURIComponent(id) + '/file')}</div>` : `<pre>${esc(t)}</pre>`);
     v.scrollIntoView({behavior:'smooth', block:'start'});
   } catch (e) { v.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
@@ -711,6 +763,35 @@ window.deleteReport = async function(id, label) {
   }
 };
 
+// Feature 015 (C-A10): summary counts from report_model.json; a scan without the
+// model is a pre-015 scan and is labelled as such rather than recomputed.
+// Feature 016 (FR-021, C-P27): the retained viewer reads the presentation projection when
+// the saved report carries one. Nothing here recomputes grouping, severity, counts or
+// guidance; a report without the projection falls back to the feature-015 summary below.
+function reportPresentationSummaryHTML(p){
+  if (!p) return '';
+  const c = p.counts || {}, sev = c.severity || {}, sc = p.scope || {}, id = p.identity || {}, op = p.opening || {};
+  const spread = ['Critical','High','Medium','Low','Informational','Unrated']
+    .filter(k => (sev[k]||0) > 0).map(k => `${sev[k]} ${k}`).join(', ') || 'none';
+  const prio = (p.priority || []).map(a => `<li>${esc(a.issue)} — <b>${esc(a.severity)}</b> · ${esc(a.affected_area||'')} · ${esc(a.action||'')}</li>`).join('');
+  return `<div class="metacard" style="margin:8px 0"><b>${esc(id.application||'Scan report')}</b>
+    <small>${id.scan_date ? `· scanned ${esc(id.scan_date)}${id.timezone?` (${esc(id.timezone)})`:''}` : '· scan date not recorded'} · report_model.json</small>
+    <p>${esc(op.risk_summary||'')}</p>
+    ${op.scope_sentence ? `<div class="hint">${esc(op.scope_sentence)}</div>` : ''}
+    <div><b>${c.issues_to_fix||0}</b> issues to fix (${esc(spread)}) · ${c.needs_review||0} need review — neither confirmed nor dismissed · ${c.dismissed||0} dismissed</div>
+    <div>review scope: execution <b>${esc(sc.execution||'Unknown')}</b> · ${sc.coverage_known ? `${sc.coverage_completed} of ${sc.coverage_total} entry points completed` : 'entry-point coverage not recorded'} · method <b>${esc(sc.method||'')}</b></div>
+    ${prio ? `<div style="margin-top:6px"><b>Start here</b><ol>${prio}</ol></div>` : ''}
+    <div class="hint">Scanner diagnostics (${c.candidates_examined||0} candidates examined, ${c.detections||0} supported detections) are in the full report under Scan details.</div></div>`;
+}
+
+function reportModelSummaryHTML(model){
+  if (!model) return '<div class="hint">counts from findings.json (pre-015 scan — no report model)</div>';
+  const c = model.counts || {}, s = model.summary || {};
+  return `<div class="metacard" style="margin:8px 0"><b>Executive summary</b> <small>(${s.words||0} words · report_model.json)</small><p>${esc(s.narrative||'')}</p>
+    <div>${c.supported} supported · ${c.remediation_groups} remediation groups · ${c.rejected} rejected · ${(c.unresolved_explicit||0)+(c.unresolved_failed||0)} unresolved (${c.unresolved_explicit||0} explicit, ${c.unresolved_failed||0} failed sessions) · ${c.total_candidates} candidates total — not a confirmed-vulnerability count</div>
+    <div>execution <b>${esc((model.status||{}).execution||'unknown')}</b> · coverage <b>${esc((model.status||{}).coverage||'unknown')}</b> · validation <b>${esc((model.status||{}).validation_mode||'unknown')}</b></div></div>`;
+}
+
 window.openReport = async function(id) {
   const v = $('reportView');
   v.innerHTML = '<div class="empty">Loading…</div>';
@@ -720,8 +801,14 @@ window.openReport = async function(id) {
       : p === 'findings.json' ? 2 : p.startsWith('phase') ? 3 : 4;
     d.files.sort((a,b) => order(a.path)-order(b.path) || a.path.localeCompare(b.path));
     const hasHtml = d.files.some(f => f.path === 'SCAN_REPORT.html');
+    let model = null;
+    if (d.files.some(f => f.path === 'report_model.json')) { try { const mr = await fetch(`/api/reports/${encodeURIComponent(id)}/file?path=report_model.json`); if (mr.ok) model = await mr.json(); } catch (e) { model = null; } }
+    // Feature 016: one guard chooses the surface; both paths never render for
+    // one report (C-P28).
+    const usePresentation = !!(model && model.presentation && model.presentation.version);
     v.innerHTML = `<h2>${esc(id)}</h2>
       <div style="font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-bottom:8px">${esc(d.root)}</div>
+      ${usePresentation ? reportPresentationSummaryHTML(model.presentation) : reportModelSummaryHTML(model)}
       ${hasHtml ? `<a class="fbtn" style="display:inline-block;margin-bottom:12px;padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600" `+
         `href="/api/reports/${encodeURIComponent(id)}/file?path=SCAN_REPORT.html" target="_blank" rel="noopener">Open full report ↗</a>` : ''}
       <table><tr><th>File</th><th style="width:90px">Size</th></tr>` +
@@ -741,7 +828,7 @@ window.viewReportFile = async function(id, path) {
     const r = await fetch(`/api/reports/${encodeURIComponent(id)}/file?path=` + encodeURIComponent(path));
     const txt = await r.text();
     t.innerHTML = `<h2>${esc(path)}</h2>` + (path.endsWith('.md')
-      ? `<div class="md">${mdRender(txt)}</div>` : `<pre>${esc(txt)}</pre>`);
+      ? `<div class="md">${mdRender(txt, '/api/reports/' + encodeURIComponent(id) + '/file')}</div>` : `<pre>${esc(txt)}</pre>`);
   } catch (e) { t.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
 
@@ -755,12 +842,14 @@ $('start').onclick = async function() {
     phases: $('phases').value.trim() || 'all',
     max_partitions: parseInt($('maxPart').value || '8', 10),
     resume: $('resume').checked,
-    enforce_coverage: $('enforceCoverage').checked,
-    seed_routes: $('seedRoutes').checked,
     phase2_mode: $('phase2Mode').value,
-    concurrency: parseInt($('concurrency').value || '1', 10),
     reasoning_effort: $('reasoningEffort').value || null,
     backend: $('backend').value,
+    // Feature 013: functional seeding / coverage / concurrency controls.
+    concurrency: parseInt($('concurrency').value || '1', 10),
+    enforce_coverage: $('enforceCoverage').checked,
+    seed_routes: $('seedRoutes').checked,
+    seed_prior: $('seedPrior').checked,
   };
   if (!payload.repo) { $('formErr').innerHTML = '<div class="err-box">Repository path is required.</div>'; return; }
   this.disabled = true;

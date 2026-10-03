@@ -1,0 +1,37 @@
+{
+  "description": "the 8 entry points actually read in the negative (8/100) variant",
+  "routes": [
+    {
+      "file": "svc01/routes.py",
+      "path": "/svc01/items"
+    },
+    {
+      "file": "svc02/routes.py",
+      "path": "/svc02/items"
+    },
+    {
+      "file": "svc03/routes.py",
+      "path": "/svc03/items"
+    },
+    {
+      "file": "svc04/routes.py",
+      "path": "/svc04/items"
+    },
+    {
+      "file": "gosvc/svc06/routes.go",
+      "path": "/svc06/items"
+    },
+    {
+      "file": "gosvc/svc07/routes.go",
+      "path": "/svc07/items"
+    },
+    {
+      "file": "gosvc/svc08/routes.go",
+      "path": "/svc08/items"
+    },
+    {
+      "file": "gosvc/svc09/routes.go",
+      "path": "/svc09/items"
+    }
+  ]
+}

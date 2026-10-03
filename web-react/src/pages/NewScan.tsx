@@ -53,12 +53,17 @@ export function NewScan({ onLaunched }: { onLaunched: (id: string) => void }) {
   const [maxPart, setMaxPart] = useState(8);
   const [samples, setSamples] = useState(1);
   const [quality, setQuality] = useState("balanced");
+  const [concurrency, setConcurrency] = useState(1);
   const [flags, setFlags] = useState({
     threat_model: false,
     iac_lens: true,
     ledger: false,
     redact: false,
     remediate: false,
+    // Feature 013: functional seeding / coverage controls.
+    enforce_coverage: true,
+    seed_routes: false,
+    seed_prior: false,
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -132,6 +137,7 @@ export function NewScan({ onLaunched }: { onLaunched: (id: string) => void }) {
         max_partitions: maxPart,
         hunt_samples: samples,
         quality_strictness: quality,
+        concurrency,
         ...flags,
       });
       onLaunched(job.id);
@@ -218,6 +224,13 @@ export function NewScan({ onLaunched }: { onLaunched: (id: string) => void }) {
           <Toggle checked={flags.ledger} onChange={(v) => setFlags({ ...flags, ledger: v })} title="Include in Vulnerability Ledger" sub="accumulate findings across runs & score recall" />
           <Toggle checked={flags.remediate} onChange={(v) => setFlags({ ...flags, remediate: v })} title="Write remediation DTOs" sub="per-finding proposed-fix records (report-only)" />
           <Toggle checked={flags.redact} onChange={(v) => setFlags({ ...flags, redact: v })} title="Redact secrets & PII" sub="mask cards / SSNs / credentials in the artifacts" />
+          <Toggle checked={flags.enforce_coverage} onChange={(v) => setFlags({ ...flags, enforce_coverage: v })} title="Enforce coverage" sub="off skips augmentation; uncovered scope is still measured & reported" />
+          <Toggle checked={flags.seed_routes} onChange={(v) => setFlags({ ...flags, seed_routes: v })} title="Seed recon with route list" sub="deterministic entry-point inventory as leads (not a complete surface)" />
+          <Toggle checked={flags.seed_prior} onChange={(v) => setFlags({ ...flags, seed_prior: v })} title="Seed from prior report" sub="an eligible prior report's findings as leads, independently re-verified" />
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <span style={{ flex: 1 }}>Parallel agents (1–8; 1 = serial)</span>
+            <input type="number" min={1} max={8} value={concurrency} onChange={(e) => setConcurrency(Math.max(1, Math.min(8, parseInt(e.target.value || "1", 10))))} style={{ width: 72 }} />
+          </label>
         </div>
 
         <div>

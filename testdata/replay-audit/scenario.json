@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "description": "Sanitized replay of the audited run's failure categories (feature 014, T004). Drives internal/engine/outcome_test.go offline against testdata/coverage100; no prompts or model output are stored — only the shape of what went wrong.",
+  "repo": "testdata/coverage100",
+  "phases": ["1", "1t", "2", "2b", "3"],
+  "threat_model": false,
+  "silent_hunt_unit": "svc05",
+  "supported_candidate": {"file": "svc02/routes.py", "path": "/svc02/items", "cwe": "CWE-862"},
+  "exhausted_candidate": {"file": "svc03/routes.py", "path": "/svc03/items", "cwe": "CWE-862", "class": "turn_exhaustion"},
+  "orphan_artifact": "poc/stray_test.py",
+  "expected": {
+    "execution_status": "partial",
+    "coverage_status": "degraded",
+    "disabled_optional_phases": ["1t (threat_model=false)"],
+    "failed_assignment_status": "missing",
+    "failed_candidate_class": "turn_exhaustion",
+    "missing_artifact_markers": ["no reproduction disposition for ", "unregistered artifact: poc/stray_test.py"]
+  }
+}

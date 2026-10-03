@@ -11,6 +11,7 @@
   try {
     var t = localStorage.getItem('vhlocal.theme');
     if (t) document.documentElement.setAttribute('data-theme', t);
+    if (window.rerenderDiagrams) rerenderDiagrams();
   } catch (e) {}
 </script>
 <style>
@@ -343,6 +344,15 @@
   .step.stopped .node{border-color:var(--err);color:var(--err);
     background:var(--surface-1);box-shadow:0 0 0 4px var(--err-weak)}
   .step.stopped .lbl{color:var(--err)}
+  .step.incomplete .node{border-color:var(--warn);color:var(--warn);background:var(--surface-1)}
+  .step.incomplete .lbl{color:var(--warn)}
+  .intel .chip{border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:12px;background:var(--surface-1)}
+  .ai-appcard{position:relative}
+  table.reptbl tr.on td{background:var(--accent-weak)}
+  .approw-del,.ledrow-del{position:absolute;top:10px;right:10px;font-size:11px;padding:2px 8px;
+    border:1px solid var(--line);border-radius:6px;background:var(--surface-1);color:var(--err);cursor:pointer}
+  .approw-del:hover,.ledrow-del:hover{border-color:var(--err);background:var(--err-weak)}
+  .ledrow{position:relative}
   @keyframes nodepulse{
     0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent);
        transform:scale(1)}
@@ -698,6 +708,22 @@
   /* `hidden` on a <tr> relies on the UA rule; state it so no later
      display declaration can resurrect a collapsed detail row. */
   table.findtbl tr[hidden]{display:none}
+  /* Feature 016 (FR-022, FR-023, C-P30, C-P31, C-P33): the reader-facing index is
+     keyboard navigable with a visible focus ring, carries TEXT severity labels rather than
+     colour alone, breaks long recorded paths instead of widening the page, and stays
+     readable at 375 CSS pixels. */
+  #reportIndex tr.ridx:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  #reportIndex tr.ridx:focus{outline:2px solid var(--accent);outline-offset:-2px}
+  #reportIndex .rfind:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  #reportIndex td,#reportIndex dd,#reportIndex li,#reportIndex p{overflow-wrap:anywhere}
+  #reportIndex .rfind h4{margin:10px 0 2px;font-size:12.5px;color:var(--text-1)}
+  #reportIndex .rfind ol,#reportIndex .rfind ul{margin:2px 0 2px 18px;padding:0}
+  @media (max-width:420px){
+    #reportIndex .hrow{flex-direction:column;align-items:stretch}
+    #reportIndex input#rq,#reportIndex select{width:100%}
+    #reportIndex table.findtbl{font-size:11.5px}
+    #reportIndex .rdl{grid-template-columns:1fr}
+  }
   table.findtbl tbody tr.frow{cursor:pointer}
   table.findtbl tbody tr.frow.open td{background:var(--surface-2)}
   table.findtbl tbody tr.fdet td{background:var(--surface-2);padding:14px 16px 16px}
@@ -902,6 +928,8 @@
     background-size:220% 100%;animation:spine-sweep 1.9s linear infinite}
   .spine .seg.active .seg-k{opacity:1;font-weight:700}
   .spine .seg.stopped{background:var(--sev-crit);border-color:var(--sev-crit)}
+  .spine .seg.incomplete{background:var(--warn-weak);border-color:var(--warn)}
+  .spine .seg.incomplete .seg-k{color:var(--warn)}
   .spine .seg.pending{background:var(--surface-3)}
   .spine .seg.pending .seg-k{color:var(--text-3)}
   .spine .seg.unmeasured{background:transparent;border-style:dashed}
@@ -1114,7 +1142,7 @@
               <input id="concurrency" type="number" value="1" min="1" max="8">
             </div>
           </div>
-          <div class="hint">Parallel agents need <code>OLLAMA_NUM_PARALLEL</code> on Ollama; on OpenRouter they overlap freely (bounded by your rate limits).</div>
+          <div class="hint">Number of hunt agents to run at once (1–8). 1 = serial. Higher values overlap hunt units without exceeding the limit.</div>
 
           <label for="maxOutTokens">Max output tokens <span style="text-transform:none;font-weight:400;color:var(--text-3)">(cloud backends)</span></label>
           <input id="maxOutTokens" type="number" value="32768" min="0" step="1024">
@@ -1138,11 +1166,11 @@
           <div class="adv-group">Toggles</div>
           <div class="hint" style="margin:2px 0 6px">Connections (Ollama / OpenAI / OpenRouter) live in <b>Settings</b>. To continue an interrupted scan, open it under <b>Scans</b> and use <b>Resume</b>.</div>
           <label class="switch-row">
-            <span class="switch-txt"><b>Enforce coverage</b><small>trace every enumerated route — may add agents</small></span>
+            <span class="switch-txt"><b>Enforce coverage</b><small>on: augment the hunt plan to cover missed scope. Off: skip augmentation — uncovered scope is still measured and reported.</small></span>
             <span class="switch"><input type="checkbox" id="enforceCoverage" checked><span class="track"></span></span>
           </label>
           <label class="switch-row">
-            <span class="switch-txt"><b>Seed recon with route list</b><small>hand Recon the full attack surface</small></span>
+            <span class="switch-txt"><b>Seed recon with route list</b><small>seed Phase-1 recon with the deterministic entry-point inventory as leads (not a complete attack surface)</small></span>
             <span class="switch"><input type="checkbox" id="seedRoutes"><span class="track"></span></span>
           </label>
           <label class="switch-row">
@@ -1150,7 +1178,7 @@
             <span class="switch"><input type="checkbox" id="iacLens" checked><span class="track"></span></span>
           </label>
           <label class="switch-row">
-            <span class="switch-txt"><b>Seed from prior report <span style="color:var(--warn)">(Mode B)</span></b><small>re-verify prior hot spots — correlates runs; off for benchmarking</small></span>
+            <span class="switch-txt"><b>Seed from prior report <span style="color:var(--warn)">(Mode B)</span></b><small>seed recon with an eligible prior report's findings as leads — independently re-verified, never accepted as-is</small></span>
             <span class="switch"><input type="checkbox" id="seedPrior"><span class="track"></span></span>
           </label>
         </div>
@@ -1262,35 +1290,109 @@ function _fixMermaid(src){
     return line;
   }).join('\n').trim();
 }
-window.runMermaid = function(root){
-  const nodes = [...(root || document).querySelectorAll('pre.mermaid:not([data-done])')];
-  if (!nodes.length) return;
+
+// Feature 015 (FR-011..013): every diagram is rendered ON ITS OWN. mermaid.parse runs
+// first (suppressErrors) so a parse failure becomes a structured, per-diagram error —
+// line and message — with the repaired source, a node/flow table fallback and Retry
+// / View-source controls; one bad diagram never blocks its siblings; theme changes
+// re-render; labels are escaped by Mermaid in strict mode; SVG export is a click.
+let _dgmSeq = 0;
+function _mermaidTheme(){
   const explicit = document.documentElement.getAttribute('data-theme');
   const dark = explicit ? explicit !== 'light'
     : !(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches);
-  ensureMermaid().then(m => {
-    try { m.initialize({startOnLoad:false, securityLevel:'loose',
-                        theme: dark ? 'dark' : 'default'}); } catch(e){}
-    // Put the DECODED, repaired source back into each node as plain text, so
-    // Mermaid parses clean input (textContent getter decodes &gt; → >; _fixMermaid
-    // strips the model's stray backslashes / quotes subgraph labels).
-    nodes.forEach(n => {
-      n.setAttribute('data-done','1');
-      n.textContent = _fixMermaid(n.textContent || '');
-      n.removeAttribute('data-processed');
+  return dark ? 'dark' : 'default';
+}
+// Minimal client-side structure for the fallback table (mirrors the Go subset parser
+// in internal/threatmodel: nodes, edges, subgraphs). Used when the server artifact
+// is not at hand; never used to decide validity.
+function _diagramStructure(src){
+  const nodes = new Map(), edges = [], boundaries = [];
+  const stack = [];
+  const declare = (id, label) => {
+    if (!nodes.has(id)) nodes.set(id, label || id); else if (label && nodes.get(id) === id) nodes.set(id, label);
+    if (stack.length) stack[stack.length-1].nodes.add(id);
+  };
+  const nodeRe = /^([A-Za-z_][A-Za-z0-9_-]*)(?:\[\(|\(\(|\[|\(|\{|>)?(?:"([^"]*)"|([^\]\)\}|]*))?/;
+  src.split('\n').slice(1).forEach(raw => {
+    const line = raw.replace(/%%[^\n]*/, '').trim();
+    if (!line) return;
+    if (line === 'end') { if (stack.length) boundaries.push(stack.pop()); return; }
+    let m;
+    if ((m = line.match(/^subgraph\s+([A-Za-z_][\w-]*)(?:\["([^"]*)"\])?/))) { stack.push({id: m[1], label: m[2] || m[1], nodes: new Set()}); return; }
+    if (/^(style|classDef|class|click|linkStyle)\b/.test(line)) return;
+    const parts = line.split(/\s*(-->|-\.->|==>|---|-\.-|===)\s*(?:\|[^|]*\|)?\s*/);
+    let prev = null;
+    parts.forEach(p => {
+      const nm = p.trim().match(nodeRe); if (!nm) return;
+      declare(nm[1], (nm[2] || nm[3] || '').trim());
+      if (prev) edges.push([prev, nm[1]]); prev = nm[1];
     });
-    Promise.resolve(m.run({nodes})).then(() => {
-      nodes.forEach(n => {
-        const svg = n.querySelector('svg');
-        if (!svg) return;
-        n.classList.add('dgm-clickable');
-        n.onclick = () => openDiagram(svg);
-      });
-    }).catch(()=>{});
-  }).catch(() => {
-    nodes.forEach(n => { n.classList.add('mermaid-src'); n.setAttribute('data-done','1'); });
   });
+  while (stack.length) boundaries.push(stack.pop());
+  return {nodes, edges, boundaries};
+}
+function _diagramTableHTML(src){
+  const s = _diagramStructure(src);
+  const bnd = s.boundaries.map(b => `<tr><td class="mono">${esc(b.id)}</td><td>${esc(b.label)}</td><td class="mono">${[...b.nodes].map(esc).join(', ')}</td></tr>`).join('');
+  const nds = [...s.nodes].map(([id, l]) => `<tr><td class="mono">${esc(id)}</td><td>${esc(l)}</td></tr>`).join('');
+  const eds = s.edges.map(([a, b]) => `<tr><td class="mono">${esc(a)}</td><td>→</td><td class="mono">${esc(b)}</td></tr>`).join('');
+  return `<div class="dgm-table"><b>Diagram as a table</b> <small>(the structure that could be read from the source)</small>
+    ${bnd ? `<table class="ledgertbl"><thead><tr><th>Trust boundary</th><th>Label</th><th>Nodes</th></tr></thead><tbody>${bnd}</tbody></table>` : ''}
+    <table class="ledgertbl"><thead><tr><th>Node</th><th>Label</th></tr></thead><tbody>${nds || '<tr><td colspan="2" class="empty">none</td></tr>'}</tbody></table>
+    <table class="ledgertbl"><thead><tr><th>From</th><th></th><th>To</th></tr></thead><tbody>${eds || '<tr><td colspan="3" class="empty">none</td></tr>'}</tbody></table></div>`;
+}
+function _diagramErrorHTML(err, src, seq){
+  const line = (err && (err.line || (err.hash && err.hash.line))) || '';
+  const msg = String((err && (err.str || err.message)) || err || 'syntax error').split('\n')[0];
+  return `<div class="err-box dgm-error"><b>Diagram did not render</b>${line ? ` — line ${esc(String(line))}` : ''}: <code>${esc(msg)}</code>
+      <button class="secondary" onclick="retryDiagram(${seq})">Retry</button>
+      <button class="secondary" onclick="toggleDiagramSource(${seq})">View source</button></div>
+    <pre class="mermaid-src" id="dgm-src-${seq}" hidden>${esc(src)}</pre>
+    ${_diagramTableHTML(src)}`;
+}
+window.toggleDiagramSource = function(seq){ const p = document.getElementById('dgm-src-' + seq); if (p) p.hidden = !p.hidden; };
+window.retryDiagram = function(seq){ const host = document.querySelector(`[data-dgm-seq="${seq}"]`); if (host) renderDiagram(host, true); };
+window.renderDiagram = async function(pre, force){
+  if (!pre || (pre.dataset.dgmState === 'valid' && !force)) return;
+  const raw = pre.dataset.dgmSrc || (pre.textContent || '').trim();
+  const src = pre.dataset.dgmSrc || _fixMermaid(raw);
+  const repaired = !pre.dataset.dgmSrc && src !== raw;
+  pre.dataset.dgmSrc = src;
+  if (repaired) pre.dataset.dgmRepaired = '1';
+  const seq = pre.dataset.dgmSeq || (++_dgmSeq);
+  pre.dataset.dgmSeq = seq;
+  pre.dataset.dgmState = 'rendering';
+  let m;
+  try { m = await ensureMermaid(); }
+  catch (e) { pre.dataset.dgmState = 'error'; pre.innerHTML = _diagramErrorHTML('diagram library failed to load', src, seq); return; }
+  try { m.initialize({startOnLoad:false, securityLevel:'strict', theme: _mermaidTheme()}); } catch(e){}
+  try {
+    const ok = await m.parse(src, {suppressErrors: true});
+    if (ok === false) throw new Error('syntax error in diagram source');
+    const {svg} = await m.render('dgm-' + seq + '-' + Date.now(), src);
+    pre.innerHTML = svg + (pre.dataset.dgmRepaired ? `<div class="hint">repaired (bounded formatting rules)</div>` : '') +
+      `<div class="dgm-actions"><button class="secondary" onclick="exportDiagramSVG(${seq})">Export SVG</button><button class="secondary" onclick="toggleDiagramSource(${seq})">View source</button></div><pre class="mermaid-src" id="dgm-src-${seq}" hidden>${esc(src)}</pre>`;
+    pre.dataset.dgmState = 'valid';
+    const svgEl = pre.querySelector('svg');
+    if (svgEl) { pre.classList.add('dgm-clickable'); svgEl.onclick = () => openDiagram(svgEl); }
+  } catch (e) {
+    pre.dataset.dgmState = 'error';
+    pre.classList.remove('dgm-clickable');
+    pre.innerHTML = _diagramErrorHTML(e, src, seq);
+  }
 };
+window.exportDiagramSVG = function(seq){
+  const host = document.querySelector(`[data-dgm-seq="${seq}"] svg`); if (!host) return;
+  const blob = new Blob([host.outerHTML], {type: 'image/svg+xml'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'diagram-' + seq + '.svg'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+window.runMermaid = function(root){
+  const nodes = [...(root || document).querySelectorAll('pre.mermaid:not([data-dgm-state])')];
+  nodes.forEach(n => renderDiagram(n, false));   // each diagram independently
+};
+// Theme change: re-render every diagram in the new theme (state is per element).
+window.rerenderDiagrams = function(){ document.querySelectorAll('pre.mermaid[data-dgm-state]').forEach(n => renderDiagram(n, true)); };
 
 // ---- diagram lightbox (click a rendered diagram to enlarge / zoom / pan) ----
 let _dgm = null, _dgmZoom = 1;
@@ -1358,13 +1460,29 @@ function _applyDgmZoom(){
   if (inner) inner.style.transform = 'scale(' + _dgmZoom + ')';
 }
 
-function mdRender(src){
+// Feature 015 (C-A9): one link rule for every Markdown renderer. A relative target
+// resolves through the OWNING report's confined file endpoint (base), so links the
+// report writes portably (review_units.json, threat_model.md) work in-app; only
+// http(s):/mailto: absolute targets and #anchors pass; anything else is text.
+const ALLOWED_SCHEMES = ["http:", "https:", "mailto:"];
+function mdHref(href, base){
+  href = String(href || "").trim();
+  if (!href) return null;
+  if (href[0] === "#") return href;
+  const m = href.match(/^([a-zA-Z][a-zA-Z0-9+.-]*:)/);
+  if (m) return ALLOWED_SCHEMES.indexOf(m[1].toLowerCase()) >= 0 ? href : null;
+  if (href.indexOf("//") === 0 || href[0] === "/") return null; // protocol-relative or root-absolute: never in a portable report
+  if (!base) return null;
+  return base + "?path=" + encodeURIComponent(href.replace(/^\.\//, "").split("#")[0]) + (href.indexOf("#") >= 0 ? "#" + href.split("#")[1] : "");
+}
+function mdRender(src, base){
   const esc = t => t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const link = (text, href) => { const h = mdHref(href, base); return h ? '<a href="' + h.replace(/"/g, '&quot;') + '"' + (h[0] === "#" ? "" : ' target="_blank" rel="noopener"') + '>' + text + '</a>' : text; };
   const inline = t => esc(t)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    .replace(/`([^`]+)`/g, '<code></code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong></strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '<em></em>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, href) => link(text, href));
 
   const lines = src.replace(/\r\n?/g,'\n').split('\n');
   const out = []; let i = 0;
@@ -1403,18 +1521,28 @@ function mdRender(src){
       i++; continue;
     }
     if (/^\s*([-*_])\1{2,}\s*$/.test(L)){ out.push('<hr class="mdhr">'); i++; continue; }
-    if (/^\s*>/.test(L)){
+    if (/^\s*>/.test(L)){                        // blockquote: keep line structure (nested lists/paragraphs inside)
       const buf=[];
       while(i<lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/,''));
-      out.push('<blockquote class="mdq">'+inline(buf.join(' '))+'</blockquote>');
+      out.push('<blockquote class="mdq">'+mdRender(buf.join('\n'), base)+'</blockquote>');
       continue;
     }
-    if (/^\s*([-*+]|\d+\.)\s+/.test(L)){
-      const ord = /^\s*\d+\./.test(L); const buf=[];
-      while(i<lines.length && /^\s*([-*+]|\d+\.)\s+/.test(lines[i]))
-        buf.push(lines[i++].replace(/^\s*([-*+]|\d+\.)\s+/,''));
-      out.push('<'+(ord?'ol':'ul')+' class="mdlist">'+
-        buf.map(b=>'<li>'+inline(b)+'</li>').join('')+'</'+(ord?'ol':'ul')+'>');
+    if (/^\s*([-*+]|\d+\.)\s+/.test(L)){             // lists, nested by indentation
+      const items=[];
+      while(i<lines.length && (/^\s*([-*+]|\d+\.)\s+/.test(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && items.length))){
+        const ln = lines[i++];
+        if (/^\s*([-*+]|\d+\.)\s+/.test(ln)) items.push({ind: ln.match(/^\s*/)[0].length, ord: /^\s*\d+\./.test(ln), text: ln.replace(/^\s*([-*+]|\d+\.)\s+/,'')});
+        else items[items.length-1].text += ' ' + ln.trim();      // continuation line of the previous item
+      }
+      const render = (start, depth) => {                     // returns [html, nextIndex]
+        const ord = items[start].ord; let html = '<'+(ord?'ol':'ul')+' class="mdlist">'; let k = start;
+        while (k < items.length && items[k].ind >= depth){
+          if (items[k].ind > depth && k > start){ const [sub, nk] = render(k, items[k].ind); html = html.slice(0, -5) + sub + '</li>'; k = nk; continue; }
+          html += '<li>'+inline(items[k].text)+'</li>'; k++;
+        }
+        return [html+'</'+(ord?'ol':'ul')+'>', k];
+      };
+      let k = 0; while (k < items.length){ const [html, nk] = render(k, items[k].ind); out.push(html); k = nk; }
       continue;
     }
     if (!L.trim()){ i++; continue; }
@@ -1458,11 +1586,18 @@ async function boot() {
   paintFavicon();
   // Honor a #view deep link (e.g. #activity) so views are bookmarkable/shareable
   // and the browser back/forward buttons move between them.
-  const _initial = (location.hash || '').replace(/^#/, '').split('?')[0];
-  navigate(VIEWS[_initial] ? _initial : 'home');
+  // Feature 014 (FR-024): the hash may carry a query — `#applications?app=<slug>`
+  // deep-links one application; back to `#applications` restores the list.
+  const _h0 = _hashParts();
+  navigate(VIEWS[_h0.view] ? _h0.view : 'home', _hashOpts(_h0));
   window.addEventListener('hashchange', () => {
-    const v = (location.hash || '').replace(/^#/, '').split('?')[0];
-    if (VIEWS[v] && v !== view) navigate(v);
+    const h = _hashParts();
+    if (VIEWS[h.view] && h.view !== view) { navigate(h.view, _hashOpts(h)); return; }
+    if (h.view === 'applications' && view === 'applications') {
+      const slug = h.params.get('app');
+      if (slug && slug !== _appActive) openApplication(slug, {fromHash: true});
+      else if (!slug && _appActive) closeApplication();
+    }
   });
   CFG = await api('/api/config');
   // The dashboard's phase overview is driven by CFG.phases, which arrived after
@@ -1506,12 +1641,10 @@ const _PROFILE_FIELDS = {
   hunt_samples: ['huntSamples', 'val'], max_partitions: ['maxPart', 'val'],
   phase2_mode: ['phase2Mode', 'val'], phases: ['phases', 'val'],
   quality_strictness: ['qualityStrictness', 'val'],
-  concurrency: ['concurrency', 'val'], reasoning_effort: ['reasoningEffort', 'val'],
+  reasoning_effort: ['reasoningEffort', 'val'],
   max_output_tokens: ['maxOutTokens', 'val'], max_budget_usd: ['maxBudget', 'val'],
   iac_lens: ['iacLens', 'chk'], remediate: ['remediate', 'chk'],
   redact: ['redact', 'chk'], ledger: ['ledger', 'chk'],
-  seed_routes: ['seedRoutes', 'chk'], seed_prior: ['seedPrior', 'chk'],
-  enforce_coverage: ['enforceCoverage', 'chk'],
 };
 window.applyProfile = function(name) {
   const hint = $('profileHint');
@@ -1529,7 +1662,14 @@ window.applyProfile = function(name) {
   // A profile that sets a positive budget also enables the cap toggle.
   if ((p.overrides || {}).max_budget_usd > 0) { $('budgetOn').checked = true; }
   toggleBudget();
-  if (hint) hint.textContent = p.description || '';
+  const overrides = p.overrides || {};
+  // Feature 013: seeding / coverage / concurrency are functional, so profiles apply
+  // them directly to the (now-enabled) controls.
+  if (overrides.concurrency != null) $('concurrency').value = overrides.concurrency;
+  if (overrides.enforce_coverage != null) $('enforceCoverage').checked = !!overrides.enforce_coverage;
+  if (overrides.seed_routes != null) $('seedRoutes').checked = !!overrides.seed_routes;
+  if (overrides.seed_prior != null) $('seedPrior').checked = !!overrides.seed_prior;
+  if (hint) hint.textContent = (p.description || '');
 };
 
 // Budget cap is opt-in — the number field is live only when the box is ticked.
@@ -2283,9 +2423,20 @@ async function refreshMarkSeverity() {
 }
 
 let _wasBusy = null;
+let jobsError = null;
 
 async function refresh() {
-  const d = await api('/api/scans');
+  let d;
+  try {
+    d = await api('/api/scans');
+    jobsError = null;
+  } catch (e) {
+    // A transport/schema failure must be shown as an error — never as an empty
+    // "No scans yet" list (feature 007, US1).
+    jobsError = (e && e.message) || String(e);
+    renderJobs();
+    return;
+  }
   jobs = d.jobs;
   const busy = $('busy');
   busy.textContent = d.busy ? 'scanning' : 'idle';
@@ -2317,6 +2468,11 @@ async function refresh() {
 
 function renderJobs() {
   const ul = $('jobs');
+  if (jobsError) {
+    $('jobCount').textContent = '!';
+    ul.innerHTML = '<li style="color:var(--err)">Couldn\'t load scans: ' + esc(jobsError) + '</li>';
+    return;
+  }
   $('jobCount').textContent = jobs.length;
   if (!jobs.length) { ul.innerHTML = '<li style="color:var(--text-3)">No scans yet</li>'; return; }
   ul.innerHTML = jobs.map(j => `
@@ -2365,7 +2521,17 @@ function statTiles(j){
       <div class="s">${(j.prompt_tokens||0).toLocaleString()} in · ${(j.completion_tokens||0).toLocaleString()} out</div></div>
     <div class="tile"><div class="k">Vulnerabilities</div>
       <div class="v">${esc(vulns)}</div><div class="s">${esc(vsub)}</div></div>
+    ${sourceReviewTileHTML(j.review_units)}
   </div>`;
+}
+
+// Validated per-phase outcomes from the engine (feature 007, US3). When present,
+// a step is "done" only if the engine actually completed it — a terminated queue
+// status is NEVER treated as all-complete.
+function phaseOutcomeMap(j){
+  const m = {}; const arr = (j && j.phase_outcomes) || [];
+  for (const o of arr) m[o.phase] = o;
+  return { map: m, have: arr.length > 0 };
 }
 
 // A "pizza-tracker" stepper across the scan's phases: which are done, which is
@@ -2394,30 +2560,43 @@ function phaseTracker(j){
   const isDone = j.status === 'done';
   const stopped = ['failed','interrupted','cancelled'].includes(j.status);
   const N = steps.length;
+  const po = phaseOutcomeMap(j);
 
   const nodes = steps.map((p, i) => {
     let state;
-    if (isDone) state = 'done';
+    if (po.have) {
+      const o = po.map[p.key];
+      state = (o && o.completed) ? 'done' : (stopped && i === curIndex ? 'stopped' : 'incomplete');
+    }
+    else if (isDone) state = 'done';
     else if (curIndex === -1) state = (j.status === 'running' && i === 0) ? 'active' : 'pending';
     else if (i < curIndex) state = 'done';
     else if (i === curIndex) state = stopped ? 'stopped' : 'active';
     else state = 'pending';
     // Node shows a sequential step number (1..N), not the internal phase key.
-    const glyph = state === 'done' ? '✓' : state === 'stopped' ? '!' : (i + 1);
-    return `<div class="step ${state}" title="Step ${i+1} of ${N} — ${esc(short(p))}">`
+    const glyph = state === 'done' ? '✓' : state === 'stopped' ? '!' : state === 'incomplete' ? '–' : (i + 1);
+    const reason = (po.map[p.key] && po.map[p.key].reason) || '';
+    return `<div class="step ${state}" title="Step ${i+1} of ${N} — ${esc(short(p))}${reason ? (' — ' + esc(reason)) : ''}">`
       + `<span class="node">${glyph}</span><span class="lbl">${esc(short(p))}</span></div>`;
   }).join('');
 
   const pct = j.agent_total ? Math.round(100 * j.agent_index / j.agent_total) : 0;
   let caption;
-  if (isDone) caption = `All ${N} steps complete`;
+  if (po.have) {
+    const doneN = steps.filter(p => po.map[p.key] && po.map[p.key].completed).length;
+    caption = doneN === N ? `All ${N} steps complete`
+      : `${doneN} of ${N} phases complete — `
+        + steps.filter(p => !(po.map[p.key] && po.map[p.key].completed)).map(p => esc(short(p))).join(', ')
+        + ' incomplete';
+  }
+  else if (isDone) caption = `All ${N} steps complete`;
   else if (stopped) caption = curIndex >= 0
       ? `Stopped at step ${curIndex+1} — ${esc(short(steps[curIndex]))}` : 'Stopped before starting';
   else if (curIndex >= 0) caption = `Step ${curIndex+1} of ${N} · ${esc(short(steps[curIndex]))}`
       + (j.agent_total ? ` · agent ${j.agent_index}/${j.agent_total}` : '');
   else caption = j.status === 'queued' ? 'Queued…' : 'Starting…';
 
-  const showBar = !isDone && !stopped && j.agent_total;
+  const showBar = !po.have && !isDone && !stopped && j.agent_total;
   return `<div class="tracker-card">
     <div class="tracker">${nodes}</div>
     <div class="tracker-cap">${caption}</div>
@@ -2446,6 +2625,7 @@ function phaseSpine(j){
   const curIndex = curKey ? steps.findIndex(p => p.key === curKey) : -1;
   const isDone = j.status === 'done';
   const stopped = ['failed','interrupted','cancelled'].includes(j.status);
+  const po = phaseOutcomeMap(j);
 
   const secsFor = (key, state) => {
     if (typeof PHASE_T.secs[key] === 'number') return PHASE_T.secs[key];
@@ -2456,7 +2636,11 @@ function phaseSpine(j){
 
   const rows = steps.map((p, i) => {
     let state;
-    if (isDone) state = 'done';
+    if (po.have) {
+      const o = po.map[p.key];
+      state = (o && o.completed) ? 'done' : (stopped && i === curIndex ? 'stopped' : 'incomplete');
+    }
+    else if (isDone) state = 'done';
     else if (curIndex === -1) state = (j.status === 'running' && i === 0) ? 'active' : 'pending';
     else if (i < curIndex) state = 'done';
     else if (i === curIndex) state = stopped ? 'stopped' : 'active';
@@ -2482,14 +2666,20 @@ function phaseSpine(j){
   }).join('');
 
   let caption;
-  if (isDone) caption = 'All phases complete';
+  if (po.have) {
+    const doneN = rows.filter(r => r.state === 'done').length;
+    caption = doneN === rows.length ? 'All phases complete'
+      : `${doneN} of ${rows.length} phases complete — `
+        + rows.filter(r => r.state !== 'done').map(r => esc(short(r.p))).join(', ') + ' incomplete';
+  }
+  else if (isDone) caption = 'All phases complete';
   else if (stopped) caption = curKey ? `Stopped during phase ${esc(curKey)}` : 'Stopped before starting';
   else if (curIndex >= 0) caption = `Phase ${esc(curKey)} — ${esc(short(steps[curIndex]))}`
       + (j.agent_total ? ` · agent ${j.agent_index}/${j.agent_total}` : '');
   else caption = j.status === 'queued' ? 'Queued…' : 'Starting…';
 
   const pct = j.agent_total ? Math.round(100 * j.agent_index / j.agent_total) : 0;
-  const showBar = !isDone && !stopped && j.agent_total;
+  const showBar = !po.have && !isDone && !stopped && j.agent_total;
   const scale = anyMeasured
     ? `<span class="spine-scale">width = elapsed · ${esc(fmtDur(total))} measured</span>`
     : `<span class="spine-scale">no phase timings yet — widths are not to scale</span>`;
@@ -2502,6 +2692,22 @@ function phaseSpine(j){
 }
 
 let _lastDetail = {id: null, tab: null};
+// intelLine surfaces threat-model + SBOM availability with a download link when
+// present — explicit state, never a bare present/absent (feature 007, US4/T029).
+function intelLine(j) {
+  const items = [['Threat model','threat_model.md',j.threat_model],['SBOM','sbom.cdx.json',j.sbom]];
+  if (!j.threat_model && !j.sbom) return '';
+  const chip = ([label, file, m]) => {
+    if (!m) return '';
+    if (m.state === 'available') {
+      const href = '/api/scans/' + encodeURIComponent(j.id) + '/file?path=' + encodeURIComponent(m.path || file);
+      return `<span class="chip">${esc(label)}: <a href="${href}" target="_blank" rel="noreferrer">available ↗</a></span>`;
+    }
+    return `<span class="chip" style="color:var(--text-3)">${esc(label)}: ${esc(String(m.state).replace(/_/g,' '))}</span>`;
+  };
+  return `<div class="intel" style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">${items.map(chip).join('')}</div>`;
+}
+
 function renderDetail(el, j) {
   const running = j.status === 'running' || j.status === 'queued';
   // Interrupted / cancelled / failed scans that got far enough to have a results
@@ -2538,6 +2744,7 @@ function renderDetail(el, j) {
       phases that already completed.</div>` : ''}
     ${j.error ? `<div class="err-box" style="margin-top:12px">${esc(j.error)}</div>` : ''}
     ${statTiles(j)}
+    ${intelLine(j)}
     ${phaseTracker(j)}
     <div id="scanHealth"></div>
     <div class="metacard"><table>
@@ -2556,6 +2763,11 @@ function renderDetail(el, j) {
     </div>
     <div id="tabbody">${bodyInit}</div>`;
   loadScanHealth(j.id, running);
+  // Feature 014 (FR-003): one extra refresh when a run just terminated, so the
+  // final artifacts / prompts / log land without navigation.
+  const wasRunning = _evRunning[j.id] === true;
+  _evRunning[j.id] = running;
+  const justEnded = wasRunning && !running;
   if (tab === 'live') {
     const f = $('feed');
     if (f && window._feedCache) f.innerHTML = window._feedCache;
@@ -2565,10 +2777,12 @@ function renderDetail(el, j) {
     if (tab === 'log') loadLog(j.id);
     else if (tab === 'prompts') loadPrompts(j.id);
     else loadFiles(j.id);
-  } else if (tab === 'prompts' && running) {
-    // Same view on a live run: pull new prompts in silently, without flashing —
-    // only rebuild if the set grew, preserving open <details> and scroll.
-    refreshPromptsQuietly(j.id);
+  } else if (running || justEnded) {
+    // Same view on a live run (or the terminal tick): pull new data in silently,
+    // without flashing — Artifacts, Prompts AND Log (feature 014, FR-003).
+    if (tab === 'prompts') refreshPromptsQuietly(j.id);
+    else if (tab === 'log') refreshLogQuietly(j.id);
+    else refreshFilesQuietly(j.id);
   }
 }
 
@@ -2692,90 +2906,168 @@ function loadScanHealth(id, running) {
     .catch(() => { _scanHealth[id] = ''; });
 }
 
+// ---------------------------------------------------------------------------
+// Feature 014 — scan evidence (Artifacts / Prompts / Log).
+// Every request is sequence-guarded and abortable so a response for scan A can
+// never land in scan B's pane (FR-004); every evidence state renders a distinct,
+// honest message (FR-002/009) — never an empty list or endless "Loading…".
+// ---------------------------------------------------------------------------
+const _evRunning = {};          // job id -> was running on the last repaint
+let _evSeq = 0;                 // request sequence (stale responses are dropped)
+let _evAbort = null;            // in-flight AbortController
+let _logFollow = true;          // Log tab: follow new lines (operator-controllable)
+const EV_MSG = {
+  unknown:          'This scan is unknown to the server.',
+  not_started:      'Queued — the engine has not started this scan yet.',
+  running_no_files: 'Scan is running — nothing has been written yet. This tab updates automatically.',
+  empty:            'This scan finished without writing any files.',
+  unavailable:      'The results directory is unavailable (missing or unreadable).',
+  no_records:       'No prompt records were captured for this scan.',
+  not_recorded:     'Prompts were not recorded by this version of the scanner for this scan.',
+  no_lines:         'No log lines were recorded for this scan.',
+};
+// evFetch: guarded JSON fetch. Resolves {ok, code, data} or null when superseded.
+async function evFetch(id, path) {
+  if (_evAbort) { try { _evAbort.abort(); } catch (e) {} }
+  const ctl = new AbortController(); _evAbort = ctl;
+  const my = ++_evSeq;
+  try {
+    const r = await fetch(path, {signal: ctl.signal});
+    let data = null; try { data = await r.json(); } catch (e) {}
+    if (my !== _evSeq || sel !== id) return null;   // superseded / scan switched
+    return {ok: r.ok, code: r.status, data: data || {}};
+  } catch (e) {
+    if (e && e.name === 'AbortError') return null;
+    if (my !== _evSeq || sel !== id) return null;
+    return {ok: false, code: 0, data: {state: 'error', error: e.message}};
+  }
+}
+function evStateHTML(d, fallback) {
+  const st = d && d.state; const reason = d && (d.reason || d.error);
+  const msg = EV_MSG[st] || fallback || 'Unavailable.';
+  const cls = (st === 'unavailable' || st === 'error' || st === 'unknown') ? 'err-box' : 'empty';
+  return `<div class="${cls}" data-evstate="${esc(st||'')}">${esc(msg)}${reason ? ` <span style="color:var(--text-3)">(${esc(reason)})</span>` : ''}</div>`;
+}
+function filesTable(id, files) {
+  const order = (p) => p === 'SCAN_REPORT.md' ? 0 : p === 'README.md' ? 1
+    : p === 'findings.json' ? 2 : p.startsWith('phase') ? 3 : 4;
+  files.sort((a,b) => order(a.path)-order(b.path) || a.path.localeCompare(b.path));
+  return `<div class="metacard"><table><tr><th>File</th><th style="width:90px">Size</th></tr>` +
+    files.map(f => `<tr><td><a onclick="viewFile('${id}','${esc(f.path)}')">${esc(f.path)}</a></td>
+      <td style="color:var(--text-3)">${(f.size/1024).toFixed(1)} KB</td></tr>`).join('') +
+    `</table></div>`;
+}
 async function loadFiles(id) {
-  try {
-    const d = await api('/api/scans/' + id + '/artifacts');
-    const body = $('tabbody');
-    if (!d.files.length) { body.innerHTML = '<div class="empty">No artifacts yet.</div>'; return; }
-    const order = (p) => p === 'SCAN_REPORT.md' ? 0 : p === 'README.md' ? 1
-      : p === 'findings.json' ? 2 : p.startsWith('phase') ? 3 : 4;
-    d.files.sort((a,b) => order(a.path)-order(b.path) || a.path.localeCompare(b.path));
-    body.innerHTML = `<div class="metacard"><table><tr><th>File</th><th style="width:90px">Size</th></tr>` +
-      d.files.map(f => `<tr><td><a onclick="viewFile('${id}','${esc(f.path)}')">${esc(f.path)}</a></td>
-        <td style="color:var(--text-3)">${(f.size/1024).toFixed(1)} KB</td></tr>`).join('') +
-      `</table></div><div id="viewer" style="margin-top:16px"></div>`;
-  } catch (e) {
-    $('tabbody').innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
-  }
+  const body = $('tabbody');            // resolved BEFORE the await (FR-004)
+  if (!body) return;
+  const res = await evFetch(id, '/api/scans/' + id + '/artifacts?limit=200');
+  if (!res) return;
+  const d = res.data;
+  if (!res.ok || !d.files || !d.files.length) { body.innerHTML = evStateHTML(d, 'No artifacts.'); body.dataset.fcount = 0; return; }
+  const more = d.next_offset != null ? `<div class="hint">Showing ${d.files.length} of ${d.total} files.</div>` : '';
+  body.innerHTML = filesTable(id, d.files) + more + `<div id="viewer" style="margin-top:16px"></div>`;
+  body.dataset.fcount = d.total;
+}
+// Quiet refresh: only rebuild the table when the file set changed; keep the viewer.
+async function refreshFilesQuietly(id) {
+  const body = $('tabbody');
+  if (!body) return;
+  const res = await evFetch(id, '/api/scans/' + id + '/artifacts?limit=200');
+  if (!res || !res.ok) return;
+  const d = res.data;
+  if (+body.dataset.fcount === (d.total || 0)) return;
+  if (!d.files || !d.files.length) { body.innerHTML = evStateHTML(d, 'No artifacts.'); body.dataset.fcount = 0; return; }
+  const viewer = $('viewer'); const keep = viewer ? viewer.innerHTML : '';
+  body.innerHTML = filesTable(id, d.files) + `<div id="viewer" style="margin-top:16px">${keep}</div>`;
+  body.dataset.fcount = d.total;
 }
 
+function logHTML(lines, cursor) {
+  return `<div style="display:flex;gap:10px;align-items:center;font-size:11px;color:var(--text-3);margin-bottom:8px">`
+    + `<span>This scan's tagged lines from the central log (${lines.length} shown).</span><span style="flex:1"></span>`
+    + `<label style="display:flex;gap:5px;align-items:center;text-transform:none;font-weight:400"><input type="checkbox" id="logFollow" ${_logFollow?'checked':''} onchange="_logFollow=this.checked" style="width:auto;margin:0"> follow</label></div>`
+    + `<pre id="logPre" data-cursor="${cursor||0}">${esc(lines.join('\n'))}</pre>`;
+}
 async function loadLog(id) {
-  const body = $('tabbody');
+  const body = $('tabbody');            // resolved BEFORE the await (FR-004)
+  if (!body) return;
   body.innerHTML = '<div class="empty">Loading…</div>';
-  try {
-    const r = await fetch('/api/scans/' + id + '/log');
-    const t = await r.text();
-    body.innerHTML = `<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">`
-      + `This scan's lines from the central log.</div><pre>${esc(t)}</pre>`;
-    const pre = body.querySelector('pre');
-    if (pre) pre.scrollTop = pre.scrollHeight;
-  } catch (e) {
-    body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
-  }
+  const res = await evFetch(id, '/api/scans/' + id + '/log?tail=500');
+  if (!res) return;
+  const d = res.data;
+  if (!res.ok || !d.lines || !d.lines.length) { body.innerHTML = evStateHTML(d, 'No log lines.'); return; }
+  body.innerHTML = logHTML(d.lines, d.cursor);
+  const pre = $('logPre'); if (pre && _logFollow) pre.scrollTop = pre.scrollHeight;
+}
+// Quiet refresh: append only the new lines (cursor-based), preserving reading
+// position unless "follow" is on.
+async function refreshLogQuietly(id) {
+  const body = $('tabbody'); const pre = $('logPre');
+  if (!body) return;
+  const cursor = pre ? +(pre.dataset.cursor || 0) : 0;
+  const res = await evFetch(id, '/api/scans/' + id + '/log?tail=500&after=' + cursor);
+  if (!res || !res.ok) return;
+  const d = res.data;
+  if (!pre) { if (d.lines && d.lines.length) { body.innerHTML = logHTML(d.lines, d.cursor); } return; }
+  if (!d.lines || !d.lines.length || d.cursor === cursor) return;
+  const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
+  pre.textContent += (pre.textContent ? '\n' : '') + d.lines.join('\n');
+  pre.dataset.cursor = d.cursor;
+  if (_logFollow || atBottom) pre.scrollTop = pre.scrollHeight;
 }
 
-// Render the exact system + per-agent task prompts from prompts.jsonl.
-function promptsHTML(recs) {
-  const sys = recs.find(r => r.kind === 'system');
-  const agents = recs.filter(r => r.kind === 'agent');
-  let html = '<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">'
-    + 'The exact prompts sent to the model. The <b>system prompt</b> is shared by '
-    + 'every agent; each entry below is one agent\'s task (the user turn that starts it). '
-    + 'Multi-turn tool exchanges are not shown — see the Log for those.</div>';
-  if (sys) html += `<details class="promptrec"><summary><b>System prompt</b>`
-    + `<span class="pmeta">shared · ${sys.prompt.length.toLocaleString()} chars</span></summary>`
-    + `<pre>${esc(sys.prompt)}</pre></details>`;
-  html += agents.map(a => `<details class="promptrec"><summary><b>${esc(a.label)}</b>`
-    + `<span class="pmeta">phase ${esc(a.phase)} · ${(a.chars||0).toLocaleString()} chars</span></summary>`
-    + `<pre>${esc(a.prompt)}</pre></details>`).join('');
-  return html;
+// Feature 014 (FR-005): render the ACTUAL prompt records captured at each model
+// call — per call: phase · agent/assignment · role/model · kind (main / repair /
+// canary / repartition) · call order · time — with the real system + task content
+// sent (redactions labeled). Roles do NOT share one prompt; each record is its own.
+function promptRecordHTML(r) {
+  const meta = `seq ${r.seq} · phase ${esc(r.phase)} · ${esc(r.role)}/${esc(r.model)} · ${esc(r.kind)} · ${esc((r.ts||'').replace('T',' ').slice(0,19))}`
+    + (r.truncated ? ' · <span style="color:var(--warn)">stored preview (8 KB clamp); full text not stored</span>' : '')
+    + (r.redactions && r.redactions.length ? ` · <span style="color:var(--warn)">redacted: ${esc(r.redactions.join(', '))}</span>` : '')
+    + (r.error ? ` · <span style="color:var(--err)">error</span>` : '');
+  return `<details class="promptrec" data-seq="${r.seq}"><summary><b>${esc(r.label)}</b> <span class="pmeta">${meta}</span></summary>`
+    + `<div style="font-size:11px;color:var(--text-3);margin:6px 0 2px">System</div><pre>${esc(r.system||'')}</pre>`
+    + `<div style="font-size:11px;color:var(--text-3);margin:6px 0 2px">Task / last user turn</div><pre>${esc(r.task||'')}</pre>`
+    + (r.tool_calls && r.tool_calls.length ? `<div class="hint">Response requested tools: ${esc(r.tool_calls.join(', '))}</div>` : '')
+    + (r.error ? `<div class="err-box">${esc(r.error)}</div>` : '')
+    + `</details>`;
 }
-
+function promptsHTML(recs, total) {
+  return '<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">'
+    + `The actual prompts sent to the model, one record per call (${total} total). `
+    + 'Repair, canary and repartition calls are listed with their own kind. '
+    + 'Longer tool exchanges are in the Log.</div>'
+    + recs.map(promptRecordHTML).join('');
+}
 async function loadPrompts(id) {
-  const body = $('tabbody');
+  const body = $('tabbody');            // resolved BEFORE the await (FR-004)
+  if (!body) return;
   body.innerHTML = '<div class="empty">Loading…</div>';
-  try {
-    const r = await fetch('/api/scans/' + id + '/file?path=prompts.jsonl');
-    if (!r.ok) { body.innerHTML = '<div class="empty">No prompts captured yet — they appear as each phase starts.</div>'; return; }
-    const txt = await r.text();
-    const recs = txt.trim().split('\n').filter(Boolean)
-      .map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean);
-    if (!recs.length) { body.innerHTML = '<div class="empty">No prompts captured yet.</div>'; return; }
-    body.innerHTML = promptsHTML(recs);
-    body.dataset.pcount = recs.length;
-  } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+  const res = await evFetch(id, '/api/scans/' + id + '/prompts?limit=100');
+  if (!res) return;
+  const d = res.data;
+  if (!res.ok || !d.records || !d.records.length) { body.innerHTML = evStateHTML(d, 'No prompt records.'); body.dataset.pcount = 0; return; }
+  body.innerHTML = promptsHTML(d.records, d.total);
+  body.dataset.pcount = d.total;
 }
-
-// Silently pull new prompts during a live run: only rebuild when the set actually
-// grew, and preserve which <details> are open plus the scroll position — so a
-// running scan's Prompts tab stays fresh without ever flashing.
+// Silently pull NEW prompt records during a live run (cursor = last seq), appending
+// them and preserving open <details> + scroll — no flashing.
 async function refreshPromptsQuietly(id) {
   const body = $('tabbody');
   if (!body) return;
-  try {
-    const r = await fetch('/api/scans/' + id + '/file?path=prompts.jsonl');
-    if (!r.ok) return;
-    const recs = (await r.text()).trim().split('\n').filter(Boolean)
-      .map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean);
-    if (!recs.length || +body.dataset.pcount === recs.length) return;
-    const open = [...body.querySelectorAll('details')].map(d => d.open);
-    const sy = body.scrollTop;
-    body.innerHTML = promptsHTML(recs);
-    body.dataset.pcount = recs.length;
-    const ds = body.querySelectorAll('details');
-    open.forEach((o, i) => { if (ds[i]) ds[i].open = o; });
-    body.scrollTop = sy;
-  } catch (e) { /* keep the existing content on any hiccup */ }
+  const last = [...body.querySelectorAll('details[data-seq]')].map(d => +d.dataset.seq).reduce((a,b) => Math.max(a,b), 0);
+  const res = await evFetch(id, '/api/scans/' + id + '/prompts?limit=100&after=' + last);
+  if (!res || !res.ok) return;
+  const d = res.data;
+  if (!d.records || !d.records.length) {
+    if (!last && d.state && d.state !== 'ready') body.innerHTML = evStateHTML(d, 'No prompt records.');
+    return;
+  }
+  if (!last) { body.innerHTML = promptsHTML(d.records, d.total); body.dataset.pcount = d.total; return; }
+  const sy = body.scrollTop;
+  body.insertAdjacentHTML('beforeend', d.records.map(promptRecordHTML).join(''));
+  body.dataset.pcount = d.total;
+  body.scrollTop = sy;
 }
 
 window.viewFile = async function(id, path) {
@@ -2785,7 +3077,7 @@ window.viewFile = async function(id, path) {
     const r = await fetch(`/api/scans/${id}/file?path=` + encodeURIComponent(path));
     const t = await r.text();
     v.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
-      ? `<div class="md">${mdRender(t)}</div>` : `<pre>${esc(t)}</pre>`);
+      ? `<div class="md">${mdRender(t, '/api/scans/' + encodeURIComponent(id) + '/file')}</div>` : `<pre>${esc(t)}</pre>`);
     runMermaid(v);
     v.scrollIntoView({behavior:'smooth', block:'start'});
   } catch (e) { v.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
@@ -2973,7 +3265,7 @@ window.dashFile = async function(kind, id, path, into){
     if (!r.ok) throw new Error('could not read ' + path);
     const txt = await r.text();
     body.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
-      ? `<div class="md">${mdRender(txt)}</div>` : `<pre>${esc(txt)}</pre>`);
+      ? `<div class="md">${mdRender(txt, base + encodeURIComponent(id) + '/file')}</div>` : `<pre>${esc(txt)}</pre>`);
     runMermaid(body);
     body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
@@ -3043,6 +3335,12 @@ const VIEWS = {
         <div class="pane-head">
           <h2>Applications</h2>
           <span style="flex:1"></span>
+          <div class="viewtoggle" role="group" aria-label="Applications layout">
+            <button id="avCards" onclick="setAppsView('cards')"
+              title="Tiles — for browsing applications you recognise by sight">Tiles</button>
+            <button id="avTable" onclick="setAppsView('table')"
+              title="Table — for comparing applications as records, sortable by any column">Table</button>
+          </div>
           <button class="secondary" onclick="loadApplications()">Refresh</button>
         </div>
         <p style="color:var(--text-2);font-size:13px;margin:2px 0 14px">
@@ -3061,6 +3359,12 @@ const VIEWS = {
         <div class="pane-head">
           <h2>Vulnerability ledger</h2>
           <span style="flex:1"></span>
+          <div class="viewtoggle" role="group" aria-label="Ledger layout">
+            <button id="lvCards" onclick="setLedgerView('cards')"
+              title="Tiles — for browsing ledgers you recognise by sight">Tiles</button>
+            <button id="lvTable" onclick="setLedgerView('table')"
+              title="Table — for comparing ledgers as records, sortable by any column">Table</button>
+          </div>
           <button class="secondary" onclick="loadLedgers()">Refresh</button>
         </div>
         <p style="color:var(--text-2);font-size:13px;margin:2px 0 14px">
@@ -3112,8 +3416,11 @@ window.navigate = function(name, opts) {
   const next = VIEWS[name] ? name : 'scans';
   // Keep the URL hash in sync so views are deep-linkable and back/forward work.
   // Guarded so programmatic navigation doesn't loop with the hashchange listener.
-  if (('#' + next) !== location.hash) {
-    try { history.replaceState(null, '', '#' + next); } catch (e) {}
+  // An application deep link keeps its `?app=` query (feature 014, FR-024).
+  const want = '#' + next + (next === 'applications' && opts && opts.slug
+    ? '?app=' + encodeURIComponent(opts.slug) : '');
+  if (want !== location.hash) {
+    try { history.replaceState(null, '', want); } catch (e) {}
   }
   // Chrome moves first, synchronously, OUTSIDE the transition. startViewTransition
   // defers its callback by a frame, so anything classed inside it stays wrong for
@@ -3156,6 +3463,21 @@ function navigateNow(name, opts) {
 
 // Back-compat for any older call sites.
 window.setView = function(v) { navigate(v); };
+
+// Hash readers (feature 014, FR-024): `#<view>?<query>` → {view, params}.
+function _hashParts() {
+  const raw = (location.hash || '').replace(/^#/, '');
+  const i = raw.indexOf('?');
+  const v = i < 0 ? raw : raw.slice(0, i);
+  let params;
+  try { params = new URLSearchParams(i < 0 ? '' : raw.slice(i + 1)); }
+  catch (e) { params = new URLSearchParams(); }
+  return { view: v, params: params };
+}
+function _hashOpts(h) {
+  const slug = h && h.params && h.params.get('app');
+  return slug ? { slug: slug } : undefined;
+}
 
 // Severity breakdown. The API has always returned `severities`; showing it is
 // what gives the measured warm ramp something to do. Zero-count severities are
@@ -3545,43 +3867,196 @@ window.loadActivityLog = async function() {
   } catch(e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
 
+let LEDGERS = [];
+let LEDGER_SORT = { key: 'updated', dir: -1 };   // most-recent first, matching card order
+let LEDGER_VIEW = null;
+
+function ledgerView() {
+  if (LEDGER_VIEW) return LEDGER_VIEW;
+  try {
+    LEDGER_VIEW = localStorage.getItem('vhlocal.ledger.view') === 'table' ? 'table' : 'cards';
+  } catch (e) { LEDGER_VIEW = 'cards'; }
+  return LEDGER_VIEW;
+}
+
+window.setLedgerView = function(v) {
+  LEDGER_VIEW = v === 'table' ? 'table' : 'cards';
+  try { localStorage.setItem('vhlocal.ledger.view', LEDGER_VIEW); } catch (e) {}
+  _ledSel.clear();   // a view switch drops any pending selection (FR-008)
+  renderLedgers();   // toggling never refetches
+};
+
+window.sortLedger = function(key) {
+  if (LEDGER_SORT.key === key) LEDGER_SORT.dir = -LEDGER_SORT.dir;
+  else LEDGER_SORT = { key: key, dir: -1 };
+  renderLedgers();
+};
+
+// Multi-select delete (feature 011), mirroring the Reports tab. Keyed by ledger
+// slug, Table view only, cleared on refresh / view switch (see loadLedgers /
+// setLedgerView).
+let _ledSel = new Set();
+window.toggleLedSel = function(slug, on){
+  if (on) _ledSel.add(slug); else _ledSel.delete(slug);
+  const bar = document.querySelector('#ledgerBody .bulkbar');
+  if (bar) bar.outerHTML = ledgersBulkBar();
+};
+window.toggleAllLedgers = function(on){
+  const rows = sortedLedgers();
+  if (on) rows.forEach(s => _ledSel.add(s.slug)); else _ledSel.clear();
+  renderLedgers();
+};
+window.clearLedSel = function(){ _ledSel.clear(); renderLedgers(); };
+
+function ledgersBulkBar(){
+  const n = _ledSel.size;
+  return `<div class="bulkbar${n?' active':''}">
+    <span>${n} selected</span>
+    <button class="secondary" ${n?'':'disabled'} onclick="clearLedSel()">Clear</button>
+    <button class="danger" ${n?'':'disabled'} onclick="deleteSelectedLedgers()">Delete selected${n?` (${n})`:''}</button>
+  </div>`;
+}
+
+// Batch delete: one confirmation, then the existing clear endpoint per slug (NOT
+// clearLedger, which confirms per item). Reports and unselected ledgers are
+// preserved by the endpoint; partial failures are reported honestly (FR-005/009).
+window.deleteSelectedLedgers = async function(){
+  const slugs = [..._ledSel];
+  if (!slugs.length) return;
+  if (!confirm(`Clear ${slugs.length} ledger${slugs.length===1?'':'s'}?\n\n`
+    + `This permanently removes their tracked findings across every run. Scan `
+    + `reports are kept — only the accumulated ledgers are cleared.`)) return;
+  let failed = 0;
+  for (const slug of slugs){
+    try { await api('/api/ledgers/' + encodeURIComponent(slug), {method:'DELETE'}); }
+    catch(e){ failed++; }
+  }
+  _ledSel.clear();
+  await loadLedgers();
+  if (failed) alert(`${failed} ledger(s) could not be cleared.`);
+};
+
+const _LSORT = {
+  target:  s => String(s.target_name || s.target || '').toLowerCase(),
+  total:   s => s.total || 0,
+  open:    s => s.open || 0,
+  runs:    s => s.runs_recorded || 0,
+  updated: s => s.updated || 0,
+};
+
+function sortedLedgers() {
+  const get = _LSORT[LEDGER_SORT.key] || _LSORT.updated;
+  const dir = LEDGER_SORT.dir;
+  return LEDGERS.slice().sort((a, b) => {
+    const va = get(a), vb = get(b);
+    if (va < vb) return -dir;
+    if (va > vb) return dir;
+    return (b.updated || 0) - (a.updated || 0);   // stable: newest first
+  });
+}
+
 window.loadLedgers = async function(openSlug) {
   const body = $('ledgerBody');
   if (!body) return;
+  _ledSel.clear();   // a refresh drops any pending selection (FR-008)
   try {
     const d = await api('/api/ledgers');
-    const ls = d.ledgers || [];
-    if (!ls.length) {
-      body.innerHTML = `<div class="empty">No ledgers yet. Run a scan with the
-        <b>vulnerability ledger</b> option enabled (or with a prior report on disk)
-        and each analyzed application appears here.</div>`;
-      return;
-    }
-    body.innerHTML = '<div class="cards">' + ls.map(s => {
-      const when = s.updated ? new Date(s.updated*1000).toLocaleString() : '';
-      const statusBits = [
-        s.open ? `<span class="pill f">${s.open} open</span>` : '',
-        s.fixed ? `<span class="pill z">${s.fixed} fixed</span>` : '',
-        s.regressed ? `<span class="pill p">${s.regressed} regressed</span>` : '',
-        s.reliable ? `<span class="pill">${s.reliable} reliable</span>` : '',
-      ].filter(Boolean).join('');
-      return `<div class="card" onclick="openLedger('${esc(s.slug)}')">
-        <h3>${esc(s.target_name)}</h3>
-        <div class="path" title="${esc(s.target)}">${esc(s.target)}</div>
-        <div class="meta">
-          <span class="pill">${s.total} tracked</span>
-          <span>${s.runs_recorded} run${s.runs_recorded===1?'':'s'}</span>
-          <span>${esc(when)}</span>
-        </div>
-        <div class="meta">${statusBits}</div>
-        <div class="sevrow">${_sevChips(s.by_severity)}</div>
-      </div>`;
-    }).join('') + '</div><div id="ledgerDetail" style="margin-top:22px"></div>';
-    if (openSlug && ls.some(x => x.slug === openSlug)) openLedger(openSlug);
+    LEDGERS = d.ledgers || [];
+    renderLedgers();
+    if (openSlug && LEDGERS.some(x => x.slug === openSlug)) openLedger(openSlug);
   } catch (e) {
     body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`;
   }
 };
+
+function renderLedgers() {
+  const body = $('ledgerBody');
+  if (!body) return;
+  const mode = ledgerView();
+  [['lvCards', 'cards'], ['lvTable', 'table']].forEach(([id, m]) => {
+    const b = $(id);
+    if (!b) return;
+    b.className = mode === m ? 'on' : '';
+    b.setAttribute('aria-pressed', String(mode === m));
+  });
+  if (!LEDGERS.length) {
+    body.innerHTML = `<div class="empty">No ledgers yet. Run a scan with the
+      <b>vulnerability ledger</b> option enabled (or with a prior report on disk)
+      and each analyzed application appears here.</div>`;
+    return;
+  }
+  // Switching layout must not close an opened ledger, nor re-fetch it — carry the
+  // rendered detail pane across, the way Reports carries #reportView.
+  const openPane = $('ledgerDetail');
+  const carried = openPane ? openPane.innerHTML : '';
+  const listHTML = mode === 'table'
+    ? ledgersTableHTML(sortedLedgers())
+    : '<div class="cards">' + LEDGERS.map(ledgerCard).join('') + '</div>';
+  body.innerHTML = listHTML + `<div id="ledgerDetail" style="margin-top:22px">${carried}</div>`;
+}
+
+function ledgerCard(s) {
+  const when = s.updated ? new Date(s.updated*1000).toLocaleString() : '';
+  const statusBits = [
+    s.open ? `<span class="pill f">${s.open} open</span>` : '',
+    s.fixed ? `<span class="pill z">${s.fixed} fixed</span>` : '',
+    s.regressed ? `<span class="pill p">${s.regressed} regressed</span>` : '',
+    s.reliable ? `<span class="pill">${s.reliable} reliable</span>` : '',
+  ].filter(Boolean).join('');
+  return `<div class="card ledrow" onclick="openLedger('${esc(s.slug)}')">
+    <button class="ledrow-del" title="Delete ledger" onclick="event.stopPropagation();clearLedger('${esc(s.slug)}','${escA(s.target_name||'')}',${s.total||0})">Delete</button>
+    <h3>${esc(s.target_name)}</h3>
+    <div class="path" title="${esc(s.target)}">${esc(s.target)}</div>
+    <div class="meta">
+      <span class="pill">${s.total} tracked</span>
+      <span>${s.runs_recorded} run${s.runs_recorded===1?'':'s'}</span>
+      <span>${esc(when)}</span>
+    </div>
+    <div class="meta">${statusBits}</div>
+    <div class="sevrow">${_sevChips(s.by_severity)}</div>
+  </div>`;
+}
+
+const _LCOLS = [
+  ['target',  'Application', ''],
+  ['total',   'Tracked',     'right'],
+  ['open',    'Open',        'right'],
+  ['runs',    'Runs',        'right'],
+  ['updated', 'Last updated', ''],
+];
+
+function ledgersTableHTML(rows) {
+  const head = _LCOLS.map(([k, label, align]) => {
+    const on = LEDGER_SORT.key === k;
+    const caret = on ? (LEDGER_SORT.dir < 0 ? ' ▾' : ' ▴') : '';
+    return `<th class="sortable${on ? ' sorted' : ''}${align ? ' num' : ''}"
+      aria-sort="${on ? (LEDGER_SORT.dir < 0 ? 'descending' : 'ascending') : 'none'}"
+      onclick="sortLedger('${k}')">${esc(label)}<span class="caret">${caret}</span></th>`;
+  }).join('');
+  const body = rows.map(s => {
+    const when = s.updated ? new Date(s.updated*1000).toISOString().slice(0,10) : _DASH;
+    const open = s.open
+      ? `<span class="pill f">${s.open}</span>`
+      : (s.total ? '0' : _DASH);
+    return `<tr data-slug="${esc(s.slug)}" onclick="openLedger('${esc(s.slug)}')">
+      <td class="chkcol"><input type="checkbox" onclick="event.stopPropagation()"
+        onchange="toggleLedSel('${escA(s.slug)}',this.checked)" ${_ledSel.has(s.slug)?'checked':''}></td>
+      <td class="lt"><b>${esc(s.target_name)}</b>
+        <div class="rsub2 mono" title="${escA(s.target||'')}">${esc(s.target||'')}</div></td>
+      <td class="num mono">${s.total||0}</td>
+      <td class="num">${open}</td>
+      <td class="num mono">${s.runs_recorded||0}</td>
+      <td class="mono">${when}</td>
+      <td class="num"><button class="delbtn-t" title="Delete ledger"
+        onclick="event.stopPropagation();clearLedger('${esc(s.slug)}','${escA(s.target_name||'')}',${s.total||0})">🗑</button></td>
+    </tr>`;
+  }).join('');
+  const allSel = rows.length && rows.every(s => _ledSel.has(s.slug));
+  return `${ledgersBulkBar()}<div class="tablewrap"><table class="ledgertbl reptbl">
+    <thead><tr><th class="chkcol"><input type="checkbox" ${allSel?'checked':''}
+      title="select all" onclick="toggleAllLedgers(this.checked)"></th>${head}<th></th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
+}
 
 // Jump from a ledger entry to the run that recorded it.
 // Open a ledger finding's source report IN PLACE, under the ledger detail — no
@@ -3984,23 +4459,219 @@ function ledgerLinkHTML(fj) {
 
 // ---- Applications (per-application hub: history + ledger + intelligence) ----
 let _apps = [], _appActive = null;
+let APPS_SORT = { key: 'scanned', dir: -1 };   // most-recent first, matching card order
+let APPS_VIEW = null;
+// Feature 014 (FR-024; contracts/evidence-api.md "Bounds"): the list renders at
+// most APPS_PAGE rows per page — "Show more" extends by another page. Hundreds of
+// applications never render as one unbounded table.
+const APPS_PAGE = 100;
+let _appsShown = APPS_PAGE;
+// Selection sequence guard: a detail response that arrives after the operator
+// moved on is dropped, never painted over the current selection (FR-025).
+let _appSeq = 0;
+window.showMoreApps = function(){ _appsShown += APPS_PAGE; renderApps(); };
+// Enter/Space on a focused row or card opens it (keyboard parity with click).
+window.appKey = function(ev, slug){
+  if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar'){
+    ev.preventDefault(); openApplication(slug);
+  }
+};
+// Row/card activation attributes shared by both layouts.
+function appActivate(slug){
+  return `tabindex="0" role="button" onclick="openApplication('${escA(slug)}')" onkeydown="appKey(event,'${escA(slug)}')"`;
+}
+function appsPageNote(total){
+  if (total <= _appsShown) return '';
+  const rest = total - _appsShown;
+  return `<div class="pagenote" style="margin:8px 0;color:var(--text-2);font-size:12.5px">
+    Showing ${_appsShown} of ${total} applications.
+    <button class="secondary" onclick="showMoreApps()">Show ${Math.min(APPS_PAGE, rest)} more</button></div>`;
+}
+
+// Mirror reportsView(): read/cache the per-view preference, default to cards (Tiles).
+function appsView() {
+  if (APPS_VIEW) return APPS_VIEW;
+  try {
+    APPS_VIEW = localStorage.getItem('vhlocal.apps.view') === 'table' ? 'table' : 'cards';
+  } catch (e) { APPS_VIEW = 'cards'; }
+  return APPS_VIEW;
+}
+
+window.setAppsView = function(v) {
+  APPS_VIEW = v === 'table' ? 'table' : 'cards';
+  try { localStorage.setItem('vhlocal.apps.view', APPS_VIEW); } catch (e) {}
+  _appSel.clear();   // a view switch drops any pending selection (FR-008)
+  renderApps();      // toggling never refetches
+};
+
+window.sortApps = function(key) {
+  if (APPS_SORT.key === key) APPS_SORT.dir = -APPS_SORT.dir;
+  else APPS_SORT = { key: key, dir: -1 };
+  renderApps();
+};
+
+// Multi-select delete (feature 011), mirroring the Reports tab. Selection is
+// keyed by application slug, lives only in Table view, and is cleared on refresh
+// or a view switch (see loadApplications / setAppsView).
+let _appSel = new Set();
+window.toggleAppSel = function(slug, on){
+  if (on) _appSel.add(slug); else _appSel.delete(slug);
+  const bar = document.querySelector('#appsList .bulkbar');
+  if (bar) bar.outerHTML = appsBulkBar();
+};
+window.toggleAllApps = function(on){
+  const rows = sortedApps();
+  if (on) rows.forEach(a => _appSel.add(a.slug)); else _appSel.clear();
+  renderApps();
+};
+window.clearAppSel = function(){ _appSel.clear(); renderApps(); };
+
+function appsBulkBar(){
+  const n = _appSel.size;
+  return `<div class="bulkbar${n?' active':''}">
+    <span>${n} selected</span>
+    <button class="secondary" ${n?'':'disabled'} onclick="clearAppSel()">Clear</button>
+    <button class="danger" ${n?'':'disabled'} onclick="deleteSelectedApps()">Delete selected${n?` (${n})`:''}</button>
+  </div>`;
+}
+
+// Batch delete: one confirmation, then the existing forget endpoint per slug
+// (NOT forgetApplication, which confirms per item). Reports are preserved by the
+// endpoint; partial failures are reported honestly (FR-005/009).
+window.deleteSelectedApps = async function(){
+  const slugs = [..._appSel];
+  if (!slugs.length) return;
+  if (!confirm(`Forget ${slugs.length} application${slugs.length===1?'':'s'}?\n\n`
+    + `• each name and vulnerability ledger is removed\n`
+    + `• the scan reports are KEPT (still in the Reports tab)\n\n`
+    + `Re-scanning a folder brings its application back.`)) return;
+  let failed = 0;
+  for (const slug of slugs){
+    try { await api('/api/applications/' + encodeURIComponent(slug), {method:'DELETE'}); }
+    catch(e){ failed++; }
+  }
+  _appSel.clear();
+  _appActive = null;
+  await loadApplications();
+  if (failed) alert(`${failed} application(s) could not be forgotten.`);
+};
+
+const _ASORT = {
+  name:    a => String(a.name || '').toLowerCase(),
+  repo:    a => String(a.repo || '').toLowerCase(),
+  scans:   a => a.scans || 0,
+  severity: a => _sevScore(a.latest_severities),
+  scanned: a => a.last_scanned || 0,
+  intel:   a => (a.has_threat_model ? 2 : 0) + (a.has_sbom ? 1 : 0),
+  open:    a => (a.open_findings == null ? -1 : a.open_findings),
+};
+
+function sortedApps() {
+  const get = _ASORT[APPS_SORT.key] || _ASORT.scanned;
+  const dir = APPS_SORT.dir;
+  return _apps.slice().sort((a, b) => {
+    const va = get(a), vb = get(b);
+    if (va < vb) return -dir;
+    if (va > vb) return dir;
+    return (b.last_scanned || 0) - (a.last_scanned || 0);   // stable: newest first
+  });
+}
 
 window.loadApplications = async function(preselect){
   const list = $('appsList');
   if (!list) return;
+  _appSel.clear();   // a refresh drops any pending selection (FR-008)
   try {
     const d = await api('/api/applications');
     _apps = d.applications || [];
     if (!_apps.length){
-      list.innerHTML = `<div class="empty">No applications yet. Run a scan — name the
-        application in the New Scan form — and it appears here.</div>`;
+      renderApps();
       $('appDetail').innerHTML = ''; return;
     }
-    list.innerHTML = '<div class="cards">' + _apps.map(appCard).join('') + '</div>';
+    renderApps();
     const pick = _apps.find(a => a.slug === preselect) || _apps[0];
     if (pick) openApplication(pick.slug);
   } catch(e){ list.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
+
+// Re-render the list only (never re-fetches, never touches #appDetail, which is a
+// sibling pane and so survives a layout switch untouched).
+function renderApps(){
+  const list = $('appsList');
+  if (!list) return;
+  const mode = appsView();
+  [['avCards', 'cards'], ['avTable', 'table']].forEach(([id, m]) => {
+    const b = $(id);
+    if (!b) return;
+    b.className = mode === m ? 'on' : '';
+    b.setAttribute('aria-pressed', String(mode === m));
+  });
+  if (!_apps.length){
+    list.innerHTML = `<div class="empty">No applications yet. Run a scan — name the
+      application in the New Scan form — and it appears here.</div>`;
+    return;
+  }
+  const all = mode === 'table' ? sortedApps() : _apps;
+  const page = all.slice(0, _appsShown);
+  list.innerHTML = (mode === 'table'
+    ? appsTableHTML(page)
+    : '<div class="cards">' + page.map(appCard).join('') + '</div>') + appsPageNote(all.length);
+  // Keep the active row/card highlighted after a re-render.
+  if (_appActive) list.querySelectorAll('[data-slug]').forEach(el =>
+    el.classList.toggle('on', el.dataset.slug === _appActive));
+}
+
+const _ACOLS = [
+  ['name',     'Application', ''],
+  ['repo',     'Repository',  ''],
+  ['scans',    'Scans',       'right'],
+  ['severity', 'Latest',      ''],
+  ['scanned',  'Last scan',   ''],
+  ['intel',    'Threat / SBOM', ''],
+  ['open',     'Open',        'right'],
+];
+
+function appsTableHTML(rows){
+  const head = _ACOLS.map(([k, label, align]) => {
+    const on = APPS_SORT.key === k;
+    const caret = on ? (APPS_SORT.dir < 0 ? ' ▾' : ' ▴') : '';
+    return `<th class="sortable${on ? ' sorted' : ''}${align ? ' num' : ''}"
+      aria-sort="${on ? (APPS_SORT.dir < 0 ? 'descending' : 'ascending') : 'none'}"
+      onclick="sortApps('${k}')">${esc(label)}<span class="caret">${caret}</span></th>`;
+  }).join('');
+  const body = rows.map(a => {
+    const when = a.last_scanned ? new Date(a.last_scanned*1000).toISOString().slice(0,10) : _DASH;
+    const intel = [
+      a.has_threat_model ? '<span class="pill z">Threat</span>' : '',
+      a.has_sbom ? '<span class="pill">SBOM</span>' : '',
+    ].filter(Boolean).join(' ') || _DASH;
+    const latest = severityStrip(a.latest_severities)
+      || (a.latest_findings ? `<span class="pill f">${a.latest_findings}</span>` : _DASH);
+    const open = a.open_findings != null
+      ? `<span class="pill ${a.open_findings ? 'f' : ''}">${a.open_findings}</span>` : _DASH;
+    const name = a.named ? esc(a.name)
+      : `${esc(a.name)} <span class="pill p" title="not yet named — open, then ✎ to name">unnamed</span>`;
+    return `<tr class="ai-approw${a.slug===_appActive?' on':''}" data-slug="${esc(a.slug)}"
+        ${appActivate(a.slug)}>
+      <td class="chkcol"><input type="checkbox" onclick="event.stopPropagation()"
+        onchange="toggleAppSel('${escA(a.slug)}',this.checked)" ${_appSel.has(a.slug)?'checked':''}></td>
+      <td class="lt"><b>${name}</b></td>
+      <td class="mono loc" title="${escA(a.repo||'')}">${esc(a.repo||'')}</td>
+      <td class="num mono">${a.scans||0}</td>
+      <td>${latest}</td>
+      <td class="mono">${when}</td>
+      <td>${intel}</td>
+      <td class="num">${open}</td>
+      <td class="num"><button class="delbtn-t" title="Delete application"
+        onclick="event.stopPropagation();forgetApplication('${esc(a.slug)}','${escA(a.name||a.slug)}',${a.scans||0})">🗑</button></td>
+    </tr>`;
+  }).join('');
+  const allSel = rows.length && rows.every(a => _appSel.has(a.slug));
+  return `${appsBulkBar()}<div class="tablewrap"><table class="ledgertbl reptbl">
+    <thead><tr><th class="chkcol"><input type="checkbox" ${allSel?'checked':''}
+      title="select all" onclick="toggleAllApps(this.checked)"></th>${head}<th></th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
+}
 
 function appCard(a){
   const when = a.last_scanned ? new Date(a.last_scanned*1000).toLocaleDateString() : '';
@@ -4010,7 +4681,8 @@ function appCard(a){
     a.has_sbom ? '<span class="pill">SBOM</span>' : '',
     !a.named ? '<span class="pill p" title="not yet named — click to open, then ✎ to name">unnamed</span>' : '',
   ].filter(Boolean).join('');
-  return `<div class="card ai-appcard${a.slug===_appActive?' on':''}" data-slug="${esc(a.slug)}" onclick="openApplication('${esc(a.slug)}')">
+  return `<div class="card ai-appcard${a.slug===_appActive?' on':''}" data-slug="${esc(a.slug)}" ${appActivate(a.slug)}>
+    <button class="approw-del" title="Delete application" onclick="event.stopPropagation();forgetApplication('${esc(a.slug)}','${escA(a.name||a.slug)}',${a.scans||0})">Delete</button>
     <h3>${esc(a.name)}</h3>
     <div class="path" title="${esc(a.repo)}">${esc(a.repo||'')}</div>
     <div class="meta"><span class="pill">${a.scans} scan${a.scans===1?'':'s'}</span><span>${esc(when)}</span></div>
@@ -4020,18 +4692,43 @@ function appCard(a){
 
 let _appCur = null, _appTab = 'history';
 
-window.openApplication = async function(slug){
+// Open one application's detail (feature 014, FR-024/025): writes the shareable
+// deep link `#applications?app=<slug>` (a history entry, so Back restores the
+// list), scrolls the detail pane into view, and drops any stale response via the
+// sequence guard. A failed request shows an error WITH a retry — never an
+// indefinite "Loading…".
+window.openApplication = async function(slug, o){
+  const seq = ++_appSeq;
   _appActive = slug; _appTab = 'history';
-  document.querySelectorAll('#appsList .ai-appcard').forEach(el =>
+  const want = '#applications?app=' + encodeURIComponent(slug);
+  if (!(o && o.fromHash) && location.hash !== want) {
+    try { history.pushState(null, '', want); } catch (e) {}
+  }
+  document.querySelectorAll('#appsList [data-slug]').forEach(el =>
     el.classList.toggle('on', el.dataset.slug === slug));
   const host = $('appDetail');
   if (!host) return;
   host.innerHTML = '<div class="empty">Loading…</div>';
   try {
-    _appCur = await api('/api/applications/' + encodeURIComponent(slug));
+    const d = await api('/api/applications/' + encodeURIComponent(slug));
+    if (seq !== _appSeq) return;   // the operator moved on — stale
+    _appCur = d;
     host.innerHTML = appDetailHTML(_appCur);
     renderAppTab();
-  } catch(e){ host.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+    if (host.scrollIntoView) host.scrollIntoView({block:'start', behavior:'smooth'});
+  } catch(e){
+    if (seq !== _appSeq) return;
+    host.innerHTML = `<div class="err-box">Could not load application: ${esc(e.message)}
+      <button class="secondary" onclick="openApplication('${escA(slug)}')">Retry</button></div>`;
+  }
+};
+
+// Back to the list (hash `#applications` without ?app=): clear the selection.
+window.closeApplication = function(){
+  _appSeq++; _appActive = null; _appCur = null;
+  const host = $('appDetail');
+  if (host) host.innerHTML = '';
+  renderApps();
 };
 
 function appDetailHTML(a){
@@ -4058,6 +4755,7 @@ function appDetailHTML(a){
       </div>
     </div>
     <div class="app-actions">${acts}</div>
+    ${a.ambiguous_mapping ? '<div role="status" class="empty">Application mapping unknown: these legacy results have no repository identity and have been kept separate.</div>' : ''}
     <div class="tabs" style="margin-top:16px">
       <button class="${_appTab==='history'?'on':''}" onclick="appTab('history')">History</button>
       <button class="${_appTab==='threat'?'on':''}" onclick="appTab('threat')">Threat model</button>
@@ -4089,7 +4787,7 @@ function appHistoryHTML(a){
       ? (s.coverage_degraded ? '<span class="pill p">degraded</span>' : '<span class="pill z">clean</span>')
       : '—';
     return `<tr onclick="openAppReport('${esc(s.id)}')" style="cursor:pointer">
-      <td class="mono">${esc(d)}</td>
+      <td class="mono">${esc(d)} ${s.status ? '<span class="pill">'+esc(s.status)+'</span>' : ''}${s.ambiguous_mapping ? ' · mapping unknown' : ''}</td>
       <td class="mono">${esc(s.model||'—')}</td>
       <td class="num"><span class="pill ${s.findings?'f':'z'}">${s.findings}</span></td>
       <td>${severityStrip(s.severities) || '—'}</td>
@@ -4110,24 +4808,60 @@ async function renderAppTab(){
   const body = $('appTabBody'), a = _appCur;
   if (!body || !a) return;
   if (_appTab === 'history'){ body.innerHTML = appHistoryHTML(a); return; }
-  const want = _appTab === 'threat' ? 'has_threat_model' : 'has_sbom';
-  const scan = (a.scan_history || []).find(s => s[want]);
-  if (!scan){
-    body.innerHTML = _appTab === 'threat'
-      ? `<div class="empty">No threat model for this application yet.<br>Re-run a scan with <b>Build threat model (PASTA)</b> enabled.</div>`
-      : `<div class="empty">No SBOM for this application yet.<br>The SBOM is built when <b>Build threat model (PASTA)</b> is enabled.</div>`;
+  // Feature 014 (FR-025/026): the server selects the newest VALID artifact of each
+  // kind from THIS application's own history (never another application's) and
+  // discloses when it is older than the latest scan; an absence carries its reason
+  // (e.g. threat model disabled for the latest scan). Older UIs guessed from
+  // has_* flags — kept only as the fallback for pre-014 servers.
+  const kind = _appTab === 'threat' ? 'threat_model' : 'sbom';
+  const label = _appTab === 'threat' ? 'Threat model' : 'SBOM';
+  const sel = (a.artifacts && a.artifacts[kind]) || null;
+  let scanId = null, header = '';
+  if (sel){
+    if (!sel.valid){
+      body.innerHTML = `<div class="empty">${esc(label)} unavailable: ${esc(sel.reason || 'no valid artifact')}.` +
+        (_appTab === 'threat' ? '<br>Run a scan with <b>Build threat model (PASTA)</b> enabled to build one.' : '') + `</div>`;
+      return;
+    }
+    scanId = sel.scan_id;
+    const when = sel.created ? new Date(sel.created*1000).toLocaleString() : '';
+    header = `<div class="artifact-src" style="font-size:12px;color:var(--text-2);margin:0 0 10px">
+      From scan <span class="mono">${esc(sel.scan_id)}</span>${when ? ' · ' + esc(when) : ''}${sel.revision ? ' · revision <span class="mono">' + esc(sel.revision) + '</span>' : ''}
+      ${sel.older_than_latest ? '<span class="pill p" title="The latest scan produced no valid ' + esc(label.toLowerCase()) + '">older than the latest scan</span>' : ''}
+      <button class="secondary" style="margin-left:6px" onclick="openAppReport('${escA(sel.scan_id)}')">Open that report</button></div>`;
+  } else {
+    const want = _appTab === 'threat' ? 'has_threat_model' : 'has_sbom';
+    const scan = (a.scan_history || []).find(s => s[want]);
+    if (!scan){
+      body.innerHTML = _appTab === 'threat'
+        ? `<div class="empty">No threat model for this application yet.<br>Re-run a scan with <b>Build threat model (PASTA)</b> enabled.</div>`
+        : `<div class="empty">No SBOM for this application yet.<br>The SBOM is built when <b>Build threat model (PASTA)</b> is enabled.</div>`;
+      return;
+    }
+    scanId = scan.id;
+  }
+  const seq = _appSeq;
+  body.innerHTML = '<div class="empty">Loading…</div>';
+  const file = _appTab === 'threat' ? 'threat_model.md' : 'sbom.cdx.json';
+  const r = await _fetchReportFileEx(scanId, file);
+  if (seq !== _appSeq || _appTab !== (kind === 'threat_model' ? 'threat' : 'sbom')) return;   // stale
+  if (r.error){
+    // A server/network error is NOT absence: say so and offer a retry.
+    body.innerHTML = `<div class="err-box">Could not load the ${esc(label.toLowerCase())} (${esc(r.error)}).
+      <button class="secondary" onclick="renderAppTab()">Retry</button></div>`;
     return;
   }
-  body.innerHTML = '<div class="empty">Loading…</div>';
+  if (r.status === 404 || r.text == null){
+    body.innerHTML = `<div class="empty">${esc(label)} file is absent from scan <span class="mono">${esc(scanId)}</span>.</div>`;
+    return;
+  }
   if (_appTab === 'threat'){
-    const tm = await _fetchReportFile(scan.id, 'threat_model.md');
-    body.innerHTML = tm ? `<div class="md ai-md">${mdRender(tm)}</div>`
-      : '<div class="empty">Threat model unavailable.</div>';
-    if (tm) runMermaid(body);
+    body.innerHTML = header + `<div class="md ai-md">${mdRender(r.text, '/api/reports/' + encodeURIComponent(scanId) + '/file')}</div>`;
+    runMermaid(body);
   } else {
-    const txt = await _fetchReportFile(scan.id, 'sbom.cdx.json');
-    let s = null; if (txt){ try { s = sbomSummaryFromCdx(JSON.parse(txt)); } catch(e){} }
-    body.innerHTML = s ? sbomHTML(s, scan.id) : '<div class="empty">SBOM unavailable.</div>';
+    let s = null; try { s = sbomSummaryFromCdx(JSON.parse(r.text)); } catch(e){}
+    body.innerHTML = header + (s ? sbomHTML(s, scanId)
+      : `<div class="err-box">SBOM in scan <span class="mono">${esc(scanId)}</span> is malformed (not valid CycloneDX JSON).</div>`);
   }
 }
 
@@ -4193,6 +4927,18 @@ function _fetchReportFile(id, path){
   return fetch(`/api/reports/${encodeURIComponent(id)}/file?path=${encodeURIComponent(path)}`)
     .then(r => r.ok ? r.text() : null).catch(() => null);
 }
+// Feature 014 (FR-025): keep 404 (absent) distinct from 5xx/network (error) so the
+// UI never reports a server failure as "no artifact".
+async function _fetchReportFileEx(id, path){
+  try {
+    const r = await fetch(`/api/reports/${encodeURIComponent(id)}/file?path=${encodeURIComponent(path)}`);
+    if (r.ok) return { status: r.status, text: await r.text() };
+    if (r.status === 404) return { status: 404, text: null };
+    return { status: r.status, text: null, error: `HTTP ${r.status}` };
+  } catch (e) {
+    return { status: 0, text: null, error: e.message || 'network error' };
+  }
+}
 
 function sbomSummaryFromCdx(cdx){
   const comps = (cdx && cdx.components) || [];
@@ -4218,20 +4964,274 @@ function sbomHTML(s, sbomId){
     <tbody>${rows || '<tr><td colspan="4" class="empty">No dependencies detected.</td></tr>'}</tbody></table></div>`;
 }
 
-function healthPanelHTML(fj) {
+// Feature 016 (FR-021, C-P27): the reader-facing report, rendered from the PRESENTATION
+// PROJECTION in report_model.json. Nothing here recomputes grouping, severity, counts or
+// guidance: those were established once when the report was built, and this viewer reads
+// them. A report saved before feature 016 carries no projection and falls back to the
+// feature-015 renderers below, which is the only other path.
+function reportPresentationSummaryHTML(p) {
+  if (!p) return '';
+  const c = p.counts || {}, sev = c.severity || {}, sc = p.scope || {}, id = p.identity || {};
+  const op = p.opening || {};
+  const tiles = ['Critical','High','Medium','Low','Informational','Unrated']
+    .map(k => `<div class="tile"><div class="k">${esc(k)}</div><div class="v ${_sevClass(k)}">${sev[k]||0}</div></div>`).join('');
+  const prio = (p.priority || []).map(a => {
+    const ref = (a.ref||'').toLowerCase();
+    return `<li><a href="#${escA(ref)}" onclick="event.preventDefault();openFindingAnchor('${escA(ref)}')">${esc(a.issue)}</a>
+       — <b>${esc(a.severity)}</b> · ${esc(a.affected_area||'')} · ${esc(a.action||'')}</li>`;
+  }).join('');
+  return `<div class="metacard execsum" id="execSummary">
+    <h3>${esc(id.application||'Scan report')} <small>${id.scan_date ? `· scanned ${esc(id.scan_date)}${id.timezone?` (${esc(id.timezone)})`:''}` : '· scan date not recorded'}${id.revision?` · revision ${esc(id.revision.slice(0,12))}`:''}</small></h3>
+    <p>${esc(op.risk_summary||'')}</p>
+    ${op.scope_sentence ? `<p class="hint">${esc(op.scope_sentence)}</p>` : ''}
+    <div class="hrow">
+      <span class="hbadge ${c.issues_to_fix ? 'warn' : 'alt'}">${c.issues_to_fix||0} issue${c.issues_to_fix===1?'':'s'} to fix</span>
+      <span class="hbadge alt" title="neither confirmed nor dismissed; never counted as a vulnerability">${c.needs_review||0} need review</span>
+      <span class="hbadge alt">${c.dismissed||0} dismissed</span>
+    </div>
+    <div class="tiles">${tiles}</div>
+    ${prio ? `<b>Start here</b><ol class="leading">${prio}</ol>` : ''}
+    <div class="hrow"><span class="hstat">Review scope: execution <b>${esc(sc.execution||'Unknown')}</b> · ${sc.coverage_known ? `<b>${sc.coverage_completed}</b> of <b>${sc.coverage_total}</b> entry points completed` : 'entry-point coverage not recorded'} · method <b>${esc(sc.method||'')}</b></span></div>
+    ${sc.gap_sentence ? `<div class="hrow"><span class="hstat">${esc(sc.gap_sentence)}</span></div>` : ''}
+  </div>`;
+}
+
+// One index row per primary issue, with the five reader sections in each detail block.
+// Needs review, dismissed candidates and the scanner diagnostics are separate, on-demand
+// sections — never mixed into the vulnerability list (FR-001, FR-017, FR-018, FR-019).
+function reportPresentationIndexHTML(p, id) {
+  if (!p) return '';
+  const issues = p.issues || [], c = p.counts || {};
+  const rows = issues.map((is, i) => {
+    const ref = (is.ref||'').toLowerCase();
+    return `<tr class="ridx" tabindex="0" role="button" data-anchor="${escA(ref)}" data-sev="${escA((is.severity||'').toLowerCase())}" data-status="issue" data-text="${escA(((is.title||'')+' '+_affectedText(is)).toLowerCase())}"
+      onclick="openFindingAnchor('${escA(ref)}');rememberFinding('${escA(id)}','${escA(ref)}')" onkeydown="reportRowKey(event,'${escA(id)}','${escA(ref)}')">
+      <td class="num">${i+1}</td><td><span class="sevchip ${_sevClass(is.severity)}">${esc(is.severity)}</span></td>
+      <td class="lt">${esc(is.title)}</td><td class="mono">${esc(_affectedText(is))}</td><td>${esc(_firstStep(is))}</td></tr>`;
+  }).join('');
+  const details = issues.map(is => reportPresentationIssueHTML(is, id)).join('');
+  const review = (p.review_items || []).map(it =>
+    `<li class="rcand" data-status="review" data-text="${escA(((it.title||'')+' '+(it.location||'')).toLowerCase())}"><b>${esc(it.title||'')}</b> — ${esc(it.what_is_unresolved||'')}${it.location?` <span class="mono" style="color:var(--text-3)">(${esc(it.location)})</span>`:''}${it.provisional_severity?` · severity proposed, not established: ${esc(it.provisional_severity)}`:''} · next step: ${esc(it.next_step||'')}</li>`).join('');
+  const dismissed = (p.dismissed || []).map(d =>
+    `<li class="rcand" data-status="dismissed" data-text="${escA(((d.title||'')+' '+(d.location||'')).toLowerCase())}"><b>${esc(d.title||'')}</b>${d.location?` <span class="mono" style="color:var(--text-3)">(${esc(d.location)})</span>`:''} — ${esc(d.reason||'')} · recorded decision: ${esc(d.decision||'')}</li>`).join('');
+  return `<div class="rsec" id="reportIndex" data-total-issues="${issues.length}">
+    <h3>Issues to fix <small>· ${issues.length} established defect${issues.length===1?'':'s'} · from report_model.json</small></h3>
+    <div class="hrow" style="gap:8px;margin:6px 0">
+      <input id="rq" type="search" placeholder="search issue, file" oninput="applyReportFilter()" aria-label="Search issues">
+      <select id="rsev" onchange="applyReportFilter()" aria-label="Severity filter"><option value="">all severities</option>${['critical','high','medium','low','informational','unrated'].map(s=>`<option>${s}</option>`).join('')}</select>
+      <select id="rstatus" onchange="applyReportFilter()" aria-label="Status filter"><option value="">all</option><option value="issue">issues to fix</option><option value="review">needs review</option><option value="dismissed">dismissed</option></select>
+      <span id="rfilterNote" class="pill p" hidden></span>
+    </div>
+    <div class="tablewrap"><table class="ledgertbl findtbl"><thead><tr><th>#</th><th>Severity</th><th>Issue</th><th>Affected</th><th>Recommended action</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="5" class="empty">No issue was established in the reviewed code.</td></tr>'}</tbody></table></div>
+    <div class="rfinds">${details}</div>
+    <details class="rapp"><summary><b>Needs review</b> (${(p.review_items||[]).length})</summary>
+      <div class="hint">Neither confirmed nor dismissed. None of these is counted among the issues to fix, and none carries an assessed severity.</div>
+      ${review ? `<ul class="rcands">${review}</ul>` : '<div class="empty">Nothing is awaiting review.</div>'}</details>
+    <details class="rapp"><summary><b>Dismissed candidates</b> (${(p.dismissed||[]).length})</summary>
+      <div class="hint">Examined and refuted, with the reason recorded at the time. A dismissal is never re-decided by the report.</div>
+      ${dismissed ? `<ul class="rcands">${dismissed}</ul>` : '<div class="empty">None.</div>'}</details>
+    <div class="hint" style="margin-top:8px">Scanner diagnostics — ${c.candidates_examined||0} candidates examined, ${c.detections||0} supported detections — are in the full report under Scan details.</div>
+  </div>`;
+}
+
+// The five reader sections of one issue, in the order FR-011 fixes them, with the recorded
+// technical evidence as optional detail.
+function reportPresentationIssueHTML(is, id) {
+  const ref = (is.ref||'').toLowerCase();
+  const fix = is.how_to_fix_it || {};
+  const kv = (k, v) => v && String(v).trim() ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : '';
+  const locs = (is.locations || []).map(l => {
+    const where = l.available ? `${l.file}${l.lines?':'+l.lines:''}` : `${l.file||'location not recorded'} (citation not resolvable)`;
+    return `<li><code>${esc(where)}</code>${l.citation_count>1?` — cited by ${l.citation_count} detections`:''}${l.entry_point?` · reached through ${esc(l.entry_point)}`:''}</li>`;
+  }).join('') || '<li>the affected location was not recorded</li>';
+  const steps = (fix.steps || []).map(s => `<li>${esc(s)}</li>`).join('');
+  const checks = (is.how_to_check_the_fix || []).map(s => `<li>${esc(s)}</li>`).join('')
+    || '<li>no check is suggested for this weakness class; decide one from the change you make</li>';
+  const members = (is.members || []).map(m => esc(m.finding_id) + (m.severity && m.severity !== is.severity ? ` (recorded ${esc(m.severity)})` : '')).join(', ');
+  const ev = (is.evidence || []).map(e => `<figure class="evidence"><figcaption><code>${esc(e.path)}:${e.start}-${e.end}</code></figcaption><pre><code>${esc(e.quote)}</code></pre></figure>`).join('')
+    || '<div class="hint">none recorded</div>';
+  const anchors = (is.members || []).map(m => `<span id="finding-${escA(m.finding_id)}"></span>`).join('')
+    + (is.group_id ? `<span id="group-${escA(is.group_id)}"></span>` : '');
+  return `<details class="rfind" id="${escA(ref)}" data-sev="${escA((is.severity||'').toLowerCase())}" data-status="issue" data-text="${escA(((is.title||'')+' '+_affectedText(is)).toLowerCase())}" ontoggle="if(this.open)rememberFinding('${escA(id)}','${escA(ref)}')">
+    <summary><span class="sevchip ${_sevClass(is.severity)}">${esc(is.severity)}</span> ${esc(is.title)} <span class="mono" style="color:var(--text-3)">${esc(is.ref)}</span></summary>
+    ${anchors}
+    <h4>What we found</h4><p>${esc(is.what_we_found||'')}</p>
+    <dl class="rdl">${kv('Weakness', [is.canonical_name, is.cwe ? '('+is.cwe+')' : ''].filter(Boolean).join(' '))}${kv('Access required', is.access_required)}${kv('What an attacker controls', is.attacker_control)}${kv('Safeguards reviewed', is.safeguards_reviewed)}${(is.original_severities||[]).length?`<dt>Recorded rating</dt><dd>${esc((is.original_severities||[]).join(', '))} (shown as ${esc(is.severity)})</dd>`:''}</dl>
+    <h4>Why it matters</h4><p>${esc(is.why_it_matters||'')}</p>
+    <h4>Where it is</h4><ul>${locs}</ul>
+    <h4>How to fix it</h4>${fix.label?`<div class="hint">${esc(fix.label)}</div>`:''}<ol>${steps}</ol>
+    ${fix.missing_decision?`<p><b>Decision this needs from you:</b> ${esc(fix.missing_decision)}</p>`:''}
+    ${fix.recorded_note?`<p><b>Recorded recommendation, kept for reference:</b> ${esc(fix.recorded_note)}</p>`:''}
+    <h4>How to check the fix</h4><ul>${checks}</ul>
+    <details class="rapp"><summary>Technical evidence</summary>
+      <dl class="rdl"><dt>Established by</dt><dd class="mono">${members}${is.group_id?` · recorded group ${esc(is.group_id)}`:''}</dd>${kv('Grouping', is.grouping_note)}</dl>${ev}</details>
+  </details>`;
+}
+
+// _affectedText and _firstStep read the projection; neither derives a new fact.
+function _affectedText(is) {
+  const ls = is.locations || [];
+  if (!ls.length) return 'location not recorded';
+  if (ls.length === 1) {
+    const l = ls[0];
+    const where = l.available ? `${l.file}${l.lines?':'+l.lines:''}` : (l.file || 'location not recorded');
+    return l.citation_count > 1 ? `${where} (${l.citation_count} detections)` : where;
+  }
+  return `${ls.length} locations`;
+}
+function _firstStep(is) {
+  const fix = is.how_to_fix_it || {};
+  if ((fix.steps || []).length) return fix.steps[0];
+  if (fix.missing_decision) return 'Decide and then enforce: ' + fix.missing_decision;
+  return 'Inspect the affected code and establish the required change';
+}
+
+// Feature 015 (FR-001/002): the executive summary and labelled counts come from
+// report_model.json — the one authoritative model every surface renders. When a
+// scan predates the model (no file), the viewer falls back to its old
+// findings.json arithmetic and SAYS so (C-A10).
+function reportSummaryHTML(model) {
+  if (!model || !model.summary) return '';
+  const s = model.summary, c = model.counts || {};
+  const sr = c.source_review || {};
+  const lead = (s.leading || []).map((l, i) =>
+    `<li><a href="#${escA(l.ref)}" onclick="event.preventDefault();openFindingAnchor('${escA(l.ref)}')">${esc(l.title)}</a> — <b>${esc(l.severity)}</b> · ${esc(l.surface)} · ${esc(l.action||'fix not provided')}</li>`).join('');
+  const lims = (s.limitations || []).map(l => `<li>${esc(l)}</li>`).join('');
+  const sev = (obj, withUnrated) => Object.entries(obj || {}).filter(([k,v]) => v > 0 || (withUnrated && k === 'Unrated'))
+    .map(([k,v]) => `${v} ${esc(k)}`).join(', ') || 'none';
+  return `<div class="metacard execsum" id="execSummary">
+    <h3>Executive summary <small>· ${s.words} words · from report_model.json</small></h3>
+    <p>${esc(s.narrative)}</p>
+    ${lead ? `<b>Leading issues</b><ol class="leading">${lead}</ol>` : ''}
+    ${lims ? `<b>Material limitations</b><ul class="limitations">${lims}</ul>` : ''}
+    <div class="hrow">
+      <span class="hbadge ${c.supported ? 'warn' : 'ok'}">${c.supported} supported</span>
+      <span class="hbadge alt">${c.remediation_groups} remediation group${c.remediation_groups===1?'':'s'}</span>
+      <span class="hbadge alt">${c.rejected} rejected</span>
+      <span class="hbadge alt" title="${c.unresolved_explicit} explicit verifier decisions, ${c.unresolved_failed} failed sessions">${(c.unresolved_explicit||0)+(c.unresolved_failed||0)} unresolved</span>
+      <span class="hstat">${c.total_candidates} candidates total — not a confirmed-vulnerability count</span>
+    </div>
+    <div class="hrow">
+      <span class="hstat">execution: <b>${esc(model.status.execution||'unknown')}</b></span>
+      <span class="hstat">coverage: <b>${esc(model.status.coverage||'unknown')}</b></span>
+      <span class="hstat">source review: <b>${sr.total ? `${sr.completed}/${sr.total}` : 'no inventory'}</b>${model.coverage_semantics_label ? ` <small>(${esc(model.coverage_semantics_label)})</small>` : ''}</span>
+      <span class="hstat">validation: <b>${esc(model.status.validation_mode||'unknown')}</b></span>
+    </div>
+    <div class="hrow"><span class="hstat">Supported by severity: ${sev(model.severity_supported, true)}</span></div>
+    <div class="hrow"><span class="hstat" style="color:var(--text-3)">Candidates by severity (all statuses — not vulnerabilities): ${sev(model.severity_candidates, false)}</span></div>
+  </div>`;
+}
+window.openFindingAnchor = function(anchor){
+  const el = document.getElementById(anchor) || document.querySelector(`[data-anchor="${anchor}"]`);
+  if (el) { el.scrollIntoView({block:'start', behavior:'smooth'}); if (el.tagName === 'DETAILS') el.open = true; }
+};
+
+// Feature 015 (US2): model-driven findings index. Search + severity/status filters over
+// every row, keyboard-activatable rows with stable anchors, collapsed details with the
+// captured evidence as code, explicit "not provided" lines, candidate appendices. The
+// opened finding is remembered per report (sessionStorage) so refresh/navigation keeps it.
+function reportIndexHTML(model, id){
+  if (!model || !model.index) return '';
+  const sevCls = s => _sevClass(s);
+  const rows = model.index.map((r, i) => `<tr class="ridx" tabindex="0" role="button" data-anchor="${escA(r.anchor)}" data-sev="${escA((r.severity||'').toLowerCase())}" data-status="supported" data-text="${escA((r.id+' '+r.title+' '+r.surface).toLowerCase())}"${r.group_id?` data-group="${escA(r.group_id)}" data-role="${escA(r.role||'')}"`:''}${r.role==='primary'?` id="group-${escA(r.group_id)}"`:''}
+      onclick="openFindingAnchor('${escA(r.anchor)}');rememberFinding('${escA(id)}','${escA(r.anchor)}')" onkeydown="reportRowKey(event,'${escA(id)}','${escA(r.anchor)}')">
+      <td class="num">${i+1}</td><td class="lt"${r.role==='occurrence'?' style="padding-left:22px"':''}>${r.role==='occurrence'?'<span style="color:var(--text-3)" aria-label="occurrence of the group above">↳</span> ':''}<span class="fid">${esc(r.id)}</span> ${esc(r.title)}${r.group_id?` <span class="pill" title="remediation group${r.role==='primary'&&r.group_size>1?` · ${r.group_size} occurrences`:''}">${esc(r.group_id)}${r.role==='primary'&&r.group_size>1?` ×${r.group_size}`:''}</span>`:''}</td>
+      <td><span class="sevchip ${sevCls(r.severity)}">${esc(r.severity)}</span></td><td class="mono">${esc(r.surface)}</td>
+      <td class="mono">${esc(r.evidence_status)}</td><td>${esc(r.action||'fix not provided')}</td></tr>`).join('');
+  const kv = (k, v) => `<dt>${k}</dt><dd>${v && String(v).trim() ? esc(v) : '<i style="color:var(--text-3)">not recorded</i>'}</dd>`;
+  const details = model.findings.map(f => `<details class="rfind" id="finding-${escA(f.id)}" data-sev="${escA((f.severity||'').toLowerCase())}" data-status="supported" data-text="${escA((f.id+' '+f.title+' '+f.location).toLowerCase())}" ontoggle="if(this.open)rememberFinding('${escA(id)}','finding-${escA(f.id)}')">
+      <summary><span class="sevchip ${sevCls(f.severity)}">${esc(f.severity)}</span> <span class="fid">${esc(f.id)}</span> ${esc(f.title)}</summary>
+      <dl class="rdl">${f.group_id?kv('Remediation group',f.group_id):''}${kv('CWE',f.cwe)}${kv('Location',f.location)}${kv('Entry point',f.entry_point)}${kv('Impact',f.impact)}${kv('Attacker prerequisites',f.prerequisites)}${kv('Attacker control',f.attacker_control)}${kv('Source-to-sink reasoning',f.source_to_sink)}${kv('Reviewed defenses',f.defenses)}${kv('Rationale',f.rationale)}
+      <dt>Captured evidence</dt><dd>${(f.evidence||[]).length ? f.evidence.map(e => `<figure class="evidence"><figcaption><code>${esc(e.path)}:${e.start}-${e.end}</code></figcaption><pre><code>${esc(e.quote)}</code></pre></figure>`).join('') : 'none (not verified)'}</dd>
+      <dt>Recommended fix</dt><dd>${f.fix && f.fix.trim() ? esc(f.fix) : 'not provided'}</dd>
+      ${kv('Reproduction', (f.reproduction||{}).status ? `${f.reproduction.status}${f.reproduction.path?' ('+f.reproduction.path+')':''} — not executed` : 'none — not executed')}${kv('Classification',f.classification)}</dl></details>`).join('');
+  const cand = (title, note, list, status, fmt) => `<details class="rapp"><summary><b>${title}</b> (${list.length})</summary><div class="hint">${note}</div>` +
+    (list.length ? `<ul class="rcands">${list.map(r => `<li class="rcand" data-status="${status}" data-text="${escA((r.id+' '+r.title+' '+r.location).toLowerCase())}">${fmt(r)}</li>`).join('')}</ul>` : '<div class="empty">None.</div>') + '</details>';
+  const a = model.appendix || {rejected:[], unresolved_explicit:[], unresolved_failed:[]};
+  const base = r => `<span class="fid">${esc(r.id)}</span> — ${esc(r.title)} <span class="mono" style="color:var(--text-3)">(${esc(r.location)})</span>`;
+  return `<div class="rsec" id="reportIndex">
+    <h3>Findings index <small>· ${model.index.length} supported (raw)${(model.groups||[]).length ? ` · ${model.groups.length} remediation group${model.groups.length===1?'':'s'} — primary first, ↳ occurrences beneath` : ''} · from report_model.json</small></h3>
+    <div class="hrow" style="gap:8px;margin:6px 0">
+      <input id="rq" type="search" placeholder="search id, title, surface" oninput="applyReportFilter()" aria-label="Search findings">
+      <select id="rsev" onchange="applyReportFilter()" aria-label="Severity filter"><option value="">all severities</option>${['critical','high+','high','medium','low','informational','unrated'].map(s=>`<option>${s}</option>`).join('')}</select>
+      <select id="rstatus" onchange="applyReportFilter()" aria-label="Status filter"><option value="">all statuses</option><option value="supported">supported</option><option value="rejected">rejected</option><option value="unresolved_explicit">unresolved (explicit)</option><option value="unresolved_failed">unresolved (failed)</option></select>
+      <span id="rfilterNote" class="pill p" hidden></span>
+    </div>
+    <div class="tablewrap"><table class="ledgertbl findtbl"><thead><tr><th>#</th><th>Finding</th><th>Severity</th><th>Surface</th><th>Evidence</th><th>Action</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="6" class="empty">No supported findings.</td></tr>'}</tbody></table></div>
+    <div class="rfinds">${details}</div>
+    ${cand('Rejected candidates', 'Reviewed and refuted — not vulnerabilities.', a.rejected||[], 'rejected', r => base(r)+` · ${esc(r.reason)} · <i>action: ${esc(r.action||'')}</i>`)}
+    ${cand('Unresolved (explicit decision)', 'The verifier examined these and submitted unresolved: evidence of uncertainty, not confirmation.', a.unresolved_explicit||[], 'unresolved_explicit', r => base(r)+` · ${esc(r.reason)}`)}
+    ${cand('Unresolved (session failed)', 'No decision was recorded: the verification session failed. Investigate the failure class before treating these as noise.', a.unresolved_failed||[], 'unresolved_failed', r => base(r)+` · <code>${esc(r.class||'unknown')}</code> operation: ${esc(r.operation||'unknown')}; code: ${esc(r.code||'not recorded')} · ${esc(r.message)}`)}
+  </div>`;
+}
+window.applyReportFilter = function(){
+  const q = ($('rq')?.value||'').toLowerCase(), sv = $('rsev')?.value||'', st = $('rstatus')?.value||'';
+  let n = 0, shown = 0;
+  document.querySelectorAll('#reportIndex .ridx, #reportIndex .rfind, #reportIndex .rcand').forEach(el => {
+    n++; const ok = (!sv || el.dataset.sev === sv) && (!st || el.dataset.status === st) && (!q || (el.dataset.text||'').indexOf(q) >= 0);
+    el.hidden = !ok; if (ok) shown++;
+  });
+  const note = $('rfilterNote'); if (!note) return;
+  const active = q || sv || st; note.hidden = !active;
+  const totalIssues = $('reportIndex')?.dataset.totalIssues;
+  if (active) note.textContent = `Filtered view — showing ${shown} of ${n} rows`
+    + (totalIssues ? ` · ${totalIssues} issues to fix in the full report` : '');
+};
+window.reportRowKey = function(ev, id, anchor){
+  if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar'){ ev.preventDefault(); openFindingAnchor(anchor); rememberFinding(id, anchor); }
+};
+window.rememberFinding = function(id, anchor){ try { sessionStorage.setItem('vhlocal.report.finding.' + id, anchor); } catch(e){} };
+function restoreFinding(id){
+  let a = null; try { a = sessionStorage.getItem('vhlocal.report.finding.' + id); } catch(e){}
+  if (a) { const el = document.getElementById(a); if (el && el.tagName === 'DETAILS') el.open = true; }
+}
+
+// Source review axes (feature 015, FR-015/019): completed vs exposed with the
+// semantics label; every v2 axis is listed in the tooltip, none derived from another.
+const AXIS_LABELS = {discovered:'discovered', supported_inventory:'supported inventory', assigned:'assigned', attempted:'attempted', source_exposed:'source exposed', completed_review:'completed review', verified:'verified'};
+function axesTitle(axes){
+  if (!axes) return 'v1 record: exposure equals completion (read overlap was the review evidence)';
+  return Object.keys(AXIS_LABELS).filter(k => k in axes).map(k => `${AXIS_LABELS[k]}: ${axes[k]}`).join(' · ');
+}
+function sourceReviewLineHTML(sr, label){
+  return `<div class="hstat" title="${esc(axesTitle(sr.axes))}">source review <b>${sr.completed}/${sr.total}</b> completed · ${sr.axes ? `${sr.exposed} exposed` : 'exposure = completion'}${label ? ` <small>(${esc(label)})</small>` : ''}</div>`;
+}
+function sourceReviewTileHTML(ru){
+  const c = (ru && ru.counts) || null;
+  if (!c || !c.total) return '';
+  const done = (c.reviewed_with_findings||0) + (c.reviewed_no_issue||0);
+  const sub = `${ru.axes ? `${ru.axes.source_exposed} exposed · ` : ''}${esc(ru.semantics_label || 'read-overlap evidence (v1)')}`;
+  return `<div class="tile" title="${esc(axesTitle(ru.axes))}"><div class="k">Source review</div>
+      <div class="v">${done}/${c.total}</div><div class="s">${sub}</div></div>`;
+}
+function healthPanelHTML(fj, model) {
   // Scan Health from findings.json run_status (+ ledger/redaction if present).
   const rs = (fj && fj.run_status) || {};
   const reasons = rs.coverage_degraded_reasons || [];
   const degraded = (rs.coverage_status && rs.coverage_status !== 'complete') || reasons.length;
   const cov = fj && fj.coverage;
-  const counts = (fj && fj.counts) || {};
-  const total = Object.values(counts).reduce((a,b)=>a+b,0);
   const chip = degraded
     ? `<span class="hbadge warn">⚠ Coverage degraded</span>`
-    : `<span class="hbadge ok">✓ Clean run</span>`;
+    : `<span class="hbadge ok">✓ Complete run</span>`;
   const covLine = cov ? `<div class="hstat">${cov.reviewed}/${cov.total_entry_points} entry points reviewed</div>` : '';
-  const findLine = `<div class="hstat">${total} finding${total===1?'':'s'}${
-    Object.keys(counts).length ? ' · ' + Object.entries(counts).map(([k,v])=>`${v} ${esc(k)}`).join(', ') : ''}</div>`;
+  // Feature 015 (FR-019): the source-review axes from the report model, labelled
+  // with the evidence standard; v1 records have no separate exposure axis.
+  const sr = model && model.counts && model.counts.source_review;
+  const srLine = sr && sr.total ? sourceReviewLineHTML(sr, model.coverage_semantics_label) : '';
+  // Counts: from the report model when present (supported vs candidates, labelled);
+  // otherwise the legacy all-candidate arithmetic, disclosed as such.
+  let findLine;
+  if (model && model.counts) {
+    findLine = `<div class="hstat">${model.counts.supported} supported finding${model.counts.supported===1?'':'s'} · ${model.counts.total_candidates} candidates</div>`;
+  } else {
+    const counts = (fj && fj.counts) || {};
+    const total = Object.values(counts).reduce((a,b)=>a+b,0);
+    findLine = `<div class="hstat">${total} candidate${total===1?'':'s'} (all statuses)${
+      Object.keys(counts).length ? ' · ' + Object.entries(counts).map(([k,v])=>`${v} ${esc(k)}`).join(', ') : ''}
+      <small style="color:var(--text-3)"> · counts from findings.json (pre-015 scan)</small></div>`;
+  }
   const m = (fj && fj.meta) || {};
   const extra = [];
   const chains = (fj && fj.chains) || [];
@@ -4251,18 +5251,23 @@ function healthPanelHTML(fj) {
   const reasonList = reasons.length
     ? `<ul class="hreasons">${reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>` : '';
   return `<div class="healthcard">
-    <div class="hrow">${chip}${covLine}${findLine}${extra.join('')}</div>${reasonList}
+    <div class="hrow">${chip}${covLine}${srLine}${findLine}${extra.join('')}</div>${reasonList}
     ${ledgerRecallHTML(fj && fj.vulnerability_ledger)}</div>`;
 }
 
 // `host` lets a report render IN PLACE (e.g. inside the Apps detail) instead of
 // only in the Reports tab — no jarring tab switch. Defaults to #reportView.
+const _reportRenderSeq = new WeakMap();
 window.openReport = async function(id, host) {
   const v = host || $('reportView');
   if (!v) return;
+  const seq = (_reportRenderSeq.get(v) || 0) + 1;
+  _reportRenderSeq.set(v, seq);
+  const current = () => _reportRenderSeq.get(v) === seq;
   v.innerHTML = '<div class="empty">Loading…</div>';
   try {
     const d = await api(`/api/reports/${encodeURIComponent(id)}/files`);
+    if (!current()) return;
     const order = (p) => p === 'SCAN_REPORT.md' ? 0 : p === 'README.md' ? 1
       : p === 'findings.json' ? 2 : p.startsWith('phase') ? 3 : 4;
     d.files.sort((a,b) => order(a.path)-order(b.path) || a.path.localeCompare(b.path));
@@ -4276,6 +5281,13 @@ window.openReport = async function(id, host) {
       try { fj = await (await fetch(fileUrl('findings.json'))).json(); }
       catch (e) { /* fall through to the artifacts alone */ }
     }
+    // Feature 015: the report model (executive summary + labelled counts) is the
+    // authoritative source when present; its absence is a pre-015 scan.
+    let model = null;
+    if (has('report_model.json')) {
+      try { const mr = await fetch(fileUrl('report_model.json')); if (mr.ok) model = await mr.json(); }
+      catch (e) { model = null; }
+    }
     const dl = [
       has('SCAN_REPORT.html') ? `<a class="fbtn" href="${fileUrl('SCAN_REPORT.html')}" target="_blank" rel="noopener">Open full report ↗</a>` : '',
       has('findings.sarif') ? `<a class="fbtn" href="${fileUrl('findings.sarif')}" download="findings.sarif">SARIF 2.1.0 ↓</a>` : '',
@@ -4284,12 +5296,18 @@ window.openReport = async function(id, host) {
       has('sbom.cdx.json') ? `<a class="fbtn" href="${fileUrl('sbom.cdx.json')}" download="sbom.cdx.json">SBOM (CycloneDX) ↓</a>` : '',
       has('threat_model.md') ? `<a class="fbtn" href="${fileUrl('threat_model.md')}" download="threat_model.md">Threat model ↓</a>` : '',
     ].filter(Boolean).join('');
+    if (!current()) return;
+    // Feature 016: one guard chooses the surface. A report carrying the presentation
+    // projection renders the reader-facing document; one without it renders the
+    // feature-015 document. Both never render for the same report (C-P28).
+    const usePresentation = !!(model && model.presentation && model.presentation.version);
     v.innerHTML = `<div class="view-head">${esc(id)}</div>
       <div style="font-family:var(--mono);font-size:11.5px;color:var(--text-3);margin-bottom:12px">${esc(d.root)}</div>
-      ${fj ? healthPanelHTML(fj) : ''}
+      ${usePresentation ? reportPresentationSummaryHTML(model.presentation) : reportSummaryHTML(model)}
+      ${fj ? healthPanelHTML(fj, model) : ''}
       <div class="dlrow">${dl}</div>
       ${ledgerLinkHTML(fj)}
-      ${findingsSectionHTML(fj)}
+      ${usePresentation ? reportPresentationIndexHTML(model.presentation, id) : (model ? reportIndexHTML(model, id) : findingsSectionHTML(fj))}
       ${chainsSectionHTML(fj)}
       ${appIntelSectionHTML(fj)}
       ${has('threat_model.md') ? '<div class="rsec" id="reportThreatModel"><h3>Threat model <small>· PASTA · this scan</small></h3><div class="empty">Loading…</div></div>' : ''}
@@ -4297,13 +5315,14 @@ window.openReport = async function(id, host) {
       <div class="metacard"><table><tr><th>File</th><th style="width:90px">Size</th></tr>` +
       d.files.map(f => `<tr><td><a onclick="viewReportFile('${esc(id)}','${esc(f.path)}')">${esc(f.path)}</a></td>
         <td style="color:var(--text-3)">${(f.size/1024).toFixed(1)} KB</td></tr>`).join('') +
-      `</table></div></div><div id="reportFile" style="margin-top:16px"></div>`;
+      `</table></div></div>${model ? '<details style="margin-top:16px"><summary>Full report and execution diagnostics</summary><div id="reportFile"></div></details>' : '<div id="reportFile" style="margin-top:16px"></div>'}`;
     // Per-scan threat model, rendered inline (with its DFD). Scoped to this
     // report's host so it works whether the report is shown in Reports or Apps.
     const tmHost = v.querySelector('#reportThreatModel');
     if (tmHost) {
       fetch(fileUrl('threat_model.md')).then(r => r.ok ? r.text() : null).then(tm => {
-        if (tm) { tmHost.insertAdjacentHTML('beforeend', `<div class="md ai-md">${mdRender(tm)}</div>`);
+        if (!current()) return;
+        if (tm) { tmHost.insertAdjacentHTML('beforeend', `<div class="md ai-md">${mdRender(tm, '/api/reports/' + encodeURIComponent(id) + '/file')}</div>`);
                   tmHost.querySelector('.empty')?.remove(); runMermaid(tmHost); }
         else tmHost.querySelector('.empty').textContent = 'Threat model unavailable.';
       }).catch(() => {});
@@ -4311,8 +5330,9 @@ window.openReport = async function(id, host) {
     const first = ['SCAN_REPORT.md','README.md'].find(n => has(n));
     const fileHost = v.querySelector('#reportFile');
     if (first && fileHost) viewReportFile(id, first, fileHost);
+    if (model) restoreFinding(id);
     v.scrollIntoView({behavior:'smooth', block:'start'});
-  } catch (e) { v.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
+  } catch (e) { if (current()) v.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
 
 // `host` = the file-viewer container (scoped to the report's pane) so a report
@@ -4325,7 +5345,7 @@ window.viewReportFile = async function(id, path, host) {
     const r = await fetch(`/api/reports/${encodeURIComponent(id)}/file?path=` + encodeURIComponent(path));
     const txt = await r.text();
     t.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
-      ? `<div class="md">${mdRender(txt)}</div>` : `<pre>${esc(txt)}</pre>`);
+      ? `<div class="md">${mdRender(txt, '/api/reports/' + encodeURIComponent(id) + '/file')}</div>` : `<pre>${esc(txt)}</pre>`);
     runMermaid(t);
   } catch (e) { t.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
@@ -4362,15 +5382,11 @@ $('start').onclick = async function() {
     model: hunt.model, backend: hunt.backend, host: hunt.host || null,
     phases: phases,
     max_partitions: parseInt($('maxPart').value || '8', 10),
-    enforce_coverage: $('enforceCoverage').checked,
-    seed_routes: $('seedRoutes').checked,
-    seed_prior: $('seedPrior').checked,
     ledger: $('ledger').checked,
     redact: $('redact').checked,
     remediate: $('remediate').checked,
     phase2_mode: $('phase2Mode').value,
     quality_strictness: $('qualityStrictness').value,
-    concurrency: parseInt($('concurrency').value || '1', 10),
     reasoning_effort: $('reasoningEffort').value || null,
     max_output_tokens: parseInt($('maxOutTokens').value || '32768', 10),
     hunt_samples: parseInt($('huntSamples').value || '1', 10),
@@ -4379,6 +5395,11 @@ $('start').onclick = async function() {
     iac_lens: $('iacLens').checked,
     threat_model: $('threatModel').checked,
     app_name: ($('appName').value || '').trim(),
+    // Feature 013: functional seeding / coverage / concurrency controls.
+    concurrency: parseInt($('concurrency').value || '1', 10),
+    enforce_coverage: $('enforceCoverage').checked,
+    seed_routes: $('seedRoutes').checked,
+    seed_prior: $('seedPrior').checked,
   };
   // Per-phase overrides only when "Multiple models" is on (each blank field
   // falls back to the hunt model). Otherwise one model runs every phase.

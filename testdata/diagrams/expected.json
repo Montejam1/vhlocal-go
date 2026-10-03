@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "cases": {
+    "01-valid.md":                 {"diagrams": [{"state": "valid", "repairs": [], "errors": [], "nodes": 4, "edges": 3, "boundaries": 2}]},
+    "02-missing-node-bracket.md":  {"diagrams": [{"state": "repaired", "repairs": ["R_CLOSE_LABEL_QUOTE", "R_CLOSE_LABEL_QUOTE"], "errors": [], "nodes": 3, "edges": 2, "boundaries": 0}]},
+    "03-unterminated-edge-label.md": {"diagrams": [{"state": "invalid", "repairs": [], "errors": ["E_EDGE_LABEL_UNTERMINATED"], "error_line": 9}]},
+    "04-inline-comments.md":       {"diagrams": [{"state": "valid", "repairs": [], "errors": [], "nodes": 3, "edges": 2, "boundaries": 0}]},
+    "05-quotes-parentheses.md":    {"diagrams": [{"state": "repaired", "repairs": ["R_QUOTE_GAP"], "errors": [], "nodes": 2, "edges": 1, "boundaries": 0}]},
+    "06-unicode.md":               {"diagrams": [{"state": "repaired", "repairs": ["R_ASCII_LABEL", "R_ASCII_LABEL", "R_QUOTE_LABEL", "R_ASCII_LABEL"], "errors": [], "nodes": 2, "edges": 1, "boundaries": 0}]},
+    "07-two-diagrams.md":          {"diagrams": [{"state": "valid", "repairs": [], "errors": [], "nodes": 2, "edges": 1, "boundaries": 0}, {"state": "invalid", "repairs": [], "errors": ["E_EDGE_LABEL_UNTERMINATED"], "error_line": 2}]},
+    "08-directives.md":            {"diagrams": [{"state": "repaired", "repairs": ["R_STRIP_DIRECTIVE", "R_STRIP_DIRECTIVE", "R_STRIP_DIRECTIVE", "R_STRIP_DIRECTIVE"], "errors": [], "nodes": 2, "edges": 1, "boundaries": 0}]},
+    "09-quoted-subgraph-id.md":    {"diagrams": [{"state": "invalid", "repairs": [], "errors": ["E_SUBGRAPH_ID"], "error_line": 2}]},
+    "10-malicious-label.md":       {"diagrams": [{"state": "valid", "repairs": [], "errors": [], "nodes": 2, "edges": 1, "boundaries": 0, "label_contains": "<img src=x onerror=alert(1)>"}]},
+    "11-no-diagram.md":            {"diagrams": [{"state": "missing", "repairs": [], "errors": []}]}
+  },
+  "notes": [
+    "error_line is 1-based within the fence body (line 1 = the line after ```mermaid).",
+    "repairs list the rule ids in application order; a repaired diagram's topology equals the original's.",
+    "case 03 mirrors the audited live threat_model.md line 48; its structure is ambiguous and is never guessed.",
+    "case 06: R_ASCII_LABEL maps – and ‑ to -, → to ->; the unquoted |HTTP → Application| label is quoted by R_QUOTE_LABEL."
+  ]
+}

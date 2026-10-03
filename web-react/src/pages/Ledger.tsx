@@ -44,9 +44,23 @@ export function Ledger() {
 
       {ledgers && ledgers.length > 0 && (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col gap-2">
             {ledgers.map((l) => (
-              <LedgerCard key={l.slug} l={l} active={l.slug === active} onClick={() => setActive(l.slug)} />
+              <LedgerCard
+                key={l.slug}
+                l={l}
+                active={l.slug === active}
+                onClick={() => setActive(l.slug)}
+                onDelete={async () => {
+                  if (!confirm(`Delete the ledger for “${l.target_name}”?\n\nThis removes its ${l.total} tracked finding(s) across every run. Scan reports are KEPT.`)) return;
+                  try {
+                    await api.clearLedger(l.slug);
+                    onCleared(l.slug);
+                  } catch (e) {
+                    alert(String((e as Error).message || e));
+                  }
+                }}
+              />
             ))}
           </div>
           {active && <LedgerView slug={active} onListRefresh={refresh} onCleared={onCleared} />}
@@ -56,9 +70,19 @@ export function Ledger() {
   );
 }
 
-function LedgerCard({ l, active, onClick }: { l: LedgerSummary; active: boolean; onClick: () => void }) {
+function LedgerCard({ l, active, onClick, onDelete }: { l: LedgerSummary; active: boolean; onClick: () => void; onDelete: () => void }) {
   return (
-    <Card onClick={onClick} className={cn("cursor-pointer hover:border-line-strong", active && "border-accent ring-1 ring-accent")}>
+    <Card onClick={onClick} className={cn("relative cursor-pointer hover:border-line-strong", active && "border-accent ring-1 ring-accent")}>
+      <button
+        className="absolute right-2 top-2 rounded border border-line px-2 py-0.5 text-[11px] text-err hover:border-err hover:bg-err-weak"
+        title="Delete ledger"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+      >
+        Delete
+      </button>
       <CardTitle>{l.target_name}</CardTitle>
       <div className="mt-0.5 truncate font-mono text-[11px] text-text-3" title={l.target}>
         {l.target}

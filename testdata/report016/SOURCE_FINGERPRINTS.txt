@@ -1,0 +1,14 @@
+# Source fingerprints for the feature 016 acceptance fixture
+
+sha256 of each record as read from the source scan, BEFORE sanitizing.
+Regenerate with: go run ./testdata/report016/gen/main.go <source-results-dir>
+
+d9ee945f02e53eab7483dfd751c7a944f4ddde945b8c394f64726c70a2ec9a90  coverage_ledger.json
+01ab20ede5e94b41994a8aefb9cec96089e5a5d87367238d584600e893e064d8  findings.json
+7b7ffd08ab54a6bcf5ac4b6a2e985c1aa44119543934bf904716e2f9ed8a84e8  remediation_groups.json
+72cd37863f12a52b44aca0e8e87d7d25bde7d9d949b0c7e0ec58fa7069fb7d4c  report_model.json
+f8db01e38b6634bf4b764b6c66525c34b2009cf49feea481921e26ac72eb909e  review_units.json
+65363d4c7e2805beda030b2d8b18547b62aaf3d0a7a4116ea20b06d0bf7c1e1f  scan_meta.json
+0a4ee2e37683c1b1bae2633c22586b356e4acf0c77ef2e8e94bc1c9ef1967f30  verification_metrics.json
+64c660b24862be354834dc2c3d80d5ff71bc7e703a57555bc72cc637df4e7b87  verification_reconciliation.json
+e983514d85a4cda9b8f3a40cfc92fdb20b49bb91018d79649981f60d3cbfec04  verification_sessions.json

@@ -1,0 +1,77 @@
+{
+  "dispatch": [
+    {
+      "partition": "sg-1",
+      "class": "inj"
+    },
+    {
+      "partition": "sg-1",
+      "class": "log"
+    },
+    {
+      "partition": "sg-1",
+      "class": "nav"
+    },
+    {
+      "partition": "sg-2",
+      "class": "inj"
+    },
+    {
+      "partition": "sg-2",
+      "class": "log"
+    },
+    {
+      "partition": "sg-2",
+      "class": "nav"
+    }
+  ],
+  "passes": [
+    "sink"
+  ],
+  "candidates": [
+    {
+      "norm_id": "884894fe7ebfb32d",
+      "cwe": "CWE-22",
+      "location": "app/files.py:10"
+    },
+    {
+      "norm_id": "c246d55426fe95ab",
+      "cwe": "CWE-78",
+      "location": "app/files.py:16"
+    },
+    {
+      "norm_id": "ff04c87e37ef685d",
+      "cwe": "CWE-89",
+      "location": "app/db.py:21"
+    }
+  ],
+  "dispositions": {
+    "884894fe7ebfb32d": "rejected",
+    "c246d55426fe95ab": "supported",
+    "ff04c87e37ef685d": "supported"
+  },
+  "tiers": {
+    "884894fe7ebfb32d": "hypothesis",
+    "c246d55426fe95ab": "statically_supported",
+    "ff04c87e37ef685d": "statically_supported"
+  },
+  "coverage": {
+    "ROUTE /api/invoice": "not_reviewed",
+    "ROUTE /api/invoice/render": "not_reviewed",
+    "ROUTE /api/orders/<order_id>": "not_reviewed",
+    "ROUTE /api/search": "not_reviewed",
+    "ROUTE /api/users": "not_reviewed"
+  },
+  "handoffs": [
+    "phase2b_handoff.md"
+  ],
+  "artifacts": null,
+  "run_status": {
+    "execution": "complete",
+    "coverage": "degraded",
+    "validation_mode": "static_reasoning",
+    "coverage_reasons": [
+      "entry points not reviewed"
+    ]
+  }
+}

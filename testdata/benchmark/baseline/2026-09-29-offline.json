@@ -1,0 +1,591 @@
+{
+  "frozen_at": "2026-09-29",
+  "provider": "transcript",
+  "live": false,
+  "seeded": false,
+  "config": {
+    "target_revision": "tree-sha256:28495540850806cbdb6a72c8ada818f009e17e2407c54270e7c269bb2a06e3a1",
+    "build": {
+      "engine_version": "015-offline-fixture"
+    },
+    "models": {
+      "hunt": "transcript",
+      "recon": "transcript",
+      "reproduce": "transcript",
+      "verify": "transcript"
+    },
+    "backend": "fake",
+    "prompts_hash": {
+      "1": "80822e586193846325576eba74f56f39143fda1626c5be130cace182aeabe572",
+      "2": "80822e586193846325576eba74f56f39143fda1626c5be130cace182aeabe572",
+      "2b": "5efcaa14469d010f56d55307898df92562dccfbdda76f775a2d017c1264cc0f1"
+    },
+    "tool_schema_hash": {
+      "1": "9635f91893b389500a62e9ad1d38a61b560cbc11a933501b38686e0ce0934e36",
+      "2": "9635f91893b389500a62e9ad1d38a61b560cbc11a933501b38686e0ce0934e36",
+      "2b": "482386a706941e107c54cdbed6cca41b8577b866504b298b8839b3a104dfb915"
+    },
+    "sampling": {
+      "hunt_samples": 1
+    },
+    "seeds": {
+      "seed_prior": false,
+      "seed_routes": false
+    },
+    "budgets": {
+      "max_budget_usd": 0,
+      "num_ctx": 8192
+    },
+    "effective_config": {
+      "applied": {
+        "app_name": "",
+        "backend": "fake",
+        "concurrency": 1,
+        "diagnostic_capture": "bounded",
+        "enforce_coverage": false,
+        "host": "fake://transcript",
+        "hunt_samples": 1,
+        "iac_lens": false,
+        "ledger": false,
+        "max_budget_usd": 0,
+        "max_output_tokens": 0,
+        "max_partitions": 1,
+        "model": "transcript",
+        "num_ctx": 8192,
+        "phase2_mode": "combined",
+        "phases": [
+          "1",
+          "2",
+          "2b",
+          "4"
+        ],
+        "quality_strictness": "",
+        "reasoning_effort": "",
+        "redact": false,
+        "remediate": false,
+        "resume": false,
+        "seed_prior": false,
+        "seed_routes": false,
+        "temperature": "provider-default",
+        "threat_model": false
+      },
+      "requested": {}
+    }
+  },
+  "results": {
+    "truth_version": 2,
+    "results_dir": "offline-transcript-fixture",
+    "provider": "transcript",
+    "live": false,
+    "seeded": false,
+    "per_language": {
+      "go": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 3,
+        "precision": 0,
+        "recall": 0,
+        "denominator": 3
+      },
+      "javascript": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 3,
+        "precision": 0,
+        "recall": 0,
+        "denominator": 3
+      },
+      "python": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.75,
+        "denominator": 4
+      }
+    },
+    "per_family": {
+      "access-control": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.5,
+        "denominator": 2
+      },
+      "code-injection": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "precision": 0,
+        "recall": 0,
+        "denominator": 1
+      },
+      "command-injection": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "precision": 0,
+        "recall": 0,
+        "denominator": 1
+      },
+      "deserialization": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "denominator": 1
+      },
+      "path-traversal": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.5,
+        "denominator": 2
+      },
+      "sql-injection": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "precision": 0,
+        "recall": 0,
+        "denominator": 1
+      },
+      "ssrf": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "precision": 0,
+        "recall": 0,
+        "denominator": 1
+      },
+      "xss": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "precision": 0,
+        "recall": 0,
+        "denominator": 1
+      }
+    },
+    "supported": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 7,
+      "precision": 1,
+      "recall": 0.3,
+      "denominator": 10,
+      "matched": {
+        "PY-AUTHZ-1": "CAND-b5a06a835131a36ba7800388",
+        "PY-DESER-1": "CAND-70f3f655ef6712311bf715af",
+        "PY-TRAV-1": "CAND-719d8f210d095bae9fc0c441"
+      },
+      "unmatched": [],
+      "missed": [
+        "GO-CMDI-1",
+        "GO-SSRF-1",
+        "GO-TRAV-1",
+        "JS-EVAL-1",
+        "JS-IDOR-1",
+        "JS-XSS-1",
+        "PY-SQLI-1"
+      ]
+    },
+    "candidate_recall": {
+      "matched": 10,
+      "total": 10,
+      "ids": [
+        "GO-CMDI-1",
+        "GO-SSRF-1",
+        "GO-TRAV-1",
+        "JS-EVAL-1",
+        "JS-IDOR-1",
+        "JS-XSS-1",
+        "PY-AUTHZ-1",
+        "PY-DESER-1",
+        "PY-SQLI-1",
+        "PY-TRAV-1"
+      ]
+    },
+    "safe_control_fp": [],
+    "verification": {
+      "candidates": 19,
+      "accepted": 18,
+      "recovered": 0,
+      "terminal_by_class": {
+        "invalid_submission": 1
+      },
+      "supported": 3,
+      "rejected": 9,
+      "unresolved": 7,
+      "invalid_citation": 0,
+      "sessions": 19
+    },
+    "coverage": {
+      "completed_review": 0,
+      "source_exposed": 0,
+      "total": 0,
+      "semantics_version": 2
+    },
+    "artifacts": {
+      "complete": true,
+      "missing": []
+    },
+    "cost": {
+      "prompt_tokens": 300,
+      "completion_tokens": 150,
+      "seconds": 0,
+      "usd": "unknown"
+    },
+    "denominators": {
+      "vulnerable_entries": 10,
+      "safe_controls": 9,
+      "supported_findings": 3,
+      "candidates": 19
+    },
+    "config": {
+      "target_revision": "tree-sha256:28495540850806cbdb6a72c8ada818f009e17e2407c54270e7c269bb2a06e3a1",
+      "build": {
+        "engine_version": "015-offline-fixture"
+      },
+      "models": {
+        "hunt": "transcript",
+        "recon": "transcript",
+        "reproduce": "transcript",
+        "verify": "transcript"
+      },
+      "backend": "fake",
+      "prompts_hash": {
+        "1": "80822e586193846325576eba74f56f39143fda1626c5be130cace182aeabe572",
+        "2": "80822e586193846325576eba74f56f39143fda1626c5be130cace182aeabe572",
+        "2b": "5efcaa14469d010f56d55307898df92562dccfbdda76f775a2d017c1264cc0f1"
+      },
+      "tool_schema_hash": {
+        "1": "9635f91893b389500a62e9ad1d38a61b560cbc11a933501b38686e0ce0934e36",
+        "2": "9635f91893b389500a62e9ad1d38a61b560cbc11a933501b38686e0ce0934e36",
+        "2b": "482386a706941e107c54cdbed6cca41b8577b866504b298b8839b3a104dfb915"
+      },
+      "sampling": {
+        "hunt_samples": 1
+      },
+      "seeds": {
+        "seed_prior": false,
+        "seed_routes": false
+      },
+      "budgets": {
+        "max_budget_usd": 0,
+        "num_ctx": 8192
+      },
+      "effective_config": {
+        "applied": {
+          "app_name": "",
+          "backend": "fake",
+          "concurrency": 1,
+          "diagnostic_capture": "bounded",
+          "enforce_coverage": false,
+          "host": "fake://transcript",
+          "hunt_samples": 1,
+          "iac_lens": false,
+          "ledger": false,
+          "max_budget_usd": 0,
+          "max_output_tokens": 0,
+          "max_partitions": 1,
+          "model": "transcript",
+          "num_ctx": 8192,
+          "phase2_mode": "combined",
+          "phases": [
+            "1",
+            "2",
+            "2b",
+            "4"
+          ],
+          "quality_strictness": "",
+          "reasoning_effort": "",
+          "redact": false,
+          "remediate": false,
+          "resume": false,
+          "seed_prior": false,
+          "seed_routes": false,
+          "temperature": "provider-default",
+          "threat_model": false
+        },
+        "requested": {}
+      }
+    },
+    "notes": [
+      "cost unknown: backend \"fake\" model \"transcript\" is not in the reviewed price table",
+      "offline run: a scripted transcript provider served every call — this proves the pipeline and scorer, not model efficacy"
+    ]
+  },
+  "runs": [
+    {
+      "results_dir": "offline-transcript-fixture",
+      "results": {
+        "truth_version": 2,
+        "results_dir": "offline-transcript-fixture",
+        "provider": "transcript",
+        "live": false,
+        "seeded": false,
+        "per_language": {
+          "go": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3,
+            "precision": 0,
+            "recall": 0,
+            "denominator": 3
+          },
+          "javascript": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3,
+            "precision": 0,
+            "recall": 0,
+            "denominator": 3
+          },
+          "python": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1,
+            "recall": 0.75,
+            "denominator": 4
+          }
+        },
+        "per_family": {
+          "access-control": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1,
+            "recall": 0.5,
+            "denominator": 2
+          },
+          "code-injection": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0,
+            "recall": 0,
+            "denominator": 1
+          },
+          "command-injection": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0,
+            "recall": 0,
+            "denominator": 1
+          },
+          "deserialization": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1,
+            "recall": 1,
+            "denominator": 1
+          },
+          "path-traversal": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1,
+            "recall": 0.5,
+            "denominator": 2
+          },
+          "sql-injection": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0,
+            "recall": 0,
+            "denominator": 1
+          },
+          "ssrf": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0,
+            "recall": 0,
+            "denominator": 1
+          },
+          "xss": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0,
+            "recall": 0,
+            "denominator": 1
+          }
+        },
+        "supported": {
+          "tp": 3,
+          "fp": 0,
+          "fn": 7,
+          "precision": 1,
+          "recall": 0.3,
+          "denominator": 10,
+          "matched": {
+            "PY-AUTHZ-1": "CAND-b5a06a835131a36ba7800388",
+            "PY-DESER-1": "CAND-70f3f655ef6712311bf715af",
+            "PY-TRAV-1": "CAND-719d8f210d095bae9fc0c441"
+          },
+          "unmatched": [],
+          "missed": [
+            "GO-CMDI-1",
+            "GO-SSRF-1",
+            "GO-TRAV-1",
+            "JS-EVAL-1",
+            "JS-IDOR-1",
+            "JS-XSS-1",
+            "PY-SQLI-1"
+          ]
+        },
+        "candidate_recall": {
+          "matched": 10,
+          "total": 10,
+          "ids": [
+            "GO-CMDI-1",
+            "GO-SSRF-1",
+            "GO-TRAV-1",
+            "JS-EVAL-1",
+            "JS-IDOR-1",
+            "JS-XSS-1",
+            "PY-AUTHZ-1",
+            "PY-DESER-1",
+            "PY-SQLI-1",
+            "PY-TRAV-1"
+          ]
+        },
+        "safe_control_fp": [],
+        "verification": {
+          "candidates": 19,
+          "accepted": 18,
+          "recovered": 0,
+          "terminal_by_class": {
+            "invalid_submission": 1
+          },
+          "supported": 3,
+          "rejected": 9,
+          "unresolved": 7,
+          "invalid_citation": 0,
+          "sessions": 19
+        },
+        "coverage": {
+          "completed_review": 0,
+          "source_exposed": 0,
+          "total": 0,
+          "semantics_version": 2
+        },
+        "artifacts": {
+          "complete": true,
+          "missing": []
+        },
+        "cost": {
+          "prompt_tokens": 300,
+          "completion_tokens": 150,
+          "seconds": 0,
+          "usd": "unknown"
+        },
+        "denominators": {
+          "vulnerable_entries": 10,
+          "safe_controls": 9,
+          "supported_findings": 3,
+          "candidates": 19
+        },
+        "config": {
+          "target_revision": "tree-sha256:28495540850806cbdb6a72c8ada818f009e17e2407c54270e7c269bb2a06e3a1",
+          "build": {
+            "engine_version": "015-offline-fixture"
+          },
+          "models": {
+            "hunt": "transcript",
+            "recon": "transcript",
+            "reproduce": "transcript",
+            "verify": "transcript"
+          },
+          "backend": "fake",
+          "prompts_hash": {
+            "1": "80822e586193846325576eba74f56f39143fda1626c5be130cace182aeabe572",
+            "2": "80822e586193846325576eba74f56f39143fda1626c5be130cace182aeabe572",
+            "2b": "5efcaa14469d010f56d55307898df92562dccfbdda76f775a2d017c1264cc0f1"
+          },
+          "tool_schema_hash": {
+            "1": "9635f91893b389500a62e9ad1d38a61b560cbc11a933501b38686e0ce0934e36",
+            "2": "9635f91893b389500a62e9ad1d38a61b560cbc11a933501b38686e0ce0934e36",
+            "2b": "482386a706941e107c54cdbed6cca41b8577b866504b298b8839b3a104dfb915"
+          },
+          "sampling": {
+            "hunt_samples": 1
+          },
+          "seeds": {
+            "seed_prior": false,
+            "seed_routes": false
+          },
+          "budgets": {
+            "max_budget_usd": 0,
+            "num_ctx": 8192
+          },
+          "effective_config": {
+            "applied": {
+              "app_name": "",
+              "backend": "fake",
+              "concurrency": 1,
+              "diagnostic_capture": "bounded",
+              "enforce_coverage": false,
+              "host": "fake://transcript",
+              "hunt_samples": 1,
+              "iac_lens": false,
+              "ledger": false,
+              "max_budget_usd": 0,
+              "max_output_tokens": 0,
+              "max_partitions": 1,
+              "model": "transcript",
+              "num_ctx": 8192,
+              "phase2_mode": "combined",
+              "phases": [
+                "1",
+                "2",
+                "2b",
+                "4"
+              ],
+              "quality_strictness": "",
+              "reasoning_effort": "",
+              "redact": false,
+              "remediate": false,
+              "resume": false,
+              "seed_prior": false,
+              "seed_routes": false,
+              "temperature": "provider-default",
+              "threat_model": false
+            },
+            "requested": {}
+          }
+        },
+        "notes": [
+          "cost unknown: backend \"fake\" model \"transcript\" is not in the reviewed price table",
+          "offline run: a scripted transcript provider served every call — this proves the pipeline and scorer, not model efficacy"
+        ]
+      }
+    }
+  ],
+  "variation": {
+    "precision_range": [
+      1,
+      1
+    ],
+    "recall_range": [
+      0.3,
+      0.3
+    ],
+    "runs": 1
+  },
+  "policy_version": "1",
+  "tolerance": {
+    "precision": 0,
+    "recall": 0,
+    "safe_control_fp": 0
+  }
+}

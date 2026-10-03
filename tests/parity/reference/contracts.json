@@ -1,0 +1,699 @@
+{
+  "reference_files_sha256": {
+    "verification.py": "d0576c18b40cd90661aaf79ad34a6bf644eed71e8869ef435094d3dc6663cf64",
+    "evidence.py": "0e6242b882cdb61736cf78aa13c2bbd41379e82b000908b77477bc2d7d1c2e14",
+    "quality.py": "35345bade360eadaedcd8cc429c8b14d3d998335882f432d07847e336d3eb970"
+  },
+  "source": "def query(q):\n    return conn.execute(q)\n",
+  "finding": {
+    "id": "CAND-contract",
+    "title": "SQL injection in query",
+    "cwe": "CWE-89",
+    "location": "app.py:2",
+    "entry_point": "GET /search",
+    "data_flow": "q -> conn.execute(q)"
+  },
+  "cases": [
+    {
+      "name": "missing_decision",
+      "decisions": [],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "duplicate_decisions",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        },
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "complete_supported",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": true,
+        "status": "supported"
+      }
+    },
+    {
+      "name": "supported_missing_reviewer",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "supported_missing_entry_point",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "supported_missing_attacker_control",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "supported_missing_preconditions",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "supported_missing_defenses_reviewed",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "supported_missing_security_impact",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "supported_stale_revision",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "old",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "complete_rejected",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "rejected",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": true,
+        "status": "rejected"
+      }
+    },
+    {
+      "name": "rejected_missing_reviewer",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "rejected",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "rejected_missing_entry_point",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "rejected",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "rejected_missing_attacker_control",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "rejected",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "rejected_missing_preconditions",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "rejected",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "rejected_missing_defenses_reviewed",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "rejected",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "rejected_missing_security_impact",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "rejected",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "rejected_stale_revision",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "rejected",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "old",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "explicit_unresolved",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "unresolved",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": true,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "contradictory_support",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [
+            "is q controlled?"
+          ],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "def query(q):\n    return conn.execute(q)"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    },
+    {
+      "name": "wrong_quote",
+      "decisions": [
+        {
+          "candidate_id": "CAND-contract",
+          "verdict": "supported",
+          "rationale": "request-controlled q reaches SQL execution",
+          "reviewer": "reference-fixture",
+          "entry_point": "GET /search",
+          "attacker_control": "q query parameter",
+          "preconditions": "none",
+          "defenses_reviewed": "none observed",
+          "security_impact": "database disclosure",
+          "revision": "rev1",
+          "unresolved_questions": [],
+          "evidence": [
+            {
+              "path": "app.py",
+              "start_line": 1,
+              "end_line": 2,
+              "quote": "invented"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "complete": false,
+        "status": "unresolved"
+      }
+    }
+  ],
+  "identity": {
+    "source": "class First:\n    def query(self, q):\n        conn.execute(q)\n        conn.execute(q)\n\nclass Second:\n    def query(self, q):\n        conn.execute(q)\n",
+    "locations": [
+      "sites.py:3",
+      "sites.py:4",
+      "sites.py:8",
+      "sites.py:3"
+    ],
+    "unique_count": 3
+  },
+  "artifact_cases": [
+    {
+      "name": "empty",
+      "entries": [],
+      "valid": false
+    },
+    {
+      "name": "deferred",
+      "entries": [
+        {
+          "candidate_id": "CAND-contract",
+          "kind": "deferred",
+          "reason": "needs isolated database"
+        }
+      ],
+      "valid": true
+    },
+    {
+      "name": "unexplained_deferral",
+      "entries": [
+        {
+          "candidate_id": "CAND-contract",
+          "kind": "deferred"
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "missing_file",
+      "entries": [
+        {
+          "candidate_id": "CAND-contract",
+          "kind": "test",
+          "path": "exploit_tests/test.py",
+          "status": "authored"
+        }
+      ],
+      "valid": false
+    }
+  ]
+}

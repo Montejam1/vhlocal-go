@@ -1,0 +1,3329 @@
+{
+  "findings": [
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Broken Access Control",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-ccc1e02e67b4ed8ff8bae79e",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-639",
+      "cwe_family": "access-control",
+      "data_flow": "CSV upload → _parse_csv → row[\"customer_name\"] (attacker-controlled) → customers_by_name[cust_name] lookup (backend/app/routers/io_csv.py:133-138) → models.Job instantiated with customer_id=customer.id (backend/app/routers/io_csv.py:185-186) → DB commit.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /api/io/import/jobs (import_jobs function).",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-ccc1e02e67b4ed8ff8bae79e",
+      "location": "backend/app/routers/io_csv.py:133-138",
+      "normalized_cwe": "CWE-284",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "authorization/logic class — no syntactic sink to corroborate",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "authorization requires a source-grounded review of the claimed permission, object/tenant scope, and control flow; guard-name detection cannot establish effective permissions",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "access-control:io_csv.py:id:_parse_csv,app,attacker,backend,commit,controlled,csv,cust_name,customer,customer_id,customer_name,customers_by_name,db,direct,id,idor,import,import_jobs,insecure,instantiated,io,io_csv,job,jobs,lookup,models,object,py,reference,routers,row,upload,with",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-14_nav.md",
+      "source_id": "VULN-001",
+      "stable_identity": "ccc1e02e67b4ed8ff8bae79e8da5d222dad26fc3c89dcd2822345a112a528036",
+      "status": "",
+      "test_status": "",
+      "title": "Insecure Direct Object Reference (IDOR) in Job Import",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The import_jobs handler looks up a customer by name from the CSV without verifying that the authenticated dispatcher is authorized to act on that customer. It only checks that the location's region is within the dispatcher's allowed regions. Therefore a dispatcher can create jobs for any customer that has a location in an allowed region, constituting an IDOR.",
+      "verification_record": {
+        "attacker_control": "Attacker controls CSV fields 'customer_name', 'location_label', etc., which are parsed and used directly in import_jobs.",
+        "candidate_id": "CAND-ccc1e02e67b4ed8ff8bae79e",
+        "defenses_reviewed": "require_roles ensures only ops_admin or dispatcher can access endpoint. Region check (dispatcher_region_ids) restricts location.region_id for dispatchers. No check that dispatcher is authorized for the specific customer.",
+        "entry_point": "POST /api/io/import/jobs (import_jobs function)",
+        "evidence": [
+          {
+            "end_line": 138,
+            "evidence_id": "EV-85e36c572a6f8b1a9ac90a07",
+            "path": "backend/app/routers/io_csv.py",
+            "quote": "    customers_by_name = {c.name: c for c in db.query(models.Customer).all()}\n    service_by_code = {s.code: s for s in db.query(models.ServiceType).all()}\n    for idx, row in enumerate(rows, start=2):\n        cust_name = (row.get(\"customer_name\") or \"\").strip()\n        if cust_name not in customers_by_name:\n            errors.append(f\"row {idx}: unknown customer '{cust_name}'\")\n            continue\n        customer = customers_by_name[cust_name]\n        # location: first match by label, else first location",
+            "start_line": 130
+          },
+          {
+            "end_line": 126,
+            "evidence_id": "EV-de2e7235f4cc9152f9275568",
+            "path": "backend/app/routers/io_csv.py",
+            "quote": "\n@router.post(\"/import/jobs\")\ndef import_jobs(\n    request: Request,\n    file: UploadFile = File(...),\n    db: Session = Depends(get_db),\n    user: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),\n):",
+            "start_line": 119
+          },
+          {
+            "end_line": 178,
+            "evidence_id": "EV-e8647216efdda05d1f4c1dea",
+            "path": "backend/app/routers/io_csv.py",
+            "quote": "            errors.append(f\"row {idx}: scheduled_end must be after scheduled_start\")\n            continue\n        # Dispatcher region scope\n        if user.role == models.UserRole.dispatcher:\n            if location.region_id not in dispatcher_region_ids(db, user):\n                errors.append(f\"row {idx}: region not permitted for this dispatcher\")\n                continue\n        priority_raw = (row.get(\"priority\") or \"normal\").strip()",
+            "start_line": 171
+          },
+          {
+            "end_line": 121,
+            "evidence_id": "EV-6727b4a097eaacfdc2b3ea27",
+            "path": "backend/app/deps.py",
+            "quote": "def dispatcher_region_ids(db: Session, user: models.User) -\u003e set[str]:\n    rows = db.query(models.DispatcherRegion).filter(models.DispatcherRegion.user_id == user.id).all()\n    return {r.region_id for r in rows}\n\n\ndef assert_dispatcher_can_access_region(db: Session, user: models.User, region_id: str) -\u003e None:\n    if user.role == models.UserRole.ops_admin:\n        return\n    if user.role != models.UserRole.dispatcher:\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    regions = dispatcher_region_ids(db, user)\n    if not regions:\n        # Dispatcher with no region assignments cannot manage any region.\n        raise HTTPException(status_code=403, detail=\"Dispatcher has no permitted regions\")\n    if region_id not in regions:\n        raise HTTPException(status_code=403, detail=\"Region not permitted\")\n",
+            "start_line": 105
+          },
+          {
+            "end_line": 188,
+            "evidence_id": "EV-ec5ed3b7df0eedf254df4530",
+            "path": "backend/app/routers/io_csv.py",
+            "quote": "            priority = models.JobPriority.normal\n        job = models.Job(\n            code=_gen_job_code(db),\n            customer_id=customer.id,\n            location_id=location.id,\n            region_id=location.region_id,\n            service_type_id=service_by_code[service_code].id,",
+            "start_line": 182
+          }
+        ],
+        "preconditions": "Attacker can upload a CSV file and has a valid session with dispatcher role (or ops_admin).",
+        "rationale": "The import_jobs handler looks up a customer by name from the CSV without verifying that the authenticated dispatcher is authorized to act on that customer. It only checks that the location's region is within the dispatcher's allowed regions. Therefore a dispatcher can create jobs for any customer that has a location in an allowed region, constituting an IDOR.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "A malicious dispatcher can create or modify jobs for other customers, leading to unauthorized resource manipulation, potential billing fraud, and service disruption.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Open Redirect",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-7dcb3247a7da0b537d9a9495",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-601",
+      "cwe_family": "open-redirect",
+      "data_flow": "lane query param → function argument lane → RedirectResponse(lane) (sink) at line 40.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /ops/after/dispatch-afterlane-021 (router defined in dispatch_operations.py line 38).",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-7dcb3247a7da0b537d9a9495",
+      "location": "backend/app/dispatch_operations.py:40",
+      "normalized_cwe": "CWE-601",
+      "normalized_severity": "Low",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "Low",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-601 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "Medium",
+      "root_cause_key": "open-redirect:dispatch_operations.py:redirectresponse:after,afterlane,argument,at,defined,dispatch,dispatch_operations,lane,line,open,ops,py,query,redirect,redirectresponse,router,sink,uncontrolled",
+      "severity": "Low",
+      "severity_rank": 5,
+      "source": "results/sg-1_inj.md",
+      "source_id": "VULN-001",
+      "stable_identity": "7dcb3247a7da0b537d9a949547b2662fae65e0df7cabce686ad767468663380a",
+      "status": "",
+      "test_status": "",
+      "title": "Open Redirect via uncontrolled lane parameter",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler returns RedirectResponse(lane) without any checks, causing the server to issue an HTTP 307/302 redirect to the attacker‑controlled URL. This is a classic open redirect (CWE‑601).",
+      "verification_record": {
+        "attacker_control": "The 'lane' query parameter is taken directly from the request URL (e.g., /ops/after/dispatch-afterlane-021?lane=https://evil.com) and passed unchanged to RedirectResponse.",
+        "candidate_id": "CAND-7dcb3247a7da0b537d9a9495",
+        "defenses_reviewed": "No validation, sanitization, or allow‑list is applied to the 'lane' parameter before it is used. The only default is '/' when the parameter is omitted.",
+        "entry_point": "GET /ops/after/dispatch-afterlane-021 (router defined at line 38 in backend/app/dispatch_operations.py).",
+        "evidence": [
+          {
+            "end_line": 41,
+            "evidence_id": "EV-f472f819ed1f0919150cd49b",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "async def dispatch_afterlane_021(lane: str = \"/\", gate_ref: None = Depends(_wrk_gate)):\n    return RedirectResponse(lane)\n\n@router.post(\"/delta/dispatch-nudge-126\")",
+            "start_line": 38
+          }
+        ],
+        "preconditions": "The attacker can send a request to the endpoint with an arbitrary 'lane' query string value.",
+        "rationale": "The handler returns RedirectResponse(lane) without any checks, causing the server to issue an HTTP 307/302 redirect to the attacker‑controlled URL. This is a classic open redirect (CWE‑601).",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Victims can be redirected to malicious sites, facilitating phishing, credential harvesting, or drive‑by attacks. The redirect may also be used to bypass same‑origin policy for subsequent requests.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Insecure Deserialization",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-325da680b4c928e2a853a4d7",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-502",
+      "cwe_family": "deserialization",
+      "data_flow": "raw → pickle.loads(raw) → returned object",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/bundle/dispatch-thaw-172",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-325da680b4c928e2a853a4d7",
+      "location": "backend/app/dispatch_operations.py:61",
+      "normalized_cwe": "CWE-502",
+      "normalized_severity": "High+",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High+",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-502 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "deserialization:dispatch_operations.py:loads:bundle,deserialization,dispatch,loads,object,ops,pickle,raw,returned,thaw,unsafe",
+      "severity": "High+",
+      "severity_rank": 1,
+      "source": "results/sg-1_inj.md",
+      "source_id": "VULN-002",
+      "stable_identity": "325da680b4c928e2a853a4d784a6d8ca871d388d78535185cca09f2ec0a8114b",
+      "status": "",
+      "test_status": "",
+      "title": "Unsafe Deserialization via Pickle in Thaw Endpoint",
+      "validation_method": "static_reasoning",
+      "verification_reason": "User‑controlled data is deserialized using Python's unsafe `pickle.loads`, which can execute arbitrary code embedded in the pickle payload, leading to remote code execution (CWE‑502).",
+      "verification_record": {
+        "attacker_control": "The attacker can supply arbitrary data via the request body or the 'blob' query parameter (optionally base64‑encoded using 'wrap=b64'), which is assigned to `raw` and directly passed to `pickle.loads` without validation.",
+        "candidate_id": "CAND-325da680b4c928e2a853a4d7",
+        "defenses_reviewed": "The endpoint relies on `_wrk_gate` for a simple token check, but no sanitization or safe‑load is performed for the pickle data. The only fallback is a hard‑coded empty pickle, which is overridden when attacker provides data.",
+        "entry_point": "POST /ops/bundle/dispatch-thaw-172",
+        "evidence": [
+          {
+            "end_line": 62,
+            "evidence_id": "EV-eb08fdf1ae3a96601224ebc8",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.post(\"/bundle/dispatch-thaw-172\")\nasync def dispatch_bundle_thaw_172(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    import base64\n    import pickle\n    raw = await request.body()\n    if not raw:\n        raw = request.query_params.get(\"blob\", \"\").encode(\"utf-8\")\n    if request.query_params.get(\"wrap\") == \"b64\":\n        raw = base64.b64decode(raw)\n    if not raw:\n        raw = b\"\\x80\\x04}q\\x00.\"\n    bundle = pickle.loads(raw)\n    return {\"bundle\": repr(bundle)[:200]}",
+            "start_line": 50
+          },
+          {
+            "end_line": 20,
+            "evidence_id": "EV-d9eef92557cf20e2e629e813",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "def _wrk_gate(request: Request) -\u003e None:\n    gate_value = os.environ.get(\"INTERNAL_OPS_TOKEN\")\n    if not gate_value or request.headers.get(\"x-internal-token\") != gate_value:\n        raise HTTPException(status_code=403, detail=\"forbidden\")\n",
+            "start_line": 16
+          }
+        ],
+        "preconditions": "Attacker can send a POST request to the endpoint with a controllable body or 'blob' query parameter. No additional authentication beyond the internal token is required, and the token can be obtained or bypassed if misconfigured.",
+        "rationale": "User‑controlled data is deserialized using Python's unsafe `pickle.loads`, which can execute arbitrary code embedded in the pickle payload, leading to remote code execution (CWE‑502).",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Remote code execution – attacker can run arbitrary Python code on the server, potentially compromising the host, accessing data, or escalating privileges.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "XML External Entity (XXE)",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-f45e5f1607e3c80f75df63ce",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-611",
+      "cwe_family": "xxe",
+      "data_flow": "request body → etree.fromstring(..., parser) at line 159.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/xml/dispatch-fold-450.",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-f45e5f1607e3c80f75df63ce",
+      "location": "backend/app/dispatch_operations.py:159",
+      "normalized_cwe": "CWE-611",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-611 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "xxe:dispatch_operations.py:fromstring:at,body,dispatch,dispatch_xml_fold_450,entity,etree,external,fold,fromstring,line,ops,parser,xml,xxe",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-1_inj.md",
+      "source_id": "VULN-004",
+      "stable_identity": "f45e5f1607e3c80f75df63ce68863b18d7b23e3cbbf1897d2274de5f5e121340",
+      "status": "",
+      "test_status": "",
+      "title": "XML External Entity (XXE) via dispatch_xml_fold_450",
+      "validation_method": "static_reasoning",
+      "verification_reason": "An attacker can supply malicious XML containing an external entity reference (e.g., `\u003c!ENTITY x SYSTEM \"file:///etc/passwd\"\u003e`). Because the parser resolves entities and loads DTDs, the external entity will be processed, leading to XXE. The handler returns only the document root tag, but the side‑effects of entity resolution (file read, network request) occur during parsing.",
+      "verification_record": {
+        "attacker_control": "The attacker controls the HTTP POST request body sent to the endpoint, which is passed directly to `await request.body()` and parsed as XML.",
+        "candidate_id": "CAND-f45e5f1607e3c80f75df63ce",
+        "defenses_reviewed": "No input validation, sanitization, or safe parser configuration is performed. The XML parser is instantiated with `load_dtd=True` and `resolve_entities=True`, allowing external entity resolution.",
+        "entry_point": "POST /ops/xml/dispatch-fold-450",
+        "evidence": [
+          {
+            "end_line": 160,
+            "evidence_id": "EV-8160c55d09a9cee2c346f923",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.post(\"/xml/dispatch-fold-450\")\nasync def dispatch_xml_fold_450(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from lxml import etree\n    parser = etree.XMLParser(load_dtd=True, resolve_entities=True, no_network=False)\n    doc = etree.fromstring(await request.body(), parser)\n    return {\"root\": doc.tag}",
+            "start_line": 155
+          }
+        ],
+        "preconditions": "The `lxml.etree.XMLParser` is created with `load_dtd=True`, `resolve_entities=True`, and `no_network=False`, which permits loading external DTDs and resolving external entities. The request body is attacker‑controlled XML.",
+        "rationale": "An attacker can supply malicious XML containing an external entity reference (e.g., `\u003c!ENTITY x SYSTEM \"file:///etc/passwd\"\u003e`). Because the parser resolves entities and loads DTDs, the external entity will be processed, leading to XXE. The handler returns only the document root tag, but the side‑effects of entity resolution (file read, network request) occur during parsing.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Potential disclosure of arbitrary files on the server, server‑side request forgery (SSRF) to internal services, or denial‑of‑service via large external entity expansions.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "NoSQL Injection",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-0c1cc353da7186008a23f722",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-943",
+      "cwe_family": "nosql-injection",
+      "data_flow": "request JSON → payload.get(\"filter\", payload) → find_one(query) at line 134.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/mongo/dispatch-lane-415.",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-0c1cc353da7186008a23f722",
+      "location": "backend/app/dispatch_operations.py:134",
+      "normalized_cwe": "CWE-943",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-943 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "nosql-injection:dispatch_operations.py:find_one:at,dispatch,dispatch_mongo_lane_415,filter,find_one,injection,json,lane,line,mongo,mongodb,nosql,ops,payload,query",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-1_inj.md",
+      "source_id": "VULN-005",
+      "stable_identity": "0c1cc353da7186008a23f722e536b9c933009ed34f279c7208cf1bdd76a4c166",
+      "status": "",
+      "test_status": "",
+      "title": "NoSQL Injection via MongoDB filter in dispatch_mongo_lane_415",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler extracts the request JSON into `payload`, then selects `query = payload.get(\"filter\", payload)`. If the attacker supplies a top‑level `filter` field, its value becomes the MongoDB query object. This object is passed directly to `MongoClient(...).ops.records.find_one(query)` without any sanitization, enabling NoSQL injection to read arbitrary documents.",
+      "verification_record": {
+        "attacker_control": "Attacker controls the JSON request body sent to POST /ops/mongo/dispatch-lane-415. The payload is parsed via `await request.json()` and used directly as the MongoDB query filter.",
+        "candidate_id": "CAND-0c1cc353da7186008a23f722",
+        "defenses_reviewed": "No validation, sanitization, or allow‑list is performed on the request body before it is passed to MongoDB. The only code present is the import and direct use of the payload.",
+        "entry_point": "POST /ops/mongo/dispatch-lane-415",
+        "evidence": [
+          {
+            "end_line": 134,
+            "evidence_id": "EV-67972e93dd526b619ce20a78",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.post(\"/mongo/dispatch-lane-415\")\nasync def dispatch_mongo_lane_415(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from pymongo import MongoClient\n    payload = await request.json()\n    query = payload.get(\"filter\", payload)\n    doc = MongoClient(os.environ.get(\"MONGO_URL\", \"mongodb://localhost:27017\")).ops.records.find_one(query)\n    return {\"match\": repr(doc)[:200]}",
+            "start_line": 128
+          }
+        ],
+        "preconditions": "The attacker can send an arbitrary JSON payload to the endpoint and the environment variable `MONGO_URL` points to a reachable MongoDB instance (default localhost).",
+        "rationale": "The handler extracts the request JSON into `payload`, then selects `query = payload.get(\"filter\", payload)`. If the attacker supplies a top‑level `filter` field, its value becomes the MongoDB query object. This object is passed directly to `MongoClient(...).ops.records.find_one(query)` without any sanitization, enabling NoSQL injection to read arbitrary documents.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "An attacker can read arbitrary records from the `ops.records` collection, leading to confidentiality breaches (CWE‑200) and possible exposure of sensitive data such as credentials or personal information.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Broken Access Control",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-689df88df37120c211ffa592",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-639",
+      "cwe_family": "access-control",
+      "data_flow": "user_id (path) → db.query(models.User)... → returned to caller without additional checks.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /api/users/{user_id}",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-689df88df37120c211ffa592",
+      "location": "backend/app/routers/users.py:74",
+      "normalized_cwe": "CWE-284",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "authorization/logic class — no syntactic sink to corroborate",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "authorization requires a source-grounded review of the claimed permission, object/tenant scope, and control flow; guard-name detection cannot establish effective permissions",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "access-control:users.py:query:additional,caller,checks,db,direct,insecure,models,object,path,query,reference,returned,user_id,users,without",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-1_nav.md",
+      "source_id": "VULN-002",
+      "stable_identity": "689df88df37120c211ffa59265947f1f1c776ba1411928c40f3097748a3499dd",
+      "status": "",
+      "test_status": "",
+      "title": "Insecure Direct Object Reference in GET /api/users/{user_id}",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The get_user endpoint directly queries the User table by the supplied user_id without verifying that the requesting dispatcher is authorized to view that specific user. The only defense is a role check, which permits any dispatcher to retrieve any user record, leading to an IDOR vulnerability.",
+      "verification_record": {
+        "attacker_control": "Path parameter 'user_id' supplied by the client in the GET /api/users/{user_id} request.",
+        "candidate_id": "CAND-689df88df37120c211ffa592",
+        "defenses_reviewed": "require_roles checks only that the caller has role ops_admin or dispatcher (backend/app/deps.py lines 88-95). No additional ownership or region checks are performed for the get_user handler.",
+        "entry_point": "GET /api/users/{user_id}",
+        "evidence": [
+          {
+            "end_line": 78,
+            "evidence_id": "EV-e22240f46459ec3220f87910",
+            "path": "backend/app/routers/users.py",
+            "quote": "    db.refresh(user)\n    return user\n\n\n@router.get(\"/{user_id}\", response_model=schemas.UserPublic)\ndef get_user(\n    user_id: str,\n    db: Session = Depends(get_db),\n    actor: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),",
+            "start_line": 70
+          },
+          {
+            "end_line": 86,
+            "evidence_id": "EV-b06a85795681c54cfbdbeb9d",
+            "path": "backend/app/routers/users.py",
+            "quote": "    actor: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),\n):\n    user = db.query(models.User).filter(models.User.id == user_id).one_or_none()\n    if not user:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    return user\n\n\n@router.put(\"/{user_id}\", response_model=schemas.UserPublic)",
+            "start_line": 78
+          },
+          {
+            "end_line": 95,
+            "evidence_id": "EV-6ad589f8e7a5ea4983b5771b",
+            "path": "backend/app/deps.py",
+            "quote": "def require_roles(*roles: models.UserRole):\n    role_values = {r for r in roles}\n\n    def _checker(user: models.User = Depends(get_current_user)) -\u003e models.User:\n        if user.role not in role_values:\n            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=\"Insufficient privileges\")\n        return user\n",
+            "start_line": 88
+          }
+        ],
+        "preconditions": "Attacker must be an authenticated user with role ops_admin or dispatcher, obtained via session cookie or API key.",
+        "rationale": "The get_user endpoint directly queries the User table by the supplied user_id without verifying that the requesting dispatcher is authorized to view that specific user. The only defense is a role check, which permits any dispatcher to retrieve any user record, leading to an IDOR vulnerability.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "An attacker with dispatcher role can enumerate or retrieve personal data of any user (including other dispatchers, customers, field workers), violating confidentiality and potentially enabling further attacks.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Broken Access Control",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-20b097fd98f187d8d7efc82b",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-639",
+      "cwe_family": "access-control",
+      "data_flow": "user_id (path param) → DB query db.query(models.User).filter(models.User.id == user_id) → returned models.User object → FastAPI serialises to response model schemas.UserPublic.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /api/users/{user_id} - FastAPI route in users.py.",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-20b097fd98f187d8d7efc82b",
+      "location": "backend/app/routers/users.py:75-84",
+      "normalized_cwe": "CWE-284",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "authorization/logic class — no syntactic sink to corroborate",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "authorization requires a source-grounded review of the claimed permission, object/tenant scope, and control flow; guard-name detection cannot establish effective permissions",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "access-control:users.py:filter:db,direct,fastapi,filter,id,idor,insecure,model,models,object,on,path,py,query,reference,response,retrieval,returned,schemas,serialises,user_id,userpublic,users",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-1_nav.md",
+      "source_id": "VULN-001",
+      "stable_identity": "20b097fd98f187d8d7efc82b76bbbee86267794a1b93c70a2f72a3cb0a47dda9",
+      "status": "",
+      "test_status": "",
+      "title": "Insecure Direct Object Reference (IDOR) on User Retrieval Endpoint",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler directly queries the User table by the supplied user_id and returns the record without verifying that the caller is permitted to view that specific user. Dispatchers can retrieve any user's data, leading to an IDOR vulnerability.",
+      "verification_record": {
+        "attacker_control": "Path parameter 'user_id' supplied by the client in the GET request URL.",
+        "candidate_id": "CAND-20b097fd98f187d8d7efc82b",
+        "defenses_reviewed": "The endpoint uses require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher) which only checks that the caller has one of these roles, but does not enforce object-level authorization for the requested user ID.",
+        "entry_point": "GET /api/users/{user_id}",
+        "evidence": [
+          {
+            "end_line": 84,
+            "evidence_id": "EV-14f6b7379844788d17430c44",
+            "path": "backend/app/routers/users.py",
+            "quote": "@router.get(\"/{user_id}\", response_model=schemas.UserPublic)\ndef get_user(\n    user_id: str,\n    db: Session = Depends(get_db),\n    actor: models.User = Depends(require_roles(models.UserRole.ops_admin, models.UserRole.dispatcher)),\n):\n    user = db.query(models.User).filter(models.User.id == user_id).one_or_none()\n    if not user:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    return user\n",
+            "start_line": 74
+          },
+          {
+            "end_line": 96,
+            "evidence_id": "EV-33ee310cc28e520888f697de",
+            "path": "backend/app/deps.py",
+            "quote": "def require_roles(*roles: models.UserRole):\n    role_values = {r for r in roles}\n\n    def _checker(user: models.User = Depends(get_current_user)) -\u003e models.User:\n        if user.role not in role_values:\n            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=\"Insufficient privileges\")\n        return user\n\n    return _checker",
+            "start_line": 88
+          }
+        ],
+        "preconditions": "Attacker must be an authenticated user with role ops_admin or dispatcher.",
+        "rationale": "The handler directly queries the User table by the supplied user_id and returns the record without verifying that the caller is permitted to view that specific user. Dispatchers can retrieve any user's data, leading to an IDOR vulnerability.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Unauthorized disclosure of personal data (email, full name, role, phone, etc.) of any user in the system, violating confidentiality and potentially enabling further attacks.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Broken Access Control",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-d64c219333a5a825a538fbf3",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-639",
+      "cwe_family": "access-control",
+      "data_flow": "payload.customer_id (attacker-controlled) → existence check only → job creation with customer_id set → persisted in DB → accessible to any customer.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /api/jobs (create_job function).",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-d64c219333a5a825a538fbf3",
+      "location": "backend/app/routers/jobs.py:112-115",
+      "normalized_cwe": "CWE-284",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "authorization/logic class — no syntactic sink to corroborate",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "authorization requires a source-grounded review of the claimed permission, object/tenant scope, and control flow; guard-name detection cannot establish effective permissions",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "access-control:jobs.py:customer_id:accessible,any,attacker,can,check,controlled,create,create_job,creation,customer,customer_id,db,dispatcher,existence,for,idor,job,jobs,only,payload,persisted,set,with",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-1_nav.md",
+      "source_id": "VULN-001",
+      "stable_identity": "d64c219333a5a825a538fbf36dd576880ce5ccbc64a87f355a34220e9e68c680",
+      "status": "",
+      "test_status": "",
+      "title": "IDOR: Dispatcher can create jobs for any customer",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The create_job endpoint validates that the customer, location, and service_type exist and that the dispatcher has access to the region of the location, but it does not enforce that the dispatcher is authorized to create jobs for the specified customer. Therefore a dispatcher can create jobs on behalf of any customer within an allowed region, constituting an IDOR vulnerability (CWE-639).",
+      "verification_record": {
+        "attacker_control": "payload.customer_id, payload.location_id, payload.service_type_id, payload.priority, payload.scheduled_start, payload.scheduled_end, payload.description, payload.internal_notes, payload.customer_summary, payload.assigned_worker_id",
+        "candidate_id": "CAND-d64c219333a5a825a538fbf3",
+        "defenses_reviewed": "Role check (dispatcher or ops_admin) at line 108-110, existence checks for customer, location, service_type at lines 112-121, region access assertion via assert_dispatcher_can_access_region at line 124, location ownership check ensuring location.customer_id matches payload.customer_id at lines 115-118",
+        "entry_point": "POST /api/jobs (create_job function)",
+        "evidence": [
+          {
+            "end_line": 110,
+            "evidence_id": "EV-9a9a2d14054fff85e4d092a0",
+            "path": "backend/app/routers/jobs.py",
+            "quote": "):\n    if user.role not in (models.UserRole.ops_admin, models.UserRole.dispatcher):\n        raise HTTPException(status_code=403, detail=\"Forbidden\")",
+            "start_line": 108
+          },
+          {
+            "end_line": 115,
+            "evidence_id": "EV-747f2896da0de26063614d63",
+            "path": "backend/app/routers/jobs.py",
+            "quote": "    customer = db.query(models.Customer).filter(models.Customer.id == payload.customer_id).one_or_none()\n    if not customer:\n        raise HTTPException(status_code=400, detail=\"Invalid customer\")\n    location = db.query(models.ServiceLocation).filter(",
+            "start_line": 112
+          },
+          {
+            "end_line": 125,
+            "evidence_id": "EV-afb6b8a2a707eb20e243d23c",
+            "path": "backend/app/routers/jobs.py",
+            "quote": "    assert_dispatcher_can_access_region(db, user, location.region_id)\n",
+            "start_line": 124
+          },
+          {
+            "end_line": 118,
+            "evidence_id": "EV-0bc0145278ac17d6e7a9e6b5",
+            "path": "backend/app/routers/jobs.py",
+            "quote": "    location = db.query(models.ServiceLocation).filter(\n        models.ServiceLocation.id == payload.location_id,\n        models.ServiceLocation.customer_id == payload.customer_id,\n    ).one_or_none()",
+            "start_line": 115
+          },
+          {
+            "end_line": 121,
+            "evidence_id": "EV-7526752bc562105439ec582b",
+            "path": "backend/app/deps.py",
+            "quote": "\n\ndef assert_dispatcher_can_access_region(db: Session, user: models.User, region_id: str) -\u003e None:\n    if user.role == models.UserRole.ops_admin:\n        return\n    if user.role != models.UserRole.dispatcher:\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    regions = dispatcher_region_ids(db, user)\n    if not regions:\n        # Dispatcher with no region assignments cannot manage any region.\n        raise HTTPException(status_code=403, detail=\"Dispatcher has no permitted regions\")\n    if region_id not in regions:\n        raise HTTPException(status_code=403, detail=\"Region not permitted\")\n",
+            "start_line": 108
+          },
+          {
+            "end_line": 133,
+            "evidence_id": "EV-ee0487bc8d767e3bbafef005",
+            "path": "backend/app/routers/jobs.py",
+            "quote": "    job = models.Job(\n        code=_gen_job_code(db),\n        customer_id=payload.customer_id,\n        location_id=payload.location_id,\n        region_id=location.region_id,\n        service_type_id=payload.service_type_id,\n        priority=payload.priority,\n        scheduled_start=payload.scheduled_start,",
+            "start_line": 126
+          }
+        ],
+        "preconditions": "Attacker is authenticated as a dispatcher role and has region permissions that include the region of the target location.",
+        "rationale": "The create_job endpoint validates that the customer, location, and service_type exist and that the dispatcher has access to the region of the location, but it does not enforce that the dispatcher is authorized to create jobs for the specified customer. Therefore a dispatcher can create jobs on behalf of any customer within an allowed region, constituting an IDOR vulnerability (CWE-639).",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Unauthorized job creation for arbitrary customers can lead to fraud, resource misuse, billing issues, and denial of service for legitimate customers.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Broken Access Control",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-78ad0391960791ee7a51abf2",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-862",
+      "cwe_family": "access-control",
+      "data_flow": "Authenticated dispatcher → query all customers → response.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /api/customers (list_customers).",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-78ad0391960791ee7a51abf2",
+      "location": "backend/app/routers/customers.py:30-39",
+      "normalized_cwe": "CWE-284",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "authorization/logic class — no syntactic sink to corroborate",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "authorization requires a source-grounded review of the claimed permission, object/tenant scope, and control flow; guard-name detection cannot establish effective permissions",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "Medium",
+      "root_cause_key": "access-control:customers.py::all,authenticated,authorization,can,check,customers,dispatcher,list,list_customers,missing,query,response",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-1_nav.md",
+      "source_id": "VULN-005",
+      "stable_identity": "78ad0391960791ee7a51abf21d850c59f166cc3d90f3de256f1e56775a0cca2a",
+      "status": "",
+      "test_status": "",
+      "title": "Missing Authorization Check: Dispatcher can list all customers",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The GET /api/customers endpoint (list_customers) obtains the current user via Depends(get_current_user) which authenticates any valid session or API key (see deps.get_current_user). The function then checks if user.role == UserRole.customer and, only in that case, restricts the result to the user's own customer record. For any other role (e.g., dispatcher, ops_admin) the function skips this branch and executes a query returning all customers (db.query(models.Customer).all()). No further authorization checks are performed before the data is returned. Evidence EV-d2d3bcf42798569b2b2c21e6 shows the lack of restriction for non‑customer roles, and EV-17de4f6679ca851bf9da8c01 defines the UserRole enum confirming the 'dispatcher' role exists. Thus an authenticated dispatcher can retrieve the full customer list, constituting a missing authorization check (CWE‑862).",
+      "verification_record": {
+        "attacker_control": "Authenticated user with role 'dispatcher' can invoke the endpoint, controlling the request and receiving the response.",
+        "candidate_id": "CAND-78ad0391960791ee7a51abf2",
+        "defenses_reviewed": "The handler only checks for role 'customer' to restrict visibility. No checks for dispatcher or ops_admin, so they receive full customer list.",
+        "entry_point": "GET /api/customers (list_customers)",
+        "evidence": [
+          {
+            "end_line": 39,
+            "evidence_id": "EV-d2d3bcf42798569b2b2c21e6",
+            "path": "backend/app/routers/customers.py",
+            "quote": "    if user.role == models.UserRole.customer:\n        # Customer only sees themselves\n        if not user.customer:\n            return []\n        return [user.customer]\n    query = db.query(models.Customer)\n    if q:\n        like = f\"%{q.lower()}%\"\n        query = query.filter(or_(models.Customer.name.ilike(like), models.Customer.contact_email.ilike(like)))\n    return query.order_by(models.Customer.name.asc()).offset(offset).limit(limit).all()",
+            "start_line": 30
+          },
+          {
+            "end_line": 38,
+            "evidence_id": "EV-17de4f6679ca851bf9da8c01",
+            "path": "backend/app/models.py",
+            "quote": "class UserRole(str, enum.Enum):\n    ops_admin = \"ops_admin\"\n    dispatcher = \"dispatcher\"\n    field_worker = \"field_worker\"\n    customer = \"customer\"",
+            "start_line": 34
+          }
+        ],
+        "preconditions": "Attacker must be authenticated as a dispatcher (or any non-customer role). No other conditions required.",
+        "rationale": "The GET /api/customers endpoint (list_customers) obtains the current user via Depends(get_current_user) which authenticates any valid session or API key (see deps.get_current_user). The function then checks if user.role == UserRole.customer and, only in that case, restricts the result to the user's own customer record. For any other role (e.g., dispatcher, ops_admin) the function skips this branch and executes a query returning all customers (db.query(models.Customer).all()). No further authorization checks are performed before the data is returned. Evidence EV-d2d3bcf42798569b2b2c21e6 shows the lack of restriction for non‑customer roles, and EV-17de4f6679ca851bf9da8c01 defines the UserRole enum confirming the 'dispatcher' role exists. Thus an authenticated dispatcher can retrieve the full customer list, constituting a missing authorization check (CWE‑862).",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Confidentiality breach: dispatcher can enumerate all customer records, violating privacy and potentially enabling further attacks. (CWE-862)",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Broken Access Control",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-9216e440ddda506575d2cb18",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-639",
+      "cwe_family": "access-control",
+      "data_flow": "region_id (query) → function argument region_id (line 17) → conditional if region_id: (line 27) → query.filter(models.Worker.region_id == region_id) (line 28) → returned result (line 36).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /api/workers handler list_workers in backend/app/routers/workers.py.",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-9216e440ddda506575d2cb18",
+      "location": "backend/app/routers/workers.py:27-30",
+      "normalized_cwe": "CWE-284",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "authorization/logic class — no syntactic sink to corroborate",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "authorization requires a source-grounded review of the claimed permission, object/tenant scope, and control flow; guard-name detection cannot establish effective permissions",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "access-control:workers.py:result:app,argument,backend,conditional,direct,filter,if,insecure,line,list,list_workers,models,object,py,query,reference,region,region_id,result,returned,routers,scoping,worker,workers",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-23_nav.md",
+      "source_id": "VULN-001",
+      "stable_identity": "9216e440ddda506575d2cb182b50ccbfd77f899c1b1a2d3dca0ae91f3ed96952",
+      "status": "",
+      "test_status": "",
+      "title": "Insecure Direct Object Reference - Worker List Region Scoping",
+      "validation_method": "static_reasoning",
+      "verification_reason": "list_workers applies the region_id filter directly to the database query without verifying that the requesting user is authorized to view that region. The system defines a dispatcher role and provides a dedicated function assert_dispatcher_can_access_region for region checks, but this function is not used in the workers listing endpoint. Consequently, a dispatcher can enumerate workers in any region, leading to unauthorized data exposure.",
+      "verification_record": {
+        "attacker_control": "region_id query parameter supplied by attacker in GET /api/workers request",
+        "candidate_id": "CAND-9216e440ddda506575d2cb18",
+        "defenses_reviewed": "assert_dispatcher_can_access_region function exists (EV-858b7ffec048904b3597c31f) but is not invoked in list_workers; no role-based check for dispatcher in list_workers (EV-c3588cbf06df3b4add017358, EV-2afa2881578d73409a0945bd). UserRole definitions (EV-b00eba4a82a6aa1e93b1d3ad) show dispatcher role exists.",
+        "entry_point": "GET /api/workers handled by list_workers in backend/app/routers/workers.py",
+        "evidence": [
+          {
+            "end_line": 31,
+            "evidence_id": "EV-c3588cbf06df3b4add017358",
+            "path": "backend/app/routers/workers.py",
+            "quote": "    if user.role == models.UserRole.customer:\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    query = db.query(models.Worker)\n    if region_id:\n        query = query.filter(models.Worker.region_id == region_id)\n    if availability:\n        query = query.filter(models.Worker.availability == availability)\n    if user.role == models.UserRole.field_worker:",
+            "start_line": 24
+          },
+          {
+            "end_line": 20,
+            "evidence_id": "EV-2afa2881578d73409a0945bd",
+            "path": "backend/app/routers/workers.py",
+            "quote": "router = APIRouter(prefix=\"/api/workers\", tags=[\"workers\"])\n\n\n@router.get(\"\", response_model=list[schemas.WorkerOut])\ndef list_workers(\n    region_id: str | None = None,\n    availability: str | None = None,\n    limit: int = Query(default=100, ge=1, le=500),\n    offset: int = Query(default=0, ge=0),",
+            "start_line": 12
+          },
+          {
+            "end_line": 39,
+            "evidence_id": "EV-b00eba4a82a6aa1e93b1d3ad",
+            "path": "backend/app/models.py",
+            "quote": "\nclass UserRole(str, enum.Enum):\n    ops_admin = \"ops_admin\"\n    dispatcher = \"dispatcher\"\n    field_worker = \"field_worker\"\n    customer = \"customer\"\n",
+            "start_line": 33
+          },
+          {
+            "end_line": 122,
+            "evidence_id": "EV-858b7ffec048904b3597c31f",
+            "path": "backend/app/deps.py",
+            "quote": "\n\ndef assert_dispatcher_can_access_region(db: Session, user: models.User, region_id: str) -\u003e None:\n    if user.role == models.UserRole.ops_admin:\n        return\n    if user.role != models.UserRole.dispatcher:\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    regions = dispatcher_region_ids(db, user)\n    if not regions:\n        # Dispatcher with no region assignments cannot manage any region.\n        raise HTTPException(status_code=403, detail=\"Dispatcher has no permitted regions\")\n    if region_id not in regions:\n        raise HTTPException(status_code=403, detail=\"Region not permitted\")\n\n",
+            "start_line": 108
+          }
+        ],
+        "preconditions": "Attacker is authenticated as a dispatcher role user (or any non-customer non-field_worker role) and supplies an arbitrary region_id query parameter.",
+        "rationale": "list_workers applies the region_id filter directly to the database query without verifying that the requesting user is authorized to view that region. The system defines a dispatcher role and provides a dedicated function assert_dispatcher_can_access_region for region checks, but this function is not used in the workers listing endpoint. Consequently, a dispatcher can enumerate workers in any region, leading to unauthorized data exposure.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Violation of access control (CWE-639). Attackers can retrieve worker records (including employee_code, certifications, availability) from regions they are not permitted to view, potentially exposing PII and internal operational data.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Broken Access Control",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-3663c7f5f0c7ea2d3c702f04",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-639",
+      "cwe_family": "access-control",
+      "data_flow": "worker_id (path) → function argument worker_id (line 72) → DB lookup filter(models.Worker.id == worker_id) (line 78) → returned object (line 84) after only role-based check for customers and field workers.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /api/workers/{worker_id} handler get_worker in backend/app/routers/workers.py.",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-3663c7f5f0c7ea2d3c702f04",
+      "location": "backend/app/routers/workers.py:78-83",
+      "normalized_cwe": "CWE-284",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "authorization/logic class — no syntactic sink to corroborate",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "authorization requires a source-grounded review of the claimed permission, object/tenant scope, and control flow; guard-name detection cannot establish effective permissions",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "access-control:workers.py:object:after,app,argument,backend,based,by,check,customers,db,direct,field,filter,for,get_worker,id,insecure,line,lookup,models,object,only,path,py,reference,retrieval,returned,role,routers,worker,worker_id,workers",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-23_nav.md",
+      "source_id": "VULN-002",
+      "stable_identity": "3663c7f5f0c7ea2d3c702f043d8b617259d41969b79a3fa5f9e9c95710766b0f",
+      "status": "",
+      "test_status": "",
+      "title": "Insecure Direct Object Reference - Worker Retrieval by ID",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler directly queries the Worker model by the supplied ID without verifying that the authenticated user is authorized to view that specific worker, except for field_worker role. Dispatchers can retrieve any worker, leading to IDOR.",
+      "verification_record": {
+        "attacker_control": "Path parameter 'worker_id' supplied by the client in GET /api/workers/{worker_id}",
+        "candidate_id": "CAND-3663c7f5f0c7ea2d3c702f04",
+        "defenses_reviewed": "The handler checks for customer role (reject) and field_worker role mismatch (reject). No check for dispatcher role, allowing any dispatcher to retrieve arbitrary worker records.",
+        "entry_point": "GET /api/workers/{worker_id} handler get_worker in backend/app/routers/workers.py",
+        "evidence": [
+          {
+            "end_line": 83,
+            "evidence_id": "EV-51e793c8e5f4617fbb3620bd",
+            "path": "backend/app/routers/workers.py",
+            "quote": "    w = db.query(models.Worker).filter(models.Worker.id == worker_id).one_or_none()\n    if not w:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    if user.role == models.UserRole.field_worker and (not user.worker or user.worker.id != w.id):\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    return w",
+            "start_line": 78
+          },
+          {
+            "end_line": 38,
+            "evidence_id": "EV-17de4f6679ca851bf9da8c01",
+            "path": "backend/app/models.py",
+            "quote": "class UserRole(str, enum.Enum):\n    ops_admin = \"ops_admin\"\n    dispatcher = \"dispatcher\"\n    field_worker = \"field_worker\"\n    customer = \"customer\"",
+            "start_line": 34
+          }
+        ],
+        "preconditions": "Attacker must be an authenticated user with role 'dispatcher' (or ops_admin) and possess a valid session or API key.",
+        "rationale": "The handler directly queries the Worker model by the supplied ID without verifying that the authenticated user is authorized to view that specific worker, except for field_worker role. Dispatchers can retrieve any worker, leading to IDOR.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Unauthorized disclosure of worker personal and employment information, potentially violating privacy regulations and enabling further attacks.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Open Redirect",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-61b315f0806108e7bb65a11e",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-601",
+      "cwe_family": "open-redirect",
+      "data_flow": "lane (query) → function parameter → RedirectResponse(lane) (sink).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /ops/after/dispatch-afterlane-021",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-61b315f0806108e7bb65a11e",
+      "location": "backend/app/dispatch_operations.py:38-40",
+      "normalized_cwe": "CWE-601",
+      "normalized_severity": "Low",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "Low",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-601 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "Medium",
+      "root_cause_key": "open-redirect:dispatch_operations.py:redirectresponse:after,afterlane,dispatch,lane,open,ops,query,redirect,redirectresponse,sink",
+      "severity": "Low",
+      "severity_rank": 5,
+      "source": "results/sg-2_inj.md",
+      "source_id": "VULN-001",
+      "stable_identity": "61b315f0806108e7bb65a11e3b7977a4aa9dd411216e2b7f9f5de99c89725c13",
+      "status": "",
+      "test_status": "",
+      "title": "Open Redirect via lane query parameter",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler returns RedirectResponse(lane) directly, enabling an attacker to control the redirect target and perform an open redirect attack.",
+      "verification_record": {
+        "attacker_control": "The 'lane' query parameter supplied in the GET request is directly passed as the argument to RedirectResponse without any validation or sanitization.",
+        "candidate_id": "CAND-61b315f0806108e7bb65a11e",
+        "defenses_reviewed": "No validation, sanitization, or allowlist is applied to the 'lane' parameter before it is used in the redirect. The function contains no defensive checks.",
+        "entry_point": "GET /ops/after/dispatch-afterlane-021",
+        "evidence": [
+          {
+            "end_line": 40,
+            "evidence_id": "EV-0dbd92c008253c27f835b156",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.get(\"/after/dispatch-afterlane-021\")\nasync def dispatch_afterlane_021(lane: str = \"/\", gate_ref: None = Depends(_wrk_gate)):\n    return RedirectResponse(lane)\n",
+            "start_line": 37
+          }
+        ],
+        "preconditions": "None; any string provided via the 'lane' query parameter is accepted.",
+        "rationale": "The handler returns RedirectResponse(lane) directly, enabling an attacker to control the redirect target and perform an open redirect attack.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Allows attackers to craft URLs that redirect victims to arbitrary external sites, facilitating phishing, credential theft, and other social engineering attacks.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Insecure Deserialization",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-14843f01434010be67e1248d",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-502",
+      "cwe_family": "deserialization",
+      "data_flow": "request body / blob → optional base64 decode → pickle.loads(raw) → returned object.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/bundle/dispatch-thaw-172",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-14843f01434010be67e1248d",
+      "location": "backend/app/dispatch_operations.py:52-62",
+      "normalized_cwe": "CWE-502",
+      "normalized_severity": "High+",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High+",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-502 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "deserialization:dispatch_operations.py:loads:base64,blob,body,bundle,decode,deserialization,dispatch,insecure,loads,object,ops,optional,pickle,raw,returned,thaw",
+      "severity": "High+",
+      "severity_rank": 1,
+      "source": "results/sg-2_inj.md",
+      "source_id": "VULN-002",
+      "stable_identity": "14843f01434010be67e1248d1425f082643ea33a343aa1f0f1e27ad176a818ae",
+      "status": "",
+      "test_status": "",
+      "title": "Insecure Deserialization via pickle.loads",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler reads raw data from the request body or the \"blob\" query parameter, optionally base64‑decodes it, and then passes it straight to pickle.loads without any validation. Pickle can execute arbitrary code during deserialization, yielding remote code execution.",
+      "verification_record": {
+        "attacker_control": "Attacker controls the request body or the \"blob\" query parameter (optionally base64‑wrapped) which becomes the raw bytes fed to pickle.loads.",
+        "candidate_id": "CAND-14843f01434010be67e1248d",
+        "defenses_reviewed": "No input validation, sanitisation, or safe‑deserialization is performed. The code directly invokes pickle.loads on attacker‑controlled data.",
+        "entry_point": "POST /ops/bundle/dispatch-thaw-172",
+        "evidence": [
+          {
+            "end_line": 51,
+            "evidence_id": "EV-68ca202321558b422deec571",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "\n@router.post(\"/bundle/dispatch-thaw-172\")\nasync def dispatch_bundle_thaw_172(request: Request, gate_ref: None = Depends(_wrk_gate)):",
+            "start_line": 49
+          },
+          {
+            "end_line": 62,
+            "evidence_id": "EV-60509fa8ae2bbb1fea0e24d0",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "    import base64\n    import pickle\n    raw = await request.body()\n    if not raw:\n        raw = request.query_params.get(\"blob\", \"\").encode(\"utf-8\")\n    if request.query_params.get(\"wrap\") == \"b64\":\n        raw = base64.b64decode(raw)\n    if not raw:\n        raw = b\"\\x80\\x04}q\\x00.\"\n    bundle = pickle.loads(raw)\n    return {\"bundle\": repr(bundle)[:200]}",
+            "start_line": 52
+          }
+        ],
+        "preconditions": "Attacker can send a POST request to the endpoint with a crafted body or \"blob\" query parameter.",
+        "rationale": "The handler reads raw data from the request body or the \"blob\" query parameter, optionally base64‑decodes it, and then passes it straight to pickle.loads without any validation. Pickle can execute arbitrary code during deserialization, yielding remote code execution.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Remote Code Execution (RCE) on the server, allowing the attacker to run arbitrary Python code with the privileges of the FastAPI process.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Path Traversal",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-1f5dca3f002579fffd97f4a7",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-22",
+      "cwe_family": "path-traversal",
+      "data_flow": "ref → BASE_EXPORT_DIR / f\"{ref}.json\" → Path.write_text(...) (sink).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/vault/dispatch-stash-231",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-1f5dca3f002579fffd97f4a7",
+      "location": "backend/app/dispatch_operations.py:68-72",
+      "normalized_cwe": "CWE-22",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-22 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "path-traversal:dispatch_operations.py:write_text:arbitrary,base_export_dir,dispatch,file,json,ops,path,ref,sink,stash,traversal,vault,write,write_text",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-2_inj.md",
+      "source_id": "VULN-003",
+      "stable_identity": "1f5dca3f002579fffd97f4a7bf7e3e070d490bd6721a68d84c7dfcb2435a2802",
+      "status": "",
+      "test_status": "",
+      "title": "Path Traversal / Arbitrary File Write via ref parameter",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The supplied 'ref' is concatenated into a filename via f\"{ref}.json\" and combined with BASE_EXPORT_DIR using pathlib's '/' operator. No validation or sanitization is performed, so path traversal components are not normalized, allowing the resulting path to escape BASE_EXPORT_DIR. The subsequent write_text call creates/overwrites the file at the attacker-chosen location, leading to arbitrary file write.",
+      "verification_record": {
+        "attacker_control": "The 'ref' parameter is taken directly from request.query_params or JSON payload without validation.",
+        "candidate_id": "CAND-1f5dca3f002579fffd97f4a7",
+        "defenses_reviewed": "The only defense is the internal token gate (_wrk_gate) which does not validate or sanitize the 'ref' value.",
+        "entry_point": "POST /ops/vault/dispatch-stash-231",
+        "evidence": [
+          {
+            "end_line": 73,
+            "evidence_id": "EV-1d608519b7fee7122cde2746",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.post(\"/vault/dispatch-stash-231\")\nasync def dispatch_vault_stash_231(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    import json\n    payload = await request.json()\n    ref = request.query_params.get(\"ref\", payload.get(\"ref\", \"daily\"))\n    target = BASE_EXPORT_DIR / f\"{ref}.json\"\n    target.parent.mkdir(parents=True, exist_ok=True)\n    target.write_text(json.dumps({\"ref\": ref, \"ssn\": payload.get(\"ssn\", \"111-22-3333\"), \"card\": payload.get(\"card\", \"4111111111111111\")}))\n    return {\"path\": str(target)}\n",
+            "start_line": 64
+          },
+          {
+            "end_line": 20,
+            "evidence_id": "EV-d9eef92557cf20e2e629e813",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "def _wrk_gate(request: Request) -\u003e None:\n    gate_value = os.environ.get(\"INTERNAL_OPS_TOKEN\")\n    if not gate_value or request.headers.get(\"x-internal-token\") != gate_value:\n        raise HTTPException(status_code=403, detail=\"forbidden\")\n",
+            "start_line": 16
+          },
+          {
+            "end_line": 13,
+            "evidence_id": "EV-8c312cfaae517e986cb867a2",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "logger = logging.getLogger(__name__)\nBASE_EXPORT_DIR = Path(os.environ.get(\"PRIVATE_EXPORT_DIR\", \"private_exports\"))\nrouter = APIRouter(prefix=\"/ops\", tags=[\"operations\"])",
+            "start_line": 11
+          }
+        ],
+        "preconditions": "Attacker can supply a 'ref' value containing path traversal sequences (e.g., \"../evil\") in the query string or JSON body, and the server's BASE_EXPORT_DIR is writable.",
+        "rationale": "The supplied 'ref' is concatenated into a filename via f\"{ref}.json\" and combined with BASE_EXPORT_DIR using pathlib's '/' operator. No validation or sanitization is performed, so path traversal components are not normalized, allowing the resulting path to escape BASE_EXPORT_DIR. The subsequent write_text call creates/overwrites the file at the attacker-chosen location, leading to arbitrary file write.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Arbitrary file write can overwrite critical configuration files, deploy web shells, or modify application code, enabling remote code execution or privilege escalation on the server.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Path Traversal",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-3044992ce3acfdf4ad350fad",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-22",
+      "cwe_family": "path-traversal",
+      "data_flow": "name → BASE_EXPORT_DIR / name → Path.write_bytes(body).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/dock/dispatch-shelf-393",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-3044992ce3acfdf4ad350fad",
+      "location": "backend/app/dispatch_operations.py:114-119",
+      "normalized_cwe": "CWE-22",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-22 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "path-traversal:dispatch_operations.py:write_bytes:arbitrary,base_export_dir,body,dispatch,dock,file,name,ops,path,shelf,write,write_bytes",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-2_inj.md",
+      "source_id": "VULN-004",
+      "stable_identity": "3044992ce3acfdf4ad350fade55133c8f391580102b49c1df367c91d482f5bd1",
+      "status": "",
+      "test_status": "",
+      "title": "Arbitrary File Write via name parameter",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler writes the raw request body to a file path derived directly from the attacker-controlled 'name' parameter without any sanitization. Path traversal via \"../\" can escape BASE_EXPORT_DIR, allowing arbitrary file write on the server's filesystem. This constitutes CWE-22 (Path Traversal) and can lead to further compromise (e.g., overwriting executable scripts, configuration files).",
+      "verification_record": {
+        "attacker_control": "The 'name' query parameter is attacker-controlled (default \"packet.bin\"). An attacker can supply any string, including path traversal sequences like \"../evil.txt\".",
+        "candidate_id": "CAND-3044992ce3acfdf4ad350fad",
+        "defenses_reviewed": "The route is protected by the _wrk_gate which checks the 'x-internal-token' header against the INTERNAL_OPS_TOKEN environment variable. No validation or sanitization is performed on the 'name' parameter before it is used to construct a file path.\nBASE_EXPORT_DIR is defined from the PRIVATE_EXPORT_DIR environment variable (default \"private_exports\").",
+        "entry_point": "POST /ops/dock/dispatch-shelf-393",
+        "evidence": [
+          {
+            "end_line": 120,
+            "evidence_id": "EV-c5b0d3e16e79d6d3ac9f4329",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "\n@router.post(\"/dock/dispatch-shelf-393\")\nasync def dispatch_dock_shelf_393(request: Request, name: str = \"packet.bin\", gate_ref: None = Depends(_wrk_gate)):\n    body = await request.body()\n    target = BASE_EXPORT_DIR / name\n    target.parent.mkdir(parents=True, exist_ok=True)\n    target.write_bytes(body)\n    return {\"stored\": str(target), \"bytes\": len(body)}\n",
+            "start_line": 112
+          },
+          {
+            "end_line": 13,
+            "evidence_id": "EV-8c312cfaae517e986cb867a2",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "logger = logging.getLogger(__name__)\nBASE_EXPORT_DIR = Path(os.environ.get(\"PRIVATE_EXPORT_DIR\", \"private_exports\"))\nrouter = APIRouter(prefix=\"/ops\", tags=[\"operations\"])",
+            "start_line": 11
+          },
+          {
+            "end_line": 20,
+            "evidence_id": "EV-d9eef92557cf20e2e629e813",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "def _wrk_gate(request: Request) -\u003e None:\n    gate_value = os.environ.get(\"INTERNAL_OPS_TOKEN\")\n    if not gate_value or request.headers.get(\"x-internal-token\") != gate_value:\n        raise HTTPException(status_code=403, detail=\"forbidden\")\n",
+            "start_line": 16
+          }
+        ],
+        "preconditions": "Attacker must possess a valid internal token matching the INTERNAL_OPS_TOKEN environment variable to bypass the gate.",
+        "rationale": "The handler writes the raw request body to a file path derived directly from the attacker-controlled 'name' parameter without any sanitization. Path traversal via \"../\" can escape BASE_EXPORT_DIR, allowing arbitrary file write on the server's filesystem. This constitutes CWE-22 (Path Traversal) and can lead to further compromise (e.g., overwriting executable scripts, configuration files).",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Arbitrary file write can enable remote code execution, privilege escalation, or data destruction, depending on the server's file system permissions and the locations targeted.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Cross-Site Scripting",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-45db64d73c13adacb14a7e01",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-79",
+      "cwe_family": "xss",
+      "data_flow": "card → Template(\"{{ card|safe }}\").render(card=card) → HTMLResponse.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /ops/blurb/dispatch-tile-320",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-45db64d73c13adacb14a7e01",
+      "location": "backend/app/dispatch_operations.py:85-89",
+      "normalized_cwe": "CWE-79",
+      "normalized_severity": "Medium",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "Medium",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-79 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "reaches an HTML/unescaped response context",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "xss:dispatch_operations.py:render:blurb,card,dispatch,filter,htmlresponse,jinja,ops,reflected,render,safe,template,tile,xss",
+      "severity": "Medium",
+      "severity_rank": 3,
+      "source": "results/sg-2_inj.md",
+      "source_id": "VULN-007",
+      "stable_identity": "45db64d73c13adacb14a7e0142154a30e762638222350290ae2bfdeaa26fc898",
+      "status": "",
+      "test_status": "",
+      "title": "Reflected XSS via Jinja safe filter",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The `card` parameter is taken directly from the request query string (FastAPI binds function arguments to query parameters). It is then passed to a Jinja2 template rendered with `{{ card|safe }}`, which disables HTML escaping. The rendered string is returned in an `HTMLResponse` without further sanitization, leading to reflected XSS. No CSP or X‑XSS‑Protection headers are set for this response.",
+      "verification_record": {
+        "attacker_control": "Query parameter `card` supplied in the GET request to /ops/blurb/dispatch-tile-320.",
+        "candidate_id": "CAND-45db64d73c13adacb14a7e01",
+        "defenses_reviewed": "No sanitization is performed; the Jinja2 `safe` filter disables escaping. The route is protected by `_wrk_gate`, which requires a valid `x-internal-token` header matching the `INTERNAL_OPS_TOKEN` environment variable.",
+        "entry_point": "GET /ops/blurb/dispatch-tile-320",
+        "evidence": [
+          {
+            "end_line": 89,
+            "evidence_id": "EV-7964df2cca873385504f6aa9",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.get(\"/blurb/dispatch-tile-320\")\nasync def dispatch_blurb_tile_320(card: str = \"\u003cb\u003epending\u003c/b\u003e\", gate_ref: None = Depends(_wrk_gate)):\n    from jinja2 import Template\n    body = Template(\"{{ card|safe }}\").render(card=card)\n    return HTMLResponse(body)\n",
+            "start_line": 84
+          },
+          {
+            "end_line": 19,
+            "evidence_id": "EV-5ce1802433c923341c9ca008",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "def _wrk_gate(request: Request) -\u003e None:\n    gate_value = os.environ.get(\"INTERNAL_OPS_TOKEN\")\n    if not gate_value or request.headers.get(\"x-internal-token\") != gate_value:\n        raise HTTPException(status_code=403, detail=\"forbidden\")",
+            "start_line": 16
+          }
+        ],
+        "preconditions": "Attacker must possess a valid internal token to bypass the `_wrk_gate` check (header `x-internal-token` matching `INTERNAL_OPS_TOKEN`).",
+        "rationale": "The `card` parameter is taken directly from the request query string (FastAPI binds function arguments to query parameters). It is then passed to a Jinja2 template rendered with `{{ card|safe }}`, which disables HTML escaping. The rendered string is returned in an `HTMLResponse` without further sanitization, leading to reflected XSS. No CSP or X‑XSS‑Protection headers are set for this response.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "An attacker with the internal token can inject arbitrary HTML/JavaScript into the response, enabling session hijacking, credential theft, or other client‑side attacks against any user who visits the crafted URL.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "XML External Entity (XXE)",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-8821cbcfedd55698a1bff507",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-611",
+      "cwe_family": "xxe",
+      "data_flow": "request body → etree.fromstring(..., parser) → doc.tag returned.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/xml/dispatch-fold-450",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-8821cbcfedd55698a1bff507",
+      "location": "backend/app/dispatch_operations.py:155-160",
+      "normalized_cwe": "CWE-611",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-611 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "xxe:dispatch_operations.py:fromstring:body,dispatch,doc,entity,etree,external,fold,fromstring,injection,ops,parser,returned,tag,xml,xxe",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-2_inj.md",
+      "source_id": "VULN-009",
+      "stable_identity": "8821cbcfedd55698a1bff5076c2946d2921694df2e57a68ae60c927b573f889c",
+      "status": "",
+      "test_status": "",
+      "title": "XML External Entity (XXE) Injection",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler parses attacker-controlled XML with an `XMLParser` that loads DTDs and resolves entities. This allows XML External Entity (XXE) attacks, leading to server‑side request forgery, file disclosure, or denial‑of‑service, even though only `doc.tag` is returned.",
+      "verification_record": {
+        "attacker_control": "The HTTP request body is directly passed to `await request.body()` and used as input to `etree.fromstring`.",
+        "candidate_id": "CAND-8821cbcfedd55698a1bff507",
+        "defenses_reviewed": "No input validation or parser hardening is performed; the XMLParser is instantiated with `load_dtd=True` and `resolve_entities=True`, enabling external entity processing.",
+        "entry_point": "POST /ops/xml/dispatch-fold-450",
+        "evidence": [
+          {
+            "end_line": 160,
+            "evidence_id": "EV-8160c55d09a9cee2c346f923",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.post(\"/xml/dispatch-fold-450\")\nasync def dispatch_xml_fold_450(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from lxml import etree\n    parser = etree.XMLParser(load_dtd=True, resolve_entities=True, no_network=False)\n    doc = etree.fromstring(await request.body(), parser)\n    return {\"root\": doc.tag}",
+            "start_line": 155
+          }
+        ],
+        "preconditions": "Attacker can send an arbitrary XML payload in the POST request body.",
+        "rationale": "The handler parses attacker-controlled XML with an `XMLParser` that loads DTDs and resolves entities. This allows XML External Entity (XXE) attacks, leading to server‑side request forgery, file disclosure, or denial‑of‑service, even though only `doc.tag` is returned.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Potential SSRF, local file read, information disclosure, and service disruption. This aligns with CWE‑611 (XML External Entity Injection).",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Broken Access Control",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-ee4cc41897c5d46036b750c8",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-639",
+      "cwe_family": "access-control",
+      "data_flow": "payload.region_id (request body) → existence check (db.query(models.Region)...) → models.ServiceLocation creation with region_id → DB insert (no ownership verification).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /api/customers/{customer_id}/locations (router customers.create_location).",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-ee4cc41897c5d46036b750c8",
+      "location": "backend/app/routers/customers.py:149-155",
+      "normalized_cwe": "CWE-284",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "authorization/logic class — no syntactic sink to corroborate",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "authorization requires a source-grounded review of the claimed permission, object/tenant scope, and control flow; guard-name detection cannot establish effective permissions",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "access-control:customers.py:insert:assignment,body,check,create_location,creation,customer_id,customers,db,existence,insert,location,locations,models,no,ownership,payload,query,region,region_id,router,servicelocation,unauthorized,verification,with",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-2_nav.md",
+      "source_id": "VULN-001",
+      "stable_identity": "ee4cc41897c5d46036b750c836da0c948032f64da2d14bce65091c48765ceaad",
+      "status": "",
+      "test_status": "",
+      "title": "Unauthorized Region Assignment in Location Creation",
+      "validation_method": "static_reasoning",
+      "verification_reason": "Because `create_location` does not call `assert_dispatcher_can_access_region` (or any equivalent check), a dispatcher can supply any existing `region_id` in the payload, thereby creating a ServiceLocation in a region they are not authorized for. This violates the intended access control model, allowing unauthorized region assignment. Ops admins already have unrestricted rights, so the issue primarily affects dispatchers, potentially leading to improper job routing, data exposure, or billing anomalies.",
+      "verification_record": {
+        "attacker_control": "The attacker controls the `region_id` field in the JSON payload sent to POST /api/customers/{customer_id}/locations, which is mapped to `payload.region_id` and directly assigned to the new ServiceLocation record.",
+        "candidate_id": "CAND-ee4cc41897c5d46036b750c8",
+        "defenses_reviewed": "The codebase includes `assert_dispatcher_can_access_region` in `backend/app/deps.py` which enforces that a dispatcher may only use regions they are assigned to. However, `create_location` does not invoke this check (or any other region authorization) before creating the ServiceLocation. No other validation of `payload.region_id` beyond existence in the Region table is performed.",
+        "entry_point": "POST /api/customers/{customer_id}/locations (router `customers.create_location`)",
+        "evidence": [
+          {
+            "end_line": 158,
+            "evidence_id": "EV-580185bd57125adc0fb3edd7",
+            "path": "backend/app/routers/customers.py",
+            "quote": "    c = db.query(models.Customer).filter(models.Customer.id == customer_id).one_or_none()\n    if not c:\n        raise HTTPException(status_code=404, detail=\"Customer not found\")\n    region = db.query(models.Region).filter(models.Region.id == payload.region_id).one_or_none()\n    if not region:\n        raise HTTPException(status_code=400, detail=\"Invalid region_id\")\n    loc = models.ServiceLocation(\n        customer_id=customer_id,\n        region_id=payload.region_id,\n        label=payload.label.strip(),",
+            "start_line": 149
+          },
+          {
+            "end_line": 174,
+            "evidence_id": "EV-4679f69b64e89c8a36c6e550",
+            "path": "backend/app/routers/customers.py",
+            "quote": "        latitude=payload.latitude,\n        longitude=payload.longitude,\n        notes=payload.notes,\n    )\n    db.add(loc)\n    db.flush()\n    write_audit(db, actor=actor, action=\"customer.location.create\", target_type=\"service_location\", target_id=loc.id, ip_address=get_client_ip(request))\n    db.commit()\n    db.refresh(loc)\n    return loc",
+            "start_line": 165
+          },
+          {
+            "end_line": 122,
+            "evidence_id": "EV-858b7ffec048904b3597c31f",
+            "path": "backend/app/deps.py",
+            "quote": "\n\ndef assert_dispatcher_can_access_region(db: Session, user: models.User, region_id: str) -\u003e None:\n    if user.role == models.UserRole.ops_admin:\n        return\n    if user.role != models.UserRole.dispatcher:\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    regions = dispatcher_region_ids(db, user)\n    if not regions:\n        # Dispatcher with no region assignments cannot manage any region.\n        raise HTTPException(status_code=403, detail=\"Dispatcher has no permitted regions\")\n    if region_id not in regions:\n        raise HTTPException(status_code=403, detail=\"Region not permitted\")\n\n",
+            "start_line": 108
+          }
+        ],
+        "preconditions": "The requester must be authenticated as a user with role `ops_admin` or `dispatcher` (enforced by `require_roles`). Dispatchers may have a limited set of permitted region IDs defined in `DispatcherRegion`. Ops admins have unrestricted access.",
+        "rationale": "Because `create_location` does not call `assert_dispatcher_can_access_region` (or any equivalent check), a dispatcher can supply any existing `region_id` in the payload, thereby creating a ServiceLocation in a region they are not authorized for. This violates the intended access control model, allowing unauthorized region assignment. Ops admins already have unrestricted rights, so the issue primarily affects dispatchers, potentially leading to improper job routing, data exposure, or billing anomalies.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "CWE-639: Authorization bypass. Dispatchers can assign locations to arbitrary regions, potentially causing jobs to be scheduled in regions they cannot manage, exposing sensitive region-specific data, and breaking operational boundaries. This could lead to data leakage, misallocation of resources, and escalation of privileges if region-based policies are enforced elsewhere.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Broken Access Control",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-9b7dd244252048378e86f65c",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-639",
+      "cwe_family": "access-control",
+      "data_flow": "worker_id → DB query db.query(models.Worker).filter(models.Worker.id == worker_id).one_or_none() → returned worker object.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /api/workers/{worker_id} (router workers.py).",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-9b7dd244252048378e86f65c",
+      "location": "backend/app/routers/workers.py:70-84",
+      "normalized_cwe": "CWE-284",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "authorization/logic class — no syntactic sink to corroborate",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "authorization requires a source-grounded review of the claimed permission, object/tenant scope, and control flow; guard-name detection cannot establish effective permissions",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "access-control:workers.py:one_or_none:accessing,arbitrary,db,details,dispatcher,filter,id,idor,models,object,one_or_none,py,query,returned,router,worker,worker_id,workers",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-2_nav.md",
+      "source_id": "VULN-004",
+      "stable_identity": "9b7dd244252048378e86f65cec8939c45e4b8b1ae623bbf6a8380ecf32c371b6",
+      "status": "",
+      "test_status": "",
+      "title": "IDOR via dispatcher accessing arbitrary worker details",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The endpoint returns worker details based solely on the supplied worker_id without verifying that the authenticated dispatcher has permission to view that specific worker. Dispatchers and ops_admins can retrieve any worker, resulting in an IDOR vulnerability.",
+      "verification_record": {
+        "attacker_control": "Path parameter 'worker_id' supplied by the client in GET /api/workers/{worker_id}",
+        "candidate_id": "CAND-9b7dd244252048378e86f65c",
+        "defenses_reviewed": "The handler checks for user.role == customer (reject) and user.role == field_worker with matching worker ID (reject). No check for dispatcher or ops_admin, allowing them to retrieve any worker record.",
+        "entry_point": "GET /api/workers/{worker_id}",
+        "evidence": [
+          {
+            "end_line": 84,
+            "evidence_id": "EV-51e863f41e07b9c541135083",
+            "path": "backend/app/routers/workers.py",
+            "quote": "@router.get(\"/{worker_id}\", response_model=schemas.WorkerOut)\ndef get_worker(\n    worker_id: str,\n    db: Session = Depends(get_db),\n    user: models.User = Depends(get_current_user),\n):\n    if user.role == models.UserRole.customer:\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    w = db.query(models.Worker).filter(models.Worker.id == worker_id).one_or_none()\n    if not w:\n        raise HTTPException(status_code=404, detail=\"Not found\")\n    if user.role == models.UserRole.field_worker and (not user.worker or user.worker.id != w.id):\n        raise HTTPException(status_code=403, detail=\"Forbidden\")\n    return w\n",
+            "start_line": 70
+          },
+          {
+            "end_line": 38,
+            "evidence_id": "EV-d1f180deb667127de8d68d5d",
+            "path": "backend/app/models.py",
+            "quote": "\nclass UserRole(str, enum.Enum):\n    ops_admin = \"ops_admin\"\n    dispatcher = \"dispatcher\"\n    field_worker = \"field_worker\"\n    customer = \"customer\"",
+            "start_line": 33
+          }
+        ],
+        "preconditions": "Attacker must be authenticated (session cookie or API key) as a dispatcher or ops_admin role.",
+        "rationale": "The endpoint returns worker details based solely on the supplied worker_id without verifying that the authenticated dispatcher has permission to view that specific worker. Dispatchers and ops_admins can retrieve any worker, resulting in an IDOR vulnerability.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Allows disclosure of any worker's personal and employment information (employee code, region, certifications, availability). Could be used for privacy violations or further attacks.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-82306cca5fc3164a6520a3c0",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-90",
+      "cwe_family": "",
+      "data_flow": "JSON body → payload → query → MongoClient(...).ops.records.find_one(query).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/mongo/dispatch-lane-415",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-82306cca5fc3164a6520a3c0",
+      "location": "backend/app/dispatch_operations.py:130-134",
+      "normalized_cwe": "CWE-90",
+      "normalized_severity": "",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "the checker has no sink rule for this class",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "nosql-injection:dispatch_operations.py:find_one:body,dispatch,find_one,injection,json,lane,mongo,mongoclient,mongodb,nosql,ops,payload,query,records",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-3_inj.md",
+      "source_id": "VULN-007",
+      "stable_identity": "82306cca5fc3164a6520a3c05937ff3557a69848aa0f7b5d83baf20132c00e8c",
+      "status": "",
+      "test_status": "",
+      "title": "NoSQL Injection via MongoDB query",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The code extracts the request JSON, selects the 'filter' key (or the whole payload) as the query object, and passes it unchecked to MongoClient.find_one. This allows an attacker to inject MongoDB operators such as $gt, $ne, $where, etc., manipulating the query to retrieve unauthorized documents or cause denial-of-service via expensive queries.",
+      "verification_record": {
+        "attacker_control": "Attacker controls the JSON payload sent in the POST request body to /ops/mongo/dispatch-lane-415, specifically the 'filter' field which is used directly as the MongoDB query object.",
+        "candidate_id": "CAND-82306cca5fc3164a6520a3c0",
+        "defenses_reviewed": "The handler performs no validation, sanitization, or type checking on the payload before using it as a MongoDB query. The only apparent defense is the dependency _wrk_gate, but its implementation does not restrict query content.",
+        "entry_point": "POST /ops/mongo/dispatch-lane-415",
+        "evidence": [
+          {
+            "end_line": 134,
+            "evidence_id": "EV-67972e93dd526b619ce20a78",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.post(\"/mongo/dispatch-lane-415\")\nasync def dispatch_mongo_lane_415(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from pymongo import MongoClient\n    payload = await request.json()\n    query = payload.get(\"filter\", payload)\n    doc = MongoClient(os.environ.get(\"MONGO_URL\", \"mongodb://localhost:27017\")).ops.records.find_one(query)\n    return {\"match\": repr(doc)[:200]}",
+            "start_line": 128
+          }
+        ],
+        "preconditions": "The application is running with a reachable MongoDB instance (MONGO_URL environment variable) and the attacker can send arbitrary JSON in the request body.",
+        "rationale": "The code extracts the request JSON, selects the 'filter' key (or the whole payload) as the query object, and passes it unchecked to MongoClient.find_one. This allows an attacker to inject MongoDB operators such as $gt, $ne, $where, etc., manipulating the query to retrieve unauthorized documents or cause denial-of-service via expensive queries.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "An attacker can perform NoSQL injection to read arbitrary records from the 'ops.records' collection, potentially exposing sensitive data and bypassing intended access controls.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "XML External Entity (XXE)",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-85cb3fa183c187878d963828",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-611",
+      "cwe_family": "xxe",
+      "data_flow": "request body → etree.fromstring(..., parser) → doc.tag returned.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/xml/dispatch-fold-450",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-85cb3fa183c187878d963828",
+      "location": "backend/app/dispatch_operations.py:157-160",
+      "normalized_cwe": "CWE-611",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-611 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "High+",
+      "root_cause_key": "xxe:dispatch_operations.py:fromstring:body,dispatch,doc,entity,etree,external,fold,fromstring,ops,parser,returned,tag,unsafe,xml,xxe",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-3_inj.md",
+      "source_id": "VULN-008",
+      "stable_identity": "85cb3fa183c187878d963828371e8c540b735221fa8242f3c65ee2a58975a7a0",
+      "status": "",
+      "test_status": "",
+      "title": "XML External Entity (XXE) via unsafe parser",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The endpoint directly parses attacker‑controlled XML with an lxml parser configured to load external DTDs and resolve entities, and without disabling network access. This allows an attacker to embed external entity declarations (e.g., \u003c!ENTITY x SYSTEM \"file:///etc/passwd\"\u003e) that are expanded when the XML is parsed, leading to XXE attacks. The parsed document is then used only to return the root tag, but the side‑effects of entity expansion (file read, SSRF) occur during parsing.",
+      "verification_record": {
+        "attacker_control": "The POST request body is parsed as XML without sanitization. The attacker controls the raw XML sent to /ops/xml/dispatch-fold-450.",
+        "candidate_id": "CAND-85cb3fa183c187878d963828",
+        "defenses_reviewed": "No input validation, entity filtering, or network restrictions are applied. The lxml parser is instantiated with load_dtd=True, resolve_entities=True, and no_network=False, which enables external entity processing.",
+        "entry_point": "POST /ops/xml/dispatch-fold-450",
+        "evidence": [
+          {
+            "end_line": 161,
+            "evidence_id": "EV-933c7659367a37c4394f2a42",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "    response.headers[\"Content-Security-Policy\"] = \"\"\n    return response\n\n@router.get(\"/badge/dispatch-gate-435\")\nasync def dispatch_badge_gate_435(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    badge = request.cookies.get(\"ops_badge\") or request.headers.get(\"x-ops-badge\", \"\")\n    if badge == \"lead\":\n        return {\"lane\": \"elevated\", \"payroll\": \"full\", \"casework\": \"open\"}\n    return {\"lane\": \"standard\"}\n\n@router.get(\"/trace/dispatch-panel-445\")\nasync def dispatch_trace_panel_445(gate_ref: None = Depends(_wrk_gate)):\n    trace_on = True\n    return {\"trace\": trace_on, \"module\": os.environ.get(\"APP_ENV\"), \"base\": str(BASE_EXPORT_DIR)}\n\n@router.post(\"/xml/dispatch-fold-450\")\nasync def dispatch_xml_fold_450(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from lxml import etree\n    parser = etree.XMLParser(load_dtd=True, resolve_entities=True, no_network=False)\n    doc = etree.fromstring(await request.body(), parser)\n    return {\"root\": doc.tag}\n",
+            "start_line": 140
+          }
+        ],
+        "preconditions": "The server must have the `lxml` library installed and reachable network/Disk resources. The endpoint must be reachable and accept XML payloads.",
+        "rationale": "The endpoint directly parses attacker‑controlled XML with an lxml parser configured to load external DTDs and resolve entities, and without disabling network access. This allows an attacker to embed external entity declarations (e.g., \u003c!ENTITY x SYSTEM \"file:///etc/passwd\"\u003e) that are expanded when the XML is parsed, leading to XXE attacks. The parsed document is then used only to return the root tag, but the side‑effects of entity expansion (file read, SSRF) occur during parsing.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "An attacker can read arbitrary files on the server, perform SSRF to internal services, or cause denial‑of‑service via large entity expansion. This constitutes a high‑severity CWE‑611 vulnerability.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-0e739a693d75797ae3fd9551",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-90",
+      "cwe_family": "",
+      "data_flow": "payload → query = payload.get(\"filter\", payload) → MongoClient(...).ops.records.find_one(query) (sink).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/mongo/dispatch-lane-415",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-0e739a693d75797ae3fd9551",
+      "location": "backend/app/dispatch_operations.py:131-134",
+      "normalized_cwe": "CWE-90",
+      "normalized_severity": "",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "the checker has no sink rule for this class",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "nosql-injection:dispatch_operations.py:find_one:dispatch,filter,find_one,injection,lane,mongo,mongoclient,mongodb,nosql,ops,payload,query,records,sink",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-3_inj.md",
+      "source_id": "VULN-008",
+      "stable_identity": "0e739a693d75797ae3fd95515d19ab2fbb48b7dc01e1fc9bc0728628aeeaa047",
+      "status": "",
+      "test_status": "",
+      "title": "NoSQL Injection via MongoDB Query",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler reads the request JSON, extracts a 'filter' field (or uses the whole payload) and passes it unchanged to MongoClient.find_one(). This allows injection of MongoDB operators (e.g., $gt, $ne, $where) leading to unauthorized data access or server‑side JavaScript execution.",
+      "verification_record": {
+        "attacker_control": "JSON body of the POST request (payload) is directly used as MongoDB query without sanitization.",
+        "candidate_id": "CAND-0e739a693d75797ae3fd9551",
+        "defenses_reviewed": "The endpoint is protected by the internal gate _wrk_gate, which checks for a specific internal token header. No validation or sanitization of the payload occurs after the gate passes.",
+        "entry_point": "POST /ops/mongo/dispatch-lane-415",
+        "evidence": [
+          {
+            "end_line": 134,
+            "evidence_id": "EV-67972e93dd526b619ce20a78",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.post(\"/mongo/dispatch-lane-415\")\nasync def dispatch_mongo_lane_415(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from pymongo import MongoClient\n    payload = await request.json()\n    query = payload.get(\"filter\", payload)\n    doc = MongoClient(os.environ.get(\"MONGO_URL\", \"mongodb://localhost:27017\")).ops.records.find_one(query)\n    return {\"match\": repr(doc)[:200]}",
+            "start_line": 128
+          },
+          {
+            "end_line": 19,
+            "evidence_id": "EV-5ce1802433c923341c9ca008",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "def _wrk_gate(request: Request) -\u003e None:\n    gate_value = os.environ.get(\"INTERNAL_OPS_TOKEN\")\n    if not gate_value or request.headers.get(\"x-internal-token\") != gate_value:\n        raise HTTPException(status_code=403, detail=\"forbidden\")",
+            "start_line": 16
+          }
+        ],
+        "preconditions": "Attacker can supply a valid INTERNAL_OPS_TOKEN header and control the JSON request body.",
+        "rationale": "The handler reads the request JSON, extracts a 'filter' field (or uses the whole payload) and passes it unchanged to MongoClient.find_one(). This allows injection of MongoDB operators (e.g., $gt, $ne, $where) leading to unauthorized data access or server‑side JavaScript execution.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "An attacker who can reach this endpoint can retrieve arbitrary documents from the ops.records collection, potentially exposing sensitive operational data. Use of $where could lead to remote code execution on the MongoDB server.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Cross-Site Scripting",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-7b08361efcaf1d7b99cee7fa",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-79",
+      "cwe_family": "xss",
+      "data_flow": "card → Template(\"{{ card|safe }}\").render(card=card) → HTMLResponse.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /ops/blurb/dispatch-tile-320",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-7b08361efcaf1d7b99cee7fa",
+      "location": "backend/app/dispatch_operations.py:88",
+      "normalized_cwe": "CWE-79",
+      "normalized_severity": "Medium",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "Medium",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-79 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "reaches an HTML/unescaped response context",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "xss:dispatch_operations.py:render:blurb,card,dispatch,htmlresponse,jinja,ops,reflected,render,rendering,safe,template,tile,unsafe,xss",
+      "severity": "Medium",
+      "severity_rank": 3,
+      "source": "results/sg-3_log.md",
+      "source_id": "VULN-005",
+      "stable_identity": "7b08361efcaf1d7b99cee7fa1ea51a640af96ff384c850b76c5406e5c004ba72",
+      "status": "",
+      "test_status": "",
+      "title": "Reflected XSS via Unsafe Jinja Rendering (card parameter)",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The 'card' parameter is directly passed to Jinja2 Template rendering with the '|safe' filter, resulting in the value being inserted into the HTML response without escaping. This enables injection of arbitrary HTML/JavaScript, leading to reflected XSS.",
+      "verification_record": {
+        "attacker_control": "GET query parameter 'card' supplied to /ops/blurb/dispatch-tile-320",
+        "candidate_id": "CAND-7b08361efcaf1d7b99cee7fa",
+        "defenses_reviewed": "None; the code uses Jinja2 Template with the '|safe' filter, which disables escaping. No validation or sanitization of the 'card' parameter is performed.",
+        "entry_point": "GET /ops/blurb/dispatch-tile-320",
+        "evidence": [
+          {
+            "end_line": 103,
+            "evidence_id": "EV-3622613ff370da43063e812b",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "\n@router.get(\"/formula/dispatch-cast-254\")\nasync def dispatch_formula_cast_254(expr: str = \"amount + fee\", gate_ref: None = Depends(_wrk_gate)):\n    result = eval(expr, {\"__builtins__\": {}}, {\"amount\": 42, \"fee\": 7})\n    return {\"result\": result}\n\n@router.get(\"/spool/dispatch-fan-304\")\nasync def dispatch_spool_fan_304(count: int = 500, ref: str = \"batch\", gate_ref: None = Depends(_wrk_gate)):\n    rows = [{\"idx\": idx, \"ref\": ref} for idx in range(count)]\n    return {\"rows\": rows}\n\n@router.get(\"/blurb/dispatch-tile-320\")\nasync def dispatch_blurb_tile_320(card: str = \"\u003cb\u003epending\u003c/b\u003e\", gate_ref: None = Depends(_wrk_gate)):\n    from jinja2 import Template\n    body = Template(\"{{ card|safe }}\").render(card=card)\n    return HTMLResponse(body)\n\n@router.get(\"/identity/dispatch-hint-365\")\nasync def dispatch_identity_hint_365(handle: str = \"\", verifier: str = \"\", gate_ref: None = Depends(_wrk_gate)):\n    known = {\"north\": \"4812\", \"south\": \"5930\"}\n    if handle not in known:\n        return JSONResponse({\"detail\": \"unknown handle\"}, status_code=404)\n    if verifier != known[handle]:\n        return JSONResponse({\"detail\": \"bad verifier\"}, status_code=403)\n    return {\"status\": \"queued\"}\n\n@router.get(\"/origin/dispatch-mirror-375\")\nasync def dispatch_origin_mirror_375(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    origin = request.headers.get(\"origin\", \"*\")\n    response = JSONResponse({\"origin\": origin})\n    response.headers[\"Access-Control-Allow-Origin\"] = origin",
+            "start_line": 73
+          }
+        ],
+        "preconditions": "Attacker can make a GET request to the endpoint with an arbitrary 'card' query parameter value.",
+        "rationale": "The 'card' parameter is directly passed to Jinja2 Template rendering with the '|safe' filter, resulting in the value being inserted into the HTML response without escaping. This enables injection of arbitrary HTML/JavaScript, leading to reflected XSS.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "An attacker can execute arbitrary JavaScript in the victim's browser, enabling session hijacking, credential theft, or other malicious actions.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Path Traversal",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-37fcb8e0ad21d6b65818a76c",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-73",
+      "cwe_family": "path-traversal",
+      "data_flow": "name → target = BASE_EXPORT_DIR / name (line 116) → target.write_bytes(body) (line 118).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/dock/dispatch-shelf-393?name=../../evil.bin with body.",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-37fcb8e0ad21d6b65818a76c",
+      "location": "backend/app/dispatch_operations.py:114-119",
+      "normalized_cwe": "CWE-22",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "the checker has no sink rule for this class",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "path-traversal:dispatch_operations.py:write_bytes:arbitrary,base_export_dir,bin,body,cwe,dispatch,dock,evil,file,filename,line,name,ops,shelf,target,with,write,write_bytes",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-3_nav.md",
+      "source_id": "VULN-004",
+      "stable_identity": "37fcb8e0ad21d6b65818a76cb8582ee6bdc3e4c07c317122f3819fba31b5881b",
+      "status": "",
+      "test_status": "",
+      "title": "Arbitrary File Write via Filename Parameter (CWE-73)",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The 'name' parameter is concatenated with BASE_EXPORT_DIR using the '/' operator, creating a Path that may contain directory traversal components. The code then creates parent directories (target.parent.mkdir) and writes the request body to the resulting path without any sanitization. This enables an attacker to write arbitrary files relative to BASE_EXPORT_DIR, potentially escaping to any location via '../' sequences.",
+      "verification_record": {
+        "attacker_control": "The 'name' query parameter is bound by FastAPI to the function argument 'name' (default \"packet.bin\"). An attacker can supply any string, e.g., \"../../evil.bin\", which is used directly in constructing the file path.",
+        "candidate_id": "CAND-37fcb8e0ad21d6b65818a76c",
+        "defenses_reviewed": "The route is protected by _wrk_gate, which checks for a matching internal token header. No validation or sanitization of the 'name' parameter is performed.",
+        "entry_point": "POST /ops/dock/dispatch-shelf-393",
+        "evidence": [
+          {
+            "end_line": 120,
+            "evidence_id": "EV-55a8f794e81a007c524eb683",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "    body = Template(\"Result: \" + fragment).render()\n    return HTMLResponse(body)\n\n@router.post(\"/dock/dispatch-shelf-393\")\nasync def dispatch_dock_shelf_393(request: Request, name: str = \"packet.bin\", gate_ref: None = Depends(_wrk_gate)):\n    body = await request.body()\n    target = BASE_EXPORT_DIR / name\n    target.parent.mkdir(parents=True, exist_ok=True)\n    target.write_bytes(body)\n    return {\"stored\": str(target), \"bytes\": len(body)}\n",
+            "start_line": 110
+          },
+          {
+            "end_line": 13,
+            "evidence_id": "EV-60155d9cdd9851cc2e7d04ca",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "\nlogger = logging.getLogger(__name__)\nBASE_EXPORT_DIR = Path(os.environ.get(\"PRIVATE_EXPORT_DIR\", \"private_exports\"))\nrouter = APIRouter(prefix=\"/ops\", tags=[\"operations\"])",
+            "start_line": 10
+          },
+          {
+            "end_line": 20,
+            "evidence_id": "EV-d9eef92557cf20e2e629e813",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "def _wrk_gate(request: Request) -\u003e None:\n    gate_value = os.environ.get(\"INTERNAL_OPS_TOKEN\")\n    if not gate_value or request.headers.get(\"x-internal-token\") != gate_value:\n        raise HTTPException(status_code=403, detail=\"forbidden\")\n",
+            "start_line": 16
+          }
+        ],
+        "preconditions": "Attacker must possess a valid 'x-internal-token' header matching the INTERNAL_OPS_TOKEN environment variable, or otherwise bypass the gate.",
+        "rationale": "The 'name' parameter is concatenated with BASE_EXPORT_DIR using the '/' operator, creating a Path that may contain directory traversal components. The code then creates parent directories (target.parent.mkdir) and writes the request body to the resulting path without any sanitization. This enables an attacker to write arbitrary files relative to BASE_EXPORT_DIR, potentially escaping to any location via '../' sequences.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Arbitrary file write can lead to overwriting critical configuration files, planting malicious scripts, or achieving remote code execution if written to executable locations. It also allows privilege escalation by modifying files accessed by other services.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "NoSQL Injection",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-c53db8ab7eda2caa3e0c2816",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-943",
+      "cwe_family": "nosql-injection",
+      "data_flow": "JSON body → query → MongoClient(...).ops.records.find_one(query).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/mongo/dispatch-lane-415",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-c53db8ab7eda2caa3e0c2816",
+      "location": "backend/app/dispatch_operations.py:131-133",
+      "normalized_cwe": "CWE-943",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-943 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "nosql-injection:dispatch_operations.py:find_one:body,dispatch,dispatch_mongo_lane_415,find_one,injection,json,lane,mongo,mongoclient,mongodb,nosql,ops,query,records",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-4_inj.md",
+      "source_id": "VULN-008",
+      "stable_identity": "c53db8ab7eda2caa3e0c28164013057557b67902f1d182d3bc8d1f74960cbc8a",
+      "status": "",
+      "test_status": "",
+      "title": "NoSQL injection via MongoDB query in dispatch_mongo_lane_415",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler reads the request JSON, extracts a 'filter' object (or entire payload) and passes it directly to MongoClient.find_one without sanitization. This allows an attacker controlling the request body to craft arbitrary MongoDB query operators (e.g., $gt, $regex, $where) leading to NoSQL injection. The gate check is the only defense; if the token is known or bypassed, the injection is exploitable.",
+      "verification_record": {
+        "attacker_control": "JSON body of POST request to /ops/mongo/dispatch-lane-415 (payload)",
+        "candidate_id": "CAND-c53db8ab7eda2caa3e0c2816",
+        "defenses_reviewed": "Gate _wrk_gate checks for internal token header 'x-internal-token' against INTERNAL_OPS_TOKEN env var; raises 403 if missing or mismatched",
+        "entry_point": "POST /ops/mongo/dispatch-lane-415",
+        "evidence": [
+          {
+            "end_line": 135,
+            "evidence_id": "EV-eb69ec3512bfb4013ed341fc",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.post(\"/mongo/dispatch-lane-415\")\nasync def dispatch_mongo_lane_415(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from pymongo import MongoClient\n    payload = await request.json()\n    query = payload.get(\"filter\", payload)\n    doc = MongoClient(os.environ.get(\"MONGO_URL\", \"mongodb://localhost:27017\")).ops.records.find_one(query)\n    return {\"match\": repr(doc)[:200]}\n",
+            "start_line": 128
+          },
+          {
+            "end_line": 20,
+            "evidence_id": "EV-d9eef92557cf20e2e629e813",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "def _wrk_gate(request: Request) -\u003e None:\n    gate_value = os.environ.get(\"INTERNAL_OPS_TOKEN\")\n    if not gate_value or request.headers.get(\"x-internal-token\") != gate_value:\n        raise HTTPException(status_code=403, detail=\"forbidden\")\n",
+            "start_line": 16
+          }
+        ],
+        "preconditions": "Attacker must possess a valid internal token (x-internal-token header) matching INTERNAL_OPS_TOKEN environment variable",
+        "rationale": "The handler reads the request JSON, extracts a 'filter' object (or entire payload) and passes it directly to MongoClient.find_one without sanitization. This allows an attacker controlling the request body to craft arbitrary MongoDB query operators (e.g., $gt, $regex, $where) leading to NoSQL injection. The gate check is the only defense; if the token is known or bypassed, the injection is exploitable.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Arbitrary read of any document in the 'ops.records' collection, potentially exposing sensitive data. Advanced operators like $where could execute server‑side JavaScript, leading to remote code execution on the MongoDB server. This constitutes a confidentiality breach and possible escalation.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Broken Access Control",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-221c3bf8b2684becd7aeb590",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-639",
+      "cwe_family": "access-control",
+      "data_flow": "payload = await request.json() → query = payload.get(\"filter\", payload) → MongoClient(...).ops.records.find_one(query) → returned document.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/mongo/dispatch-lane-415 with body { \"filter\": { \"$gt\": \"\" } } etc.",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-221c3bf8b2684becd7aeb590",
+      "location": "backend/app/dispatch_operations.py:128-134",
+      "normalized_cwe": "CWE-284",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "authorization/logic class — no syntactic sink to corroborate",
+          "status": "fail"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "authorization requires a source-grounded review of the claimed permission, object/tenant scope, and control flow; guard-name detection cannot establish effective permissions",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "access-control:dispatch_operations.py:find_one:await,body,dispatch,document,etc,filter,find_one,gt,idor,injection,json,lane,mongo,mongoclient,nosql,ops,payload,query,records,returned,unrestricted,with",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-4_nav.md",
+      "source_id": "VULN-003",
+      "stable_identity": "221c3bf8b2684becd7aeb59015f80ae5247fdb91b95d8ebc929985b2e6549593",
+      "status": "",
+      "test_status": "",
+      "title": "NoSQL Injection / IDOR via Unrestricted Mongo Query",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The function reads the request body as JSON (`payload = await request.json()`), extracts a query object (`query = payload.get(\"filter\", payload)`), and directly uses it as the argument to `find_one`. MongoDB query objects are themselves JSON-like dictionaries, so an attacker can inject any operators (e.g., `$gt`, `$regex`, `$where`) and retrieve arbitrary documents or execute server‑side JavaScript, constituting NoSQL injection and IDOR.",
+      "verification_record": {
+        "attacker_control": "The request body is parsed as JSON without any schema validation. The value of the \"filter\" field (or the entire payload if \"filter\" is missing) is assigned to `query` and passed directly to `MongoClient(...).ops.records.find_one(query)`, giving the attacker full control over the MongoDB query object.",
+        "candidate_id": "CAND-221c3bf8b2684becd7aeb590",
+        "defenses_reviewed": "The endpoint only applies the internal token gate (`_wrk_gate`) which checks a static header token. No input validation, sanitization, or allowlist is performed on the parsed JSON before it is used as a Mongo query. No other middleware modifies the request body for this route.",
+        "entry_point": "POST /ops/mongo/dispatch-lane-415",
+        "evidence": [
+          {
+            "end_line": 134,
+            "evidence_id": "EV-67972e93dd526b619ce20a78",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.post(\"/mongo/dispatch-lane-415\")\nasync def dispatch_mongo_lane_415(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from pymongo import MongoClient\n    payload = await request.json()\n    query = payload.get(\"filter\", payload)\n    doc = MongoClient(os.environ.get(\"MONGO_URL\", \"mongodb://localhost:27017\")).ops.records.find_one(query)\n    return {\"match\": repr(doc)[:200]}",
+            "start_line": 128
+          }
+        ],
+        "preconditions": "A MongoDB instance is reachable via the `MONGO_URL` environment variable (default `mongodb://localhost:27017`). The attacker can send an arbitrary JSON payload in the POST request body to the endpoint.",
+        "rationale": "The function reads the request body as JSON (`payload = await request.json()`), extracts a query object (`query = payload.get(\"filter\", payload)`), and directly uses it as the argument to `find_one`. MongoDB query objects are themselves JSON-like dictionaries, so an attacker can inject any operators (e.g., `$gt`, `$regex`, `$where`) and retrieve arbitrary documents or execute server‑side JavaScript, constituting NoSQL injection and IDOR.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Confidentiality breach: attacker can read any document in the `ops.records` collection, potentially exposing sensitive business or personal data. Although the operation is read‑only, exposure of internal data can facilitate further attacks such as credential harvesting or business intelligence leakage.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Open Redirect",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-e796748df72d16e43fb5b856",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-601",
+      "cwe_family": "open-redirect",
+      "data_flow": "query param → RedirectResponse(lane) → HTTP 307/302 to attacker-chosen URL.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /ops/after/dispatch-afterlane-021",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-e796748df72d16e43fb5b856",
+      "location": "backend/app/dispatch_operations.py:37-40",
+      "normalized_cwe": "CWE-601",
+      "normalized_severity": "Low",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "Low",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-601 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "Medium",
+      "root_cause_key": "open-redirect:dispatch_operations.py:redirectresponse:after,afterlane,attacker,chosen,dispatch,http,lane,open,ops,query,redirect,redirectresponse,url",
+      "severity": "Low",
+      "severity_rank": 5,
+      "source": "results/sg-5_inj.md",
+      "source_id": "VULN-005",
+      "stable_identity": "e796748df72d16e43fb5b856d6d62eb0eb74e52b8cf46c623d8f59d37ca19997",
+      "status": "",
+      "test_status": "",
+      "title": "Open Redirect",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler directly returns RedirectResponse(lane), causing FastAPI/Starlette to issue an HTTP 307/302 redirect to the URL supplied by the user. This is a classic open redirect vulnerability (CWE‑601). An attacker can craft a URL like https://victim.com/ops/after/dispatch-afterlane-021?lane=https://malicious.com to lure users into visiting a malicious site, facilitating phishing or further attacks.",
+      "verification_record": {
+        "attacker_control": "The 'lane' query parameter supplied by the client in the GET request (e.g., /ops/after/dispatch-afterlane-021?lane=... ) is directly passed to RedirectResponse without validation.",
+        "candidate_id": "CAND-e796748df72d16e43fb5b856",
+        "defenses_reviewed": "No validation, sanitization, or allowlist is applied to the 'lane' parameter before it is used as the redirect target. The Depends(_wrk_gate) only checks gate access, not the redirect URL.",
+        "entry_point": "GET /ops/after/dispatch-afterlane-021",
+        "evidence": [
+          {
+            "end_line": 42,
+            "evidence_id": "EV-b03727a3237f37562f7f0ab9",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "\n@router.get(\"/after/dispatch-afterlane-021\")\nasync def dispatch_afterlane_021(lane: str = \"/\", gate_ref: None = Depends(_wrk_gate)):\n    return RedirectResponse(lane)\n\n@router.post(\"/delta/dispatch-nudge-126\")\nasync def dispatch_delta_126(request: Request, gate_ref: None = Depends(_wrk_gate)):",
+            "start_line": 36
+          },
+          {
+            "end_line": 45,
+            "evidence_id": "EV-18abc767fdc9c72cd59e68c5",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.post(\"/wire/dispatch-manifest-tally-020\")\nasync def dispatch_manifest_tally_020(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    wire_text = (await request.body()).decode(\"utf-8\", errors=\"replace\")\n    logger.warning(\"route manifest intake body=%s auth=%s\", wire_text, request.headers.get(\"authorization\"))\n    return {\"status\": \"queued\"}\n\n\n@router.get(\"/after/dispatch-afterlane-021\")\nasync def dispatch_afterlane_021(lane: str = \"/\", gate_ref: None = Depends(_wrk_gate)):\n    return RedirectResponse(lane)\n\n@router.post(\"/delta/dispatch-nudge-126\")\nasync def dispatch_delta_126(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    payload = await request.json()\n    amount = int(payload.get(\"amount\", -250))\n    ledger = {\"state\": \"approved\", \"balance\": 1200, \"limit\": 900}",
+            "start_line": 30
+          }
+        ],
+        "preconditions": "The attacker must be able to send a GET request to the endpoint with a 'lane' query parameter. No additional constraints (e.g., authentication) are required beyond any gate check, which is not tied to the redirect value.",
+        "rationale": "The handler directly returns RedirectResponse(lane), causing FastAPI/Starlette to issue an HTTP 307/302 redirect to the URL supplied by the user. This is a classic open redirect vulnerability (CWE‑601). An attacker can craft a URL like https://victim.com/ops/after/dispatch-afterlane-021?lane=https://malicious.com to lure users into visiting a malicious site, facilitating phishing or further attacks.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Open redirect enables phishing, credential harvesting, and can be leveraged in cross‑site request forgery (CSRF) bypasses. It may also affect SEO and trust. The impact is high for any public‑facing endpoint.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Cross-Site Scripting",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-27cdb39a294b8e8c76b2ca87",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-79",
+      "cwe_family": "xss",
+      "data_flow": "query param → Jinja Template(\"{{ card|safe }}\") → HTMLResponse.",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /ops/blurb/dispatch-tile-320",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-27cdb39a294b8e8c76b2ca87",
+      "location": "backend/app/dispatch_operations.py:84-88",
+      "normalized_cwe": "CWE-79",
+      "normalized_severity": "Medium",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "Medium",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-79 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "reaches an HTML/unescaped response context",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "xss:dispatch_operations.py:template:blurb,card,dispatch,html,htmlresponse,injection,jinja,ops,query,reflected,safe,template,tile,xss",
+      "severity": "Medium",
+      "severity_rank": 3,
+      "source": "results/sg-5_inj.md",
+      "source_id": "VULN-006",
+      "stable_identity": "27cdb39a294b8e8c76b2ca87b7328d646826a4c74d2b495e18b5513d06641c12",
+      "status": "",
+      "test_status": "",
+      "title": "Reflected HTML Injection (XSS)",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler renders the 'card' parameter using a Jinja2 template with the '|safe' filter, which disables auto‑escaping. The resulting HTML is returned directly in an HTMLResponse, creating a reflected XSS vector.",
+      "verification_record": {
+        "attacker_control": "card query parameter in GET /ops/blurb/dispatch-tile-320",
+        "candidate_id": "CAND-27cdb39a294b8e8c76b2ca87",
+        "defenses_reviewed": "No input sanitization; Jinja2 safe filter disables escaping, allowing raw HTML injection.",
+        "entry_point": "GET /ops/blurb/dispatch-tile-320",
+        "evidence": [
+          {
+            "end_line": 90,
+            "evidence_id": "EV-33ad202bcb383d455b73a1e6",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "    target.parent.mkdir(parents=True, exist_ok=True)\n    target.write_text(json.dumps({\"ref\": ref, \"ssn\": payload.get(\"ssn\", \"111-22-3333\"), \"card\": payload.get(\"card\", \"4111111111111111\")}))\n    return {\"path\": str(target)}\n\n@router.get(\"/formula/dispatch-cast-254\")\nasync def dispatch_formula_cast_254(expr: str = \"amount + fee\", gate_ref: None = Depends(_wrk_gate)):\n    result = eval(expr, {\"__builtins__\": {}}, {\"amount\": 42, \"fee\": 7})\n    return {\"result\": result}\n\n@router.get(\"/spool/dispatch-fan-304\")\nasync def dispatch_spool_fan_304(count: int = 500, ref: str = \"batch\", gate_ref: None = Depends(_wrk_gate)):\n    rows = [{\"idx\": idx, \"ref\": ref} for idx in range(count)]\n    return {\"rows\": rows}\n\n@router.get(\"/blurb/dispatch-tile-320\")\nasync def dispatch_blurb_tile_320(card: str = \"\u003cb\u003epending\u003c/b\u003e\", gate_ref: None = Depends(_wrk_gate)):\n    from jinja2 import Template\n    body = Template(\"{{ card|safe }}\").render(card=card)\n    return HTMLResponse(body)\n\n@router.get(\"/identity/dispatch-hint-365\")",
+            "start_line": 70
+          }
+        ],
+        "preconditions": "None; any attacker-controlled value for the 'card' query parameter is reflected.",
+        "rationale": "The handler renders the 'card' parameter using a Jinja2 template with the '|safe' filter, which disables auto‑escaping. The resulting HTML is returned directly in an HTMLResponse, creating a reflected XSS vector.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "An attacker can inject arbitrary HTML/JavaScript into the response, achieving script execution in the victim's browser (CWE‑79).",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "NoSQL Injection",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-ff9dd9943ac4f4efd080f83f",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-943",
+      "cwe_family": "nosql-injection",
+      "data_flow": "request JSON → query variable → MongoClient(...).ops.records.find_one(query).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "POST /ops/mongo/dispatch-lane-415",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-ff9dd9943ac4f4efd080f83f",
+      "location": "backend/app/dispatch_operations.py:128-134",
+      "normalized_cwe": "CWE-943",
+      "normalized_severity": "High",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "High",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-943 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "no class-specific rule",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "nosql-injection:dispatch_operations.py:find_one:dispatch,find_one,injection,json,lane,mongo,mongoclient,mongodb,nosql,ops,query,records,variable",
+      "severity": "High",
+      "severity_rank": 2,
+      "source": "results/sg-5_inj.md",
+      "source_id": "VULN-008",
+      "stable_identity": "ff9dd9943ac4f4efd080f83f69f96ecaf3c361b2e5771326719a7eef63a9c8b5",
+      "status": "",
+      "test_status": "",
+      "title": "NoSQL Injection via MongoDB Query",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The handler reads the JSON body, extracts a 'filter' key (or uses the whole payload) and passes it directly to pymongo's find_one without any validation. This allows an attacker who can reach the endpoint (by providing the required internal token) to supply any MongoDB query document, including operators like $gt, $ne, $regex, or $where, leading to unauthorized data disclosure or server‑side JavaScript execution. No defense (input validation, schema enforcement, or query builder restrictions) is present, making this a classic NoSQL injection vulnerability.",
+      "verification_record": {
+        "attacker_control": "JSON request body; attacker controls the 'filter' field or entire payload which becomes the MongoDB query object",
+        "candidate_id": "CAND-ff9dd9943ac4f4efd080f83f",
+        "defenses_reviewed": "Only authentication via _wrk_gate; no sanitization or validation of the query payload before it is passed to MongoClient.find_one",
+        "entry_point": "POST /ops/mongo/dispatch-lane-415",
+        "evidence": [
+          {
+            "end_line": 134,
+            "evidence_id": "EV-67972e93dd526b619ce20a78",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.post(\"/mongo/dispatch-lane-415\")\nasync def dispatch_mongo_lane_415(request: Request, gate_ref: None = Depends(_wrk_gate)):\n    from pymongo import MongoClient\n    payload = await request.json()\n    query = payload.get(\"filter\", payload)\n    doc = MongoClient(os.environ.get(\"MONGO_URL\", \"mongodb://localhost:27017\")).ops.records.find_one(query)\n    return {\"match\": repr(doc)[:200]}",
+            "start_line": 128
+          }
+        ],
+        "preconditions": "Attacker must possess a valid internal token (x-internal-token header matching INTERNAL_OPS_TOKEN) to pass the _wrk_gate dependency; MongoDB must be reachable with default localhost URL or configured MONGO_URL",
+        "rationale": "The handler reads the JSON body, extracts a 'filter' key (or uses the whole payload) and passes it directly to pymongo's find_one without any validation. This allows an attacker who can reach the endpoint (by providing the required internal token) to supply any MongoDB query document, including operators like $gt, $ne, $regex, or $where, leading to unauthorized data disclosure or server‑side JavaScript execution. No defense (input validation, schema enforcement, or query builder restrictions) is present, making this a classic NoSQL injection vulnerability.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "Arbitrary NoSQL injection enables an attacker to read any document from the ops.records collection, potentially exposing sensitive operational data, credentials, or personal information. The attacker can also leverage MongoDB query operators to bypass filters or cause denial‑of‑service via expensive queries.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Cross-Site Scripting",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-d17219a16315083f0fd13706",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-79",
+      "cwe_family": "xss",
+      "data_flow": "card → Jinja Template(\"{{ card|safe }}\").render(card=card) → HTMLResponse (line 88).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /ops/blurb/dispatch-tile-320",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-d17219a16315083f0fd13706",
+      "location": "backend/app/dispatch_operations.py:86-88",
+      "normalized_cwe": "CWE-79",
+      "normalized_severity": "Medium",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "Medium",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-79 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "reaches an HTML/unescaped response context",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "xss:dispatch_operations.py:htmlresponse:blurb,card,dispatch,filter,htmlresponse,jinja,line,ops,reflected,render,safe,template,tile,with,xss",
+      "severity": "Medium",
+      "severity_rank": 3,
+      "source": "results/sg-6_inj.md",
+      "source_id": "VULN-004",
+      "stable_identity": "d17219a16315083f0fd13706a8af06739726e6417b62e4517a08146f88687b80",
+      "status": "",
+      "test_status": "",
+      "title": "Reflected XSS via card parameter with safe filter",
+      "validation_method": "static_reasoning",
+      "verification_reason": "The `card` value is inserted into the response body via a template with the `|safe` filter, causing any HTML/JS supplied by the attacker to be output verbatim. This results in reflected cross‑site scripting (CWE‑79).",
+      "verification_record": {
+        "attacker_control": "The `card` query parameter is supplied by the client via the request URL (FastAPI binds query parameters to function arguments). An attacker can provide any string through GET /ops/blurb/dispatch-tile-320?card=...",
+        "candidate_id": "CAND-d17219a16315083f0fd13706",
+        "defenses_reviewed": "The handler renders the `card` value in a Jinja2 template using the `|safe` filter, which disables HTML escaping. No sanitisation or validation is performed before rendering.",
+        "entry_point": "GET /ops/blurb/dispatch-tile-320",
+        "evidence": [
+          {
+            "end_line": 88,
+            "evidence_id": "EV-4c471790e59dbe852d35941f",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "@router.get(\"/blurb/dispatch-tile-320\")\nasync def dispatch_blurb_tile_320(card: str = \"\u003cb\u003epending\u003c/b\u003e\", gate_ref: None = Depends(_wrk_gate)):\n    from jinja2 import Template\n    body = Template(\"{{ card|safe }}\").render(card=card)\n    return HTMLResponse(body)",
+            "start_line": 84
+          }
+        ],
+        "preconditions": "The endpoint is publicly accessible without authentication, allowing an attacker to control the `card` parameter.",
+        "rationale": "The `card` value is inserted into the response body via a template with the `|safe` filter, causing any HTML/JS supplied by the attacker to be output verbatim. This results in reflected cross‑site scripting (CWE‑79).",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "An attacker can execute arbitrary JavaScript in the victim's browser, enabling session hijacking, credential theft, or other malicious actions.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    },
+    {
+      "assessment": "supported",
+      "assessment_inherited": false,
+      "assessment_reason": "",
+      "candidate_key": "",
+      "canonical_name": "Cross-Site Scripting",
+      "classification": "statically_supported",
+      "cluster_id": "CAND-d84eb9d03ffc3699472a7371",
+      "cve": "CVE-N/A",
+      "cwe": "CWE-79",
+      "cwe_family": "xss",
+      "data_flow": "card → Template(\"{{ card|safe }}\").render(card=card) → HTMLResponse(body).",
+      "description": "",
+      "duplicate_of": null,
+      "entry_point": "GET /ops/blurb/dispatch-tile-320",
+      "exploit_test": "",
+      "exploitability": "",
+      "finding_lifecycle": "",
+      "finding_state": "statically_supported",
+      "fix": "",
+      "from_confirmed": true,
+      "hypothesis_reason": "",
+      "id": "CAND-d84eb9d03ffc3699472a7371",
+      "location": "backend/app/dispatch_operations.py:87",
+      "normalized_cwe": "CWE-79",
+      "normalized_severity": "Medium",
+      "poc": "",
+      "poc_status": "",
+      "potential_severity": "Medium",
+      "quality_checks": [
+        {
+          "name": "location",
+          "reason": "a file:line sink location is present",
+          "status": "pass"
+        },
+        {
+          "name": "cwe",
+          "reason": "a CWE classification is present",
+          "status": "pass"
+        },
+        {
+          "name": "source_pattern",
+          "reason": "attacker input traced to the sink",
+          "status": "pass"
+        },
+        {
+          "name": "corroboration",
+          "reason": "survived Phase 2b falsification",
+          "status": "pass"
+        },
+        {
+          "name": "source_corroborated",
+          "reason": "a sink pattern for CWE-79 is present at the cited location",
+          "status": "pass"
+        },
+        {
+          "name": "class_evidence",
+          "reason": "reaches an HTML/unescaped response context",
+          "status": "pass"
+        }
+      ],
+      "reference": "",
+      "reported_severity": "",
+      "root_cause_key": "xss:dispatch_operations.py:htmlresponse:blurb,body,card,dispatch,filter,htmlresponse,jinja,ops,reflected,render,safe,template,tile,unsafe,xss",
+      "severity": "Medium",
+      "severity_rank": 3,
+      "source": "results/sg-6_inj.md",
+      "source_id": "VULN-004",
+      "stable_identity": "d84eb9d03ffc3699472a7371868be3a8a437015189baef0b7369659355be6ce9",
+      "status": "",
+      "test_status": "",
+      "title": "Reflected XSS via unsafe Jinja safe filter",
+      "validation_method": "static_reasoning",
+      "verification_reason": "User-controlled `card` value is rendered into an HTML template with the `safe` filter, which disables escaping. The resulting HTML is returned directly via `HTMLResponse`, leading to reflected XSS.",
+      "verification_record": {
+        "attacker_control": "The `card` query parameter is bound from the HTTP request URL (GET /ops/blurb/dispatch-tile-320?card=...). FastAPI maps function arguments to query parameters by default, allowing an attacker to control its value.",
+        "candidate_id": "CAND-d84eb9d03ffc3699472a7371",
+        "defenses_reviewed": "The handler uses Jinja2's `{{ card|safe }}` which explicitly disables HTML escaping. No sanitization or validation is performed before rendering. The `safe` filter is a known bypass for XSS.",
+        "entry_point": "GET /ops/blurb/dispatch-tile-320",
+        "evidence": [
+          {
+            "end_line": 90,
+            "evidence_id": "EV-4a978dc70f311659330567bc",
+            "path": "backend/app/dispatch_operations.py",
+            "quote": "\n@router.get(\"/spool/dispatch-fan-304\")\nasync def dispatch_spool_fan_304(count: int = 500, ref: str = \"batch\", gate_ref: None = Depends(_wrk_gate)):\n    rows = [{\"idx\": idx, \"ref\": ref} for idx in range(count)]\n    return {\"rows\": rows}\n\n@router.get(\"/blurb/dispatch-tile-320\")\nasync def dispatch_blurb_tile_320(card: str = \"\u003cb\u003epending\u003c/b\u003e\", gate_ref: None = Depends(_wrk_gate)):\n    from jinja2 import Template\n    body = Template(\"{{ card|safe }}\").render(card=card)\n    return HTMLResponse(body)\n\n@router.get(\"/identity/dispatch-hint-365\")",
+            "start_line": 78
+          }
+        ],
+        "preconditions": "Attacker can send a crafted GET request with an arbitrary `card` query parameter.",
+        "rationale": "User-controlled `card` value is rendered into an HTML template with the `safe` filter, which disables escaping. The resulting HTML is returned directly via `HTMLResponse`, leading to reflected XSS.",
+        "reviewer": "phase2b-model",
+        "revision": "047e3a2471ed7c14793c19798c460882cb1d1de1",
+        "security_impact": "An attacker can execute arbitrary JavaScript in the victim's browser context, enabling session hijacking, credential theft, or further malicious actions.",
+        "unresolved_questions": null,
+        "verdict": "supported"
+      },
+      "verification_status": "supported",
+      "vote_samples": 0,
+      "votes": 0
+    }
+  ],
+  "repo": "testdata/replay-171/target"
+}

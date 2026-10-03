@@ -49,9 +49,17 @@ error shows the user an error instead of a diagram. Follow these rules exactly:
   hyphen `-`, not a unicode dash.
 - Node ids are short and alphanumeric (`A`, `B2`, `Sentry`); the human text goes
   in the quoted label, never in the id.
-- Edges are `A --> B` or `A -->|"label"| B`. Do NOT put a trailing backslash on
-  any line. Do NOT include `style`/`classDef`/`click` directives — nodes, edges,
-  and subgraphs only.
+- Edges are `A --> B` or `A -->|"label"| B` (dotted `-.->` and thick `==>` are also
+  fine). An edge label MUST be closed: `|"label"|` — never `|label` without the
+  second `|`. Do NOT put a trailing backslash on any line. Do NOT include
+  `style`/`classDef`/`class`/`click`/`linkStyle` directives — nodes, edges, and
+  subgraphs only. Declare nodes inside their `subgraph … end` block and write the
+  edges after the blocks (an edge inside a boundary block is legal but muddles the
+  boundary). Subgraph ids are bare identifiers with a quoted label:
+  `subgraph TB1["User space"]`, never `subgraph "User space"`.
+- Exactly ONE ` ```mermaid ` fence. The harness validates it with the shipped
+  renderer and records the result in `threat_model_diagram.json`; an invalid
+  diagram is shown as an honest table plus your narrative, never silently fixed.
 
 **Stage IV — Threat analysis (archetype-driven).** Given the archetype from Stage
 II, enumerate the threats that **matter for this class of software** — not a

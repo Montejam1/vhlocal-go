@@ -1,0 +1,22 @@
+name: go
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      # Offline test gate (constitution VII): no live model, no network, no paid
+      # services. Model/transport behavior is exercised through fakes/fixtures.
+      - name: vet
+        run: go vet ./...
+      - name: gofmt check
+        run: test -z "$(gofmt -l .)"
+      - name: test
+        run: go test ./...

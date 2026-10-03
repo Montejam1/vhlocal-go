@@ -1,0 +1,70 @@
+{
+  "partition_table": "## Subgraph Partitions\n\n| ID | Subsystem | Entry points |\n|----|-----------|--------------|\n| SG-1 | orders (app/main.py, app/db.py) | ROUTE /api/search, ROUTE /api/orders/<order_id> |\n| SG-2 | invoices (app/main.py, app/files.py) | ROUTE /api/invoice, ROUTE /api/invoice/render |\n\n## Next\n(end of plan)\n",
+  "hunt": [
+    {
+      "partition": "sg-1",
+      "class": "inj",
+      "findings": [
+        {
+          "id": "VULN-001",
+          "title": "SQL injection in order search",
+          "cwe": "CWE-89",
+          "severity": "High",
+          "location": "app/db.py:21",
+          "entry_point": "ROUTE /api/search",
+          "data_flow": "q -> build_search_query -> execute()"
+        }
+      ]
+    },
+    {
+      "partition": "sg-2",
+      "class": "inj",
+      "findings": [
+        {
+          "id": "VULN-002",
+          "title": "OS command injection in invoice render",
+          "cwe": "CWE-78",
+          "severity": "Critical",
+          "location": "app/files.py:16",
+          "entry_point": "ROUTE /api/invoice/render",
+          "data_flow": "src -> os.system()"
+        },
+        {
+          "id": "VULN-003",
+          "title": "Path traversal in invoice fetch",
+          "cwe": "CWE-22",
+          "severity": "High",
+          "location": "app/files.py:10",
+          "entry_point": "ROUTE /api/invoice",
+          "data_flow": "name -> os.path.join -> open()"
+        }
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "location": "app/db.py:21",
+      "verdict": "supported",
+      "func_start": 18,
+      "func_end": 22,
+      "entry_point": "ROUTE /api/search",
+      "rationale": "the search term is concatenated into SQL and reaches cur.execute unsanitized"
+    },
+    {
+      "location": "app/files.py:16",
+      "verdict": "supported",
+      "func_start": 13,
+      "func_end": 18,
+      "entry_point": "ROUTE /api/invoice/render",
+      "rationale": "the src parameter is concatenated into a shell command passed to os.system"
+    },
+    {
+      "location": "app/files.py:10",
+      "verdict": "rejected",
+      "func_start": 8,
+      "func_end": 11,
+      "entry_point": "ROUTE /api/invoice",
+      "rationale": "the invoice name is confined under INVOICE_DIR; no traversal reaches open in this handler"
+    }
+  ]
+}

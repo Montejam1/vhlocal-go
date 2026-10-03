@@ -378,3 +378,28 @@ For each candidate vulnerability (these are NOT confirmed yet — Phase 2b will 
 - **Data Flow**: input source -> ... -> sink (with file:line at each step)
 - **Root Cause**: [1-2 sentence explanation]
 - **Exploitability**: [assessment of how practical exploitation is]
+
+### Handler Dispositions (REQUIRED — one block per assigned handler)
+
+After the candidate list, add a section headed exactly `## Handler dispositions`.
+The assignment names your handlers as `file:line METHOD PATH`; write ONE block per
+handler in exactly this shape. The harness validates every block against what you
+actually read (your Read tool calls) — a handler you did not read, a range outside
+its function, or a handler outside your assignment is recorded but earns no credit.
+Only THIS pass's class is expected `done`; mark the other planned classes
+`n/a(not this pass)`. A check you could not finish is `unresolved(reason)` — never
+claim `done` without having read the handler's full function.
+
+```
+## Handler dispositions
+
+- **Handler**: app/routes.py:41 GET /items
+- **Checks**: INJ=done, NAV=n/a(not this pass), LOG=n/a(not this pass)
+- **Defenses reviewed**: parameterized query; route guard requires a session
+- **Evidence**: app/routes.py:41-58
+- **Rationale**: query built with placeholders; no string concatenation reachable from request input
+- **Unresolved**: none
+```
+
+A prose sentence such as "I reviewed every handler" is NOT a disposition and
+completes nothing.

@@ -1,0 +1,275 @@
+[
+  {
+    "candidate_id": "CAND-8978e33f3231eb4c7a5ec02b",
+    "kind": "poc",
+    "path": "poc/CAND-8978e33f3231eb4c7a5ec02b_poc.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-4f2df0128b72ea3091447bdc",
+    "kind": "poc",
+    "path": "poc/CAND-4f2df0128b72ea3091447bdc.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-5074d8bb9dedfe690fb7ee6a",
+    "kind": "poc",
+    "path": "poc/CAND-5074d8bb9dedfe690fb7ee6a_race_condition_test.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-ccc1e02e67b4ed8ff8bae79e",
+    "kind": "poc",
+    "path": "poc/CAND-ccc1e02e67b4ed8ff8bae79e_poc.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-d69ac1c98c8912f4c0c20d69",
+    "kind": "poc",
+    "path": "poc/CAND-d69ac1c98c8912f4c0c20d69.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-46d7b038922e3d09e4717ef3",
+    "kind": "poc",
+    "path": "poc/race_condition_job_status.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-d7615cbac704f0c891b3b23d",
+    "kind": "poc",
+    "path": "poc/CAND-d7615cbac704f0c891b3b23d.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-7dcb3247a7da0b537d9a9495",
+    "kind": "test",
+    "path": "exploit_tests/test_dispatch_afterlane_redirect.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-325da680b4c928e2a853a4d7",
+    "kind": "poc",
+    "path": "poc/CAND-325da680b4c928e2a853a4d7.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-f45e5f1607e3c80f75df63ce",
+    "kind": "poc",
+    "path": "poc/xxe_dispatch_xml_fold_450.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-0c1cc353da7186008a23f722",
+    "kind": "poc",
+    "path": "poc/CAND-0c1cc353da7186008a23f722.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-689df88df37120c211ffa592",
+    "kind": "test",
+    "path": "exploit_tests/test_user_idor.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-d64c219333a5a825a538fbf3",
+    "kind": "poc",
+    "path": "poc/CAND-d64c219333a5a825a538fbf3.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-78ad0391960791ee7a51abf2",
+    "kind": "test",
+    "path": "exploit_tests/test_list_customers_authz.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-48ee098573d88bd6a7188770",
+    "kind": "poc",
+    "path": "poc/CAND-48ee098573d88bd6a7188770.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-c9830a94284773eaf17fe814",
+    "kind": "poc",
+    "path": "poc/CAND-c9830a94284773eaf17fe814_poc.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-9216e440ddda506575d2cb18",
+    "kind": "poc",
+    "path": "poc/CAND-9216e440ddda506575d2cb18_poc.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-61b315f0806108e7bb65a11e",
+    "kind": "test",
+    "path": "exploit_tests/test_open_redirect.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-14843f01434010be67e1248d",
+    "kind": "poc",
+    "path": "poc/CAND-14843f01434010be67e1248d.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-1f5dca3f002579fffd97f4a7",
+    "kind": "poc",
+    "path": "poc/CAND-1f5dca3f002579fffd97f4a7.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-45db64d73c13adacb14a7e01",
+    "kind": "test",
+    "path": "exploit_tests/test_dispatch_blurb_tile_320_xss.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-8821cbcfedd55698a1bff507",
+    "kind": "poc",
+    "path": "poc/CAND-8821cbcfedd55698a1bff507.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-ee4cc41897c5d46036b750c8",
+    "kind": "poc",
+    "path": "poc/unauth_region_assignment.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-9b7dd244252048378e86f65c",
+    "kind": "poc",
+    "path": "poc/CAND-9b7dd244252048378e86f65c.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-82306cca5fc3164a6520a3c0",
+    "kind": "test",
+    "path": "exploit_tests/test_dispatch_mongo_lane.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-85cb3fa183c187878d963828",
+    "kind": "poc",
+    "path": "poc/CAND-85cb3fa183c187878d963828.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-0e739a693d75797ae3fd9551",
+    "kind": "poc",
+    "path": "poc/poc_415_nosql_injection.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-b384018d727a8163cfe7daca",
+    "kind": "poc",
+    "path": "poc/dispatch_spool_fan_304_poc.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-7b08361efcaf1d7b99cee7fa",
+    "kind": "poc",
+    "path": "poc/CAND-7b08361efcaf1d7b99cee7fa_poc.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-7c0c86726f9189607a9994db",
+    "kind": "deferred",
+    "path": "",
+    "status": "",
+    "reason": "The sandbox restricts file writes to the results directory, preventing creation of a PoC or test file inside the repository (e.g., under poc/ or exploit_tests/). Without the ability to write the required source file, I cannot author the requested PoC/test."
+  },
+  {
+    "candidate_id": "CAND-37fcb8e0ad21d6b65818a76c",
+    "kind": "poc",
+    "path": "poc/CAND-37fcb8e0ad21d6b65818a76c.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-c53db8ab7eda2caa3e0c2816",
+    "kind": "poc",
+    "path": "poc/CAND-c53db8ab7eda2caa3e0c2816.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-221c3bf8b2684becd7aeb590",
+    "kind": "poc",
+    "path": "poc/CAND-221c3bf8b2684becd7aeb590_no_sql_injection.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-e796748df72d16e43fb5b856",
+    "kind": "poc",
+    "path": "poc/CAND-e796748df72d16e43fb5b856.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-27cdb39a294b8e8c76b2ca87",
+    "kind": "poc",
+    "path": "poc/CAND-27cdb39a294b8e8c76b2ca87.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-ff9dd9943ac4f4efd080f83f",
+    "kind": "poc",
+    "path": "poc/CAND-ff9dd9943ac4f4efd080f83f_poc.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-efba0ee6177d59ce8920ee0b",
+    "kind": "poc",
+    "path": "poc/CAND-efba0ee6177d59ce8920ee0b.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-d17219a16315083f0fd13706",
+    "kind": "poc",
+    "path": "poc/CAND-d17219a16315083f0fd13706.py",
+    "status": "authored",
+    "reason": ""
+  },
+  {
+    "candidate_id": "CAND-d84eb9d03ffc3699472a7371",
+    "kind": "poc",
+    "path": "poc/poc_CAND-d84eb9d03ffc3699472a7371.py",
+    "status": "authored",
+    "reason": ""
+  }
+]

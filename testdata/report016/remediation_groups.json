@@ -1,0 +1,877 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "RG-451c8079004111ae",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/auth.py",
+        "function": "",
+        "statement": "return Response(status_code=204)",
+        "line": 242
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-b9be0f6e56f3a9733060787f",
+          "stable_id": "b9be0f6e56f3a9733060787f8d87c83bda6cc080bf0b7e3ba2666682903cfa5b",
+          "role": "primary",
+          "entry_point": "POST /api/auth/password-reset/confirm (function confirm_password_reset)."
+        }
+      ],
+      "preconditions": "Attacker must possess a valid, unused password reset token (e.g., via intercepted email) and be able to send concurrent requests before the token is marked used",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-bc7ecf6e68c9aeee",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/customers.py",
+        "function": "",
+        "statement": "write_audit(db, actor=actor, action=\"customer.delete\", target_type=\"customer\", target_id=customer_id, ip_address=get_client_ip(request))",
+        "line": 126
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-4f2df0128b72ea3091447bdc",
+          "stable_id": "4f2df0128b72ea3091447bdcf07e88fa86af4bd33afd30427b538c4c055f9f13",
+          "role": "primary",
+          "entry_point": "DELETE /api/customers/{customer_id}"
+        }
+      ],
+      "preconditions": "attacker has ops_admin role and can invoke the DELETE endpoint",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-28b441242b3ce989",
+      "family": "access-control",
+      "canonical_name": "Broken Access Control",
+      "anchor": {
+        "file": "backend/app/routers/io_csv.py",
+        "function": "",
+        "statement": "# location: first match by label, else first location",
+        "line": 138
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-ccc1e02e67b4ed8ff8bae79e",
+          "stable_id": "ccc1e02e67b4ed8ff8bae79e8da5d222dad26fc3c89dcd2822345a112a528036",
+          "role": "primary",
+          "entry_point": "POST /api/io/import/jobs (backend/app/routers/io_csv.py:120-126)"
+        }
+      ],
+      "preconditions": "Authenticated user with the dispatcher role (or ops_admin) can access the /api/io/import/jobs endpoint and upload a CSV file.",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-1d420098f5805e92",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/jobs.py",
+        "function": "_gen_job_code",
+        "statement": "raise RuntimeError(\"Could not generate unique job code\")",
+        "line": 33
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-0340bd1aaed43fafbe54469f",
+          "stable_id": "0340bd1aaed43fafbe54469f35991e823df8dafe7ca33a6d1101d36764982157",
+          "role": "primary",
+          "entry_point": "POST /api/io/import/jobs (and also POST /api/jobs) both invoke _gen_job_code."
+        },
+        {
+          "finding_id": "CAND-a98bed1f76c2d216b8523e2c",
+          "stable_id": "a98bed1f76c2d216b8523e2c901170454c8ef04905d1594096a1e0bea89ddeba",
+          "role": "occurrence",
+          "entry_point": "create_job (backend/app/routers/jobs.py:102-162)"
+        }
+      ],
+      "preconditions": "attacker can issue concurrent requests to the endpoint; the system does not serialize code generation or enforce uniqueness at generation time",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-c727cf0086c826f9",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/jobs.py",
+        "function": "",
+        "statement": "raise HTTPException(status_code=400, detail=f\"Invalid transition from {job.status.value} to {new_status.value}\")",
+        "line": 283
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-cad1dac00aecacc81bf71a9b",
+          "stable_id": "cad1dac00aecacc81bf71a9b381850c000f30d7c1c62c989afdae25ac325dd1d",
+          "role": "primary",
+          "entry_point": "change_status (backend/app/routers/jobs.py:260-313)"
+        }
+      ],
+      "preconditions": "Attacker must be an authenticated user who passes user_can_modify_job (e.g., a dispatcher or field worker with appropriate role)",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-747266c09c675a27",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/jobs.py",
+        "function": "",
+        "statement": "job.status = models.JobStatus.cancelled",
+        "line": 334
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-3b234f241a5ca6af25eb9306",
+          "stable_id": "3b234f241a5ca6af25eb930662e87c4e6775f839752a405978bf1858037ea809",
+          "role": "primary",
+          "entry_point": "cancel_job (backend/app/routers/jobs.py:316-339)"
+        }
+      ],
+      "preconditions": "an authenticated user with role dispatcher or ops_admin; for dispatcher, region access must be granted",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-1f5c4ffd623fcefd",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/jobs.py",
+        "function": "",
+        "statement": "db.add(job)",
+        "line": 249
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-dfed0e63aee8ceb2fe120fb7",
+          "stable_id": "dfed0e63aee8ceb2fe120fb7f5995a43c15310fcbdba6c9a4f5371666cee6094",
+          "role": "primary",
+          "entry_point": "assign_job (backend/app/routers/jobs.py:216-258)"
+        }
+      ],
+      "preconditions": "authenticated user with role ops_admin or dispatcher",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-1095ac76fab3d618",
+      "family": "code-injection",
+      "canonical_name": "Code Injection",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_formula_cast_254",
+        "statement": "result = eval(expr, {\"__builtins__\": {}}, {\"amount\": 42, \"fee\": 7})",
+        "line": 76
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-b8c215fc94c93581db03b67a",
+          "stable_id": "b8c215fc94c93581db03b67a86e372251e73dba84c9afc00f1246489378959f9",
+          "role": "primary",
+          "entry_point": "GET /ops/formula/dispatch-cast-254"
+        },
+        {
+          "finding_id": "CAND-af9e10c4261e3be1064a2be3",
+          "stable_id": "af9e10c4261e3be1064a2be390e6416d2de86ae1ad3cc9c26e1463bc264a8297",
+          "role": "occurrence",
+          "entry_point": "GET /ops/formula/dispatch-cast-254"
+        }
+      ],
+      "preconditions": "the request must include a valid internal token header 'x-internal-token' matching the INTERNAL_OPS_TOKEN environment variable (required by _wrk_gate)",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-e993328e826501c9",
+      "family": "path-traversal",
+      "canonical_name": "Path Traversal",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_dock_shelf_393",
+        "statement": "target.write_bytes(body)",
+        "line": 118
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-6ca63140aabf043e10bcf5fd",
+          "stable_id": "6ca63140aabf043e10bcf5fd9e5914a4078fcf6c900ce4b787092789627d8c86",
+          "role": "primary",
+          "entry_point": "POST /ops/dock/dispatch-shelf-393"
+        },
+        {
+          "finding_id": "CAND-f92c89a3b16760505dc7848d",
+          "stable_id": "f92c89a3b16760505dc7848dd4181f4898ef43f24e26b97dee4488d370136e2a",
+          "role": "occurrence",
+          "entry_point": "POST /ops/dock/dispatch-shelf-393"
+        }
+      ],
+      "preconditions": "attacker can send a POST request with a chosen 'name' value and arbitrary request body",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-a9c1ac10a8918ea4",
+      "family": "deserialization",
+      "canonical_name": "Insecure Deserialization",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_bundle_thaw_172",
+        "statement": "bundle = pickle.loads(raw)",
+        "line": 61
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-325da680b4c928e2a853a4d7",
+          "stable_id": "325da680b4c928e2a853a4d784a6d8ca871d388d78535185cca09f2ec0a8114b",
+          "role": "primary",
+          "entry_point": "POST /ops/bundle/dispatch-thaw-172"
+        },
+        {
+          "finding_id": "CAND-14843f01434010be67e1248d",
+          "stable_id": "14843f01434010be67e1248d1425f082643ea33a343aa1f0f1e27ad176a818ae",
+          "role": "occurrence",
+          "entry_point": "POST /ops/bundle/dispatch-thaw-172"
+        },
+        {
+          "finding_id": "CAND-818a17d75bc2d424496ce2fe",
+          "stable_id": "818a17d75bc2d424496ce2fe4b05f64d02a0936be8b4ad1f7777a3f3f2641135",
+          "role": "occurrence",
+          "entry_point": "POST /ops/bundle/dispatch-thaw-172"
+        }
+      ],
+      "preconditions": "Attacker must provide a valid internal token in the \"x-internal-token\" header (as required by _wrk_gate).",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-fe1e23770565c3c0",
+      "family": "xxe",
+      "canonical_name": "XML External Entity (XXE)",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_xml_fold_450",
+        "statement": "from lxml import etree ⏎ parser = etree.XMLParser(load_dtd=True, resolve_entities=True, no_network=False) ⏎ doc = etree.fromstring(await request.body(), parser)",
+        "line": 157
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-93e1f28f97ca78cc0e0af8d7",
+          "stable_id": "93e1f28f97ca78cc0e0af8d7f08cdfda273fdac302c146f827709c8dc8754da1",
+          "role": "primary",
+          "entry_point": "POST /ops/xml/dispatch-fold-450"
+        },
+        {
+          "finding_id": "CAND-8821cbcfedd55698a1bff507",
+          "stable_id": "8821cbcfedd55698a1bff5076c2946d2921694df2e57a68ae60c927b573f889c",
+          "role": "occurrence",
+          "entry_point": "POST /ops/xml/dispatch-fold-450"
+        },
+        {
+          "finding_id": "CAND-b0009919dfb3100900ba3a7e",
+          "stable_id": "b0009919dfb3100900ba3a7e20918051ba18b52fb48c9fe3fac6688f5e58d8a7",
+          "role": "occurrence",
+          "entry_point": "POST /ops/xml/dispatch-fold-450"
+        },
+        {
+          "finding_id": "CAND-f45e5f1607e3c80f75df63ce",
+          "stable_id": "f45e5f1607e3c80f75df63ce68863b18d7b23e3cbbf1897d2274de5f5e121340",
+          "role": "occurrence",
+          "entry_point": "POST /ops/xml/dispatch-fold-450"
+        }
+      ],
+      "preconditions": "the request reaches the handler (no additional authentication required beyond any gate checks)",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-bb158a03cb6677e5",
+      "family": "open-redirect",
+      "canonical_name": "Open Redirect",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_afterlane_021",
+        "statement": "return RedirectResponse(lane)",
+        "line": 39
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-3d39d7181c05e7a32a92c86c",
+          "stable_id": "3d39d7181c05e7a32a92c86c7ef6ad5265aa603d3e89d7def32b2a5b04611a24",
+          "role": "primary",
+          "entry_point": "GET /ops/after/dispatch-afterlane-021"
+        },
+        {
+          "finding_id": "CAND-61b315f0806108e7bb65a11e",
+          "stable_id": "61b315f0806108e7bb65a11e3b7977a4aa9dd411216e2b7f9f5de99c89725c13",
+          "role": "occurrence",
+          "entry_point": "GET /ops/after/dispatch-afterlane-021"
+        }
+      ],
+      "preconditions": "the attacker must supply a valid internal token in the 'x-internal-token' header to pass the _wrk_gate dependency",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-052ad79cf6f4d52e",
+      "family": "xss",
+      "canonical_name": "Cross-Site Scripting",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_blurb_tile_320",
+        "statement": "body = Template(\"{{ card|safe }}\").render(card=card) ⏎ return HTMLResponse(body)",
+        "line": 87
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-d84eb9d03ffc3699472a7371",
+          "stable_id": "d84eb9d03ffc3699472a7371868be3a8a437015189baef0b7369659355be6ce9",
+          "role": "primary",
+          "entry_point": "GET /ops/blurb/dispatch-tile-320"
+        },
+        {
+          "finding_id": "CAND-45db64d73c13adacb14a7e01",
+          "stable_id": "45db64d73c13adacb14a7e0142154a30e762638222350290ae2bfdeaa26fc898",
+          "role": "occurrence",
+          "entry_point": "GET /ops/blurb/dispatch-tile-320"
+        },
+        {
+          "finding_id": "CAND-7b08361efcaf1d7b99cee7fa",
+          "stable_id": "7b08361efcaf1d7b99cee7fa1ea51a640af96ff384c850b76c5406e5c004ba72",
+          "role": "occurrence",
+          "entry_point": "GET /ops/blurb/dispatch-tile-320"
+        }
+      ],
+      "preconditions": "any attacker can send a request to the endpoint (no authentication or authorization required)",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-534f3166125a442b",
+      "family": "resource-exhaustion",
+      "canonical_name": "Uncontrolled Resource Consumption",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_spool_fan_304",
+        "statement": "return {\"rows\": rows}",
+        "line": 82
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-841f302ddfed56d8f3e2fa2e",
+          "stable_id": "841f302ddfed56d8f3e2fa2ee500ae63f197692b21e2920e8a7f12894fc4b86f",
+          "role": "primary",
+          "entry_point": "GET /ops/spool/dispatch-fan-304"
+        }
+      ],
+      "preconditions": "attacker can send a GET request to the endpoint (no authentication or authorization checks)",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-020e248c317a5bc1",
+      "family": "hardcoded-secret",
+      "canonical_name": "Hard-coded Secret",
+      "anchor": {
+        "file": "backend/app/config.py",
+        "function": "Settings",
+        "statement": "secret_key: str = \"dev-secret-do-not-use-in-production-this-is-long-enough\"",
+        "line": 9
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-d3cf97a13474e6e7c30d34ec",
+          "stable_id": "d3cf97a13474e6e7c30d34ec8b0f30d6904567f101afc256f34876225a162ef3",
+          "role": "primary",
+          "entry_point": "Any authenticated endpoint, e.g., POST /api/jobs/{job_id}/proofs (handler backend/app/routers/proofs.py:41)."
+        }
+      ],
+      "preconditions": "deployment uses default Settings.secret_key (no .env override) or attacker knows the hardcoded secret from source code",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-f75e1d3e64f5ea2a",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/public_api.py",
+        "function": "",
+        "statement": "if payload.status == models.JobStatus.completed:",
+        "line": 78
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-e86f9330a718efb2e881919b",
+          "stable_id": "e86f9330a718efb2e881919bdbeffdb1899d90c208e78fc555ace42597da0154",
+          "role": "primary",
+          "entry_point": "api_update_status in backend/app/routers/public_api.py (lines 52-86)."
+        }
+      ],
+      "preconditions": "Authenticated user with permission to modify the job (user_can_modify_job returns true).",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-53c2ae3331dc2d86",
+      "family": "resource-exhaustion",
+      "canonical_name": "Uncontrolled Resource Consumption",
+      "anchor": {
+        "file": "backend/app/routers/public_api.py",
+        "function": "api_list_jobs",
+        "statement": "offset: int = Query(default=0, ge=0),",
+        "line": 34
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-67a7d4d4d915d882aeacce99",
+          "stable_id": "67a7d4d4d915d882aeacce99579535765251e2f24c04e11e71a3cf00b69895e2",
+          "role": "primary",
+          "entry_point": "api_list_jobs in backend/app/routers/public_api.py (lines 29-49)."
+        }
+      ],
+      "preconditions": "authenticated user with role ops_admin or dispatcher",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-627c2c70a712c31d",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/regions.py",
+        "function": "",
+        "statement": "write_audit(db, actor=actor, action=\"admin.region.delete\", target_type=\"region\", target_id=region_id, ip_address=get_client_ip(request))",
+        "line": 80
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-ebd3bed1fca8bc3e970df14e",
+          "stable_id": "ebd3bed1fca8bc3e970df14e204b8df3efb2766d2df9c95f98d7af90f6137733",
+          "role": "primary",
+          "entry_point": "DELETE /api/regions/{region_id}"
+        },
+        {
+          "finding_id": "CAND-4d0bb66be6c5b14ee8d686e8",
+          "stable_id": "4d0bb66be6c5b14ee8d686e83748a669dcbabe6dfeeb261553236e393058b386",
+          "role": "occurrence",
+          "entry_point": "delete_region."
+        }
+      ],
+      "preconditions": "attacker can issue a DELETE request for a region and concurrently create a Job or ServiceLocation referencing that region (requires appropriate permissions to create jobs/locations).",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-1a1e64fb0ccf66ce",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/routes.py",
+        "function": "",
+        "statement": "write_audit(db, actor=user, action=\"route.add_stop\", target_type=\"route\", target_id=r.id, details={\"job_id\": job.id, \"position\": stop.position}, ip_address=get_client_ip(request))",
+        "line": 166
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-48ee098573d88bd6a7188770",
+          "stable_id": "48ee098573d88bd6a71887701da575ca753fe0b4872c486ade6df3fb3a6b1f95",
+          "role": "primary",
+          "entry_point": "POST /api/routes/{route_id}/stops"
+        },
+        {
+          "finding_id": "CAND-d63d88b15ef409e9aceb1c13",
+          "stable_id": "d63d88b15ef409e9aceb1c13afa047d9b7e9d02c323de023c00f3ede3de850e0",
+          "role": "occurrence",
+          "entry_point": "add_stop handler in routes.py."
+        }
+      ],
+      "preconditions": "authenticated user with ops_admin or dispatcher role",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-d3497c8e11283dbf",
+      "family": "resource-exhaustion",
+      "canonical_name": "Uncontrolled Resource Consumption",
+      "anchor": {
+        "file": "backend/app/routers/service_types.py",
+        "function": "list_service_types",
+        "statement": "return db.query(models.ServiceType).order_by(models.ServiceType.name.asc()).all()",
+        "line": 17
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-25c75ec3408b106f58903a55",
+          "stable_id": "25c75ec3408b106f58903a55044fd2e42b81c64733a0706036438ac29ffc3864",
+          "role": "primary",
+          "entry_point": "GET /api/service-types defined in backend/app/routers/service_types.py:15."
+        }
+      ],
+      "preconditions": "any authenticated user (via get_current_user) can access the endpoint",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-a9ffe134b01f581c",
+      "family": "access-control",
+      "canonical_name": "Broken Access Control",
+      "anchor": {
+        "file": "backend/app/routers/users.py",
+        "function": "get_user",
+        "statement": "return user",
+        "line": 83
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-689df88df37120c211ffa592",
+          "stable_id": "689df88df37120c211ffa59265947f1f1c776ba1411928c40f3097748a3499dd",
+          "role": "primary",
+          "entry_point": "GET /api/users/{user_id} (backend/app/routers/users.py:74)"
+        },
+        {
+          "finding_id": "CAND-20b097fd98f187d8d7efc82b",
+          "stable_id": "20b097fd98f187d8d7efc82b76bbbee86267794a1b93c70a2f72a3cb0a47dda9",
+          "role": "occurrence",
+          "entry_point": "GET /api/users/{user_id} defined at line 75."
+        }
+      ],
+      "preconditions": "an authenticated session where the actor possesses the dispatcher role",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-1d693b639f87a545",
+      "family": "access-control",
+      "canonical_name": "Broken Access Control",
+      "anchor": {
+        "file": "backend/app/routers/users.py",
+        "function": "list_users",
+        "statement": "return rows",
+        "line": 36
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-861da33785957adb3d0f0bc2",
+          "stable_id": "861da33785957adb3d0f0bc2b7ea2a4597c4a3af2df1030f527f414eefaa8c52",
+          "role": "primary",
+          "entry_point": "GET /api/users (backend/app/routers/users.py:17)"
+        }
+      ],
+      "preconditions": "attacker is logged in and has the dispatcher role",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-0fed23945e72ef51",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/auth.py",
+        "function": "",
+        "statement": "db.commit()",
+        "line": 207
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-bd6528e16c9bcdff4981c908",
+          "stable_id": "bd6528e16c9bcdff4981c90891ee11a03b6aa28a1145137c2e7f3876b0fd243e",
+          "role": "primary",
+          "entry_point": "POST /api/auth/password-reset/request"
+        }
+      ],
+      "preconditions": "A user with the supplied email exists and is active; the attacker can send multiple concurrent HTTP requests to the endpoint.",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-d5d56d72c94fd2b6",
+      "family": "rate-limiting",
+      "canonical_name": "Missing Rate Limiting",
+      "anchor": {
+        "file": "backend/app/routers/auth.py",
+        "function": "request_password_reset",
+        "statement": "return {\"status\": \"ok\"}",
+        "line": 215
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-e4550e90b08c0564204d0719",
+          "stable_id": "e4550e90b08c0564204d0719e8c9b7d5102c5547093ef29654b436103a5f5d61",
+          "role": "primary",
+          "entry_point": "POST /api/auth/password-reset/request"
+        }
+      ],
+      "preconditions": "Attacker can send arbitrary POST requests to the endpoint (no authentication required)",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-8c4464b7109ebb56",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/users.py",
+        "function": "",
+        "statement": "db.query(models.Session).filter(models.Session.user_id == user.id).delete()",
+        "line": 115
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-bbd59c4f71b172c11329d6a8",
+          "stable_id": "bbd59c4f71b172c11329d6a8d1716cc99fe225a0bc95faba046c48de56047187",
+          "role": "primary",
+          "entry_point": "PUT /api/users/{user_id} (update_user)"
+        }
+      ],
+      "preconditions": "attacker possesses ops_admin role and can send concurrent PUT requests to the same user_id",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-5701e2b4716ca8bf",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/service_types.py",
+        "function": "",
+        "statement": "db.commit()",
+        "line": 33
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-eaa811e261cfdf467dce9487",
+          "stable_id": "eaa811e261cfdf467dce9487f32294d9405e3799a821257cd60268bc3bd49a60",
+          "role": "primary",
+          "entry_point": "create_service_type."
+        }
+      ],
+      "preconditions": "attacker is authenticated as an ops_admin (passes require_roles) and can send POST requests to the endpoint",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-4177ade53e72323f",
+      "family": "race-condition",
+      "canonical_name": "Race Condition (TOCTOU)",
+      "anchor": {
+        "file": "backend/app/routers/routes.py",
+        "function": "",
+        "statement": "db.add(s)",
+        "line": 231
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-2d4c199723731b357aa41454",
+          "stable_id": "2d4c199723731b357aa4145422d2dafefd948523d525d50349059d3b3ec60907",
+          "role": "primary",
+          "entry_point": "remove_stop."
+        }
+      ],
+      "preconditions": "attacker has a valid authenticated session with ops_admin or dispatcher role; the specified route and stop exist",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-7bb3bf65e8b8d5d2",
+      "family": "path-traversal",
+      "canonical_name": "Path Traversal",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_vault_stash_231",
+        "statement": "target.write_text(json.dumps({\"ref\": ref, \"ssn\": payload.get(\"ssn\", \"111-22-3333\"), \"card\": payload.get(\"card\", \"4111111111111111\")}))",
+        "line": 71
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-3386df5f04ee8a2dc117e497",
+          "stable_id": "3386df5f04ee8a2dc117e49740dd7400e5b64368db1ee11b811805d9d56cb7d5",
+          "role": "primary",
+          "entry_point": "POST /ops/vault/dispatch-stash-231"
+        },
+        {
+          "finding_id": "CAND-87931c42ccaef6ada1674742",
+          "stable_id": "87931c42ccaef6ada1674742e11c60d1c5099b10dcae5e26ac9b68156480d35f",
+          "role": "occurrence",
+          "entry_point": "POST /ops/vault/dispatch-stash-231 with body containing ref or query param."
+        }
+      ],
+      "preconditions": "Attacker can send a POST request to the endpoint (gate does not restrict 'ref')",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-6025f33296ccc2ef",
+      "family": "cwe-90",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_mongo_lane_415",
+        "statement": "return {\"match\": repr(doc)[:200]}",
+        "line": 134
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-61dbf0b09c74b87ec22ae41a",
+          "stable_id": "61dbf0b09c74b87ec22ae41a3d7546be6c84aeea0904dae4adf257c51160b615",
+          "role": "primary",
+          "entry_point": "POST /ops/mongo/dispatch-lane-415"
+        }
+      ],
+      "preconditions": "Attacker must provide a valid internal token header (x-internal-token) matching INTERNAL_OPS_TOKEN to pass _wrk_gate",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-4a56849ab4dd938a",
+      "family": "resource-exhaustion",
+      "canonical_name": "Uncontrolled Resource Consumption",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_spool_fan_304",
+        "statement": "rows = [{\"idx\": idx, \"ref\": ref} for idx in range(count)]",
+        "line": 81
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-b384018d727a8163cfe7daca",
+          "stable_id": "b384018d727a8163cfe7dacaff051bdccd2651759cf99659d27f6042ecd04687",
+          "role": "primary",
+          "entry_point": "GET /ops/spool/dispatch-fan-304"
+        }
+      ],
+      "preconditions": "any client that can send a GET request to this endpoint (authentication may be enforced by _wrk_gate but does not limit count)",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-da8760856ebe2bfa",
+      "family": "access-control",
+      "canonical_name": "Broken Access Control",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_vault_stash_231",
+        "statement": "target.write_text(json.dumps({\"ref\": ref, \"ssn\": payload.get(\"ssn\", \"111-22-3333\"), \"card\": payload.get(\"card\", \"4111111111111111\")}))",
+        "line": 71
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-b62c35a20521bba0bbb9bbf4",
+          "stable_id": "b62c35a20521bba0bbb9bbf4e92aa0d6903af06069983a81d768f572fb11a8fc",
+          "role": "primary",
+          "entry_point": "dispatch_vault_stash_231."
+        }
+      ],
+      "preconditions": "an authenticated request passing the `_wrk_gate` dependency",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-4e524cecc2294952",
+      "family": "access-control",
+      "canonical_name": "Broken Access Control",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_dock_shelf_393",
+        "statement": "return {\"stored\": str(target), \"bytes\": len(body)}",
+        "line": 119
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-f984a27718450d3987c249c4",
+          "stable_id": "f984a27718450d3987c249c434dfd8a7a8d4563b31430f3462a500b713b5d091",
+          "role": "primary",
+          "entry_point": "dispatch_dock_shelf_393."
+        }
+      ],
+      "preconditions": "the attacker can send a POST request to the endpoint with a chosen 'name' value and request body",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-07ca84820363a46e",
+      "family": "access-control",
+      "canonical_name": "Broken Access Control",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_mongo_lane_415",
+        "statement": "return {\"match\": repr(doc)[:200]}",
+        "line": 134
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-7617602ae4d97c8661582da3",
+          "stable_id": "7617602ae4d97c8661582da3e0f705b96f67074436b0dca49019b837ce9b6dce",
+          "role": "primary",
+          "entry_point": "dispatch_mongo_lane_415."
+        }
+      ],
+      "preconditions": "A valid internal token must be supplied in the x-internal-token header matching the INTERNAL_OPS_TOKEN environment variable",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    },
+    {
+      "id": "RG-4b04247718975ff3",
+      "family": "cwe-754",
+      "anchor": {
+        "file": "backend/app/dispatch_operations.py",
+        "function": "dispatch_bundle_thaw_172",
+        "statement": "bundle = pickle.loads(raw)",
+        "line": 61
+      },
+      "status": "established",
+      "members": [
+        {
+          "finding_id": "CAND-9bf7ffe4714d08772f499c8b",
+          "stable_id": "9bf7ffe4714d08772f499c8bb324dbd93dcc2e9dade50633cedacd5c98b6d995",
+          "role": "primary",
+          "entry_point": "POST /ops/bundle/dispatch-thaw-172"
+        }
+      ],
+      "preconditions": "the attacker must possess a valid internal token (x-internal-token header) accepted by _wrk_gate",
+      "decision_status": "undecided",
+      "members_changed_since": false
+    }
+  ],
+  "raw_supported": 49,
+  "grouped": 34
+}

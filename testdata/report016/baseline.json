@@ -1,0 +1,63 @@
+{
+  "_comment": [
+    "Feature 016 (task T004): the measured BEFORE state of the report this feature replaces.",
+    "Every number was read from the source scan's own SCAN_REPORT.md and report_model.json,",
+    "not copied from a description of them. SC-010 measures the redesign against these.",
+    "A reduction only counts if every original detection, evidence reference and diagnostic",
+    "fact stays reachable, so these are a baseline to beat honestly, not a target to hit by",
+    "deleting content."
+  ],
+  "source": {
+    "scan": "vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-30-003935",
+    "scan_report_md_sha256": "893949a5dc13f01d6139998fe86e3b9e9eb4df0b4aea8cf5b11134ca53db1a9b",
+    "report_model_json_sha256": "72cd37863f12a52b44aca0e8e87d7d25bde7d9d949b0c7e0ec58fa7069fb7d4c",
+    "remediation_groups_json_sha256": "7b7ffd08ab54a6bcf5ac4b6a2e985c1aa44119543934bf904716e2f9ed8a84e8"
+  },
+  "document": {
+    "lines": 2777,
+    "bytes": 182553,
+    "prose_words_before_findings_index": 557,
+    "detail_sections": 49,
+    "finding_anchors": 49,
+    "fix_not_provided_occurrences": 54
+  },
+  "opening_warning": "> ⚠ **Incomplete run.** 5 of 7 requested phases completed. 64 finding(s) were produced, but coverage was degraded — treat this as a partial scan, not exhaustive.",
+  "counts": {
+    "candidates_examined": 64,
+    "supported_detections": 49,
+    "established_groups": 34,
+    "group_members": 49,
+    "unique_group_members": 49,
+    "rejected": 8,
+    "unresolved_explicit": 1,
+    "unresolved_failed": 6,
+    "needs_review_total": 7,
+    "findings_with_empty_fix": 49
+  },
+  "coverage": {
+    "completed_review": 40,
+    "source_exposed": 90,
+    "total_entry_points": 100
+  },
+  "group_severity_high_plus_folded_into_high": {
+    "Critical": 0,
+    "High": 13,
+    "Medium": 19,
+    "Low": 2,
+    "Informational": 0,
+    "Unrated": 0
+  },
+  "per_finding_recorded_severity": {
+    "High+": 6,
+    "High": 16,
+    "Medium": 24,
+    "Low": 3
+  },
+  "expected_after": {
+    "_comment": "What the redesign must produce for this fixture. Not yet achieved.",
+    "detail_sections": 34,
+    "fix_not_provided_occurrences": 0,
+    "prose_words_before_findings_index_max": 180,
+    "priority_rows_max": 5
+  }
+}

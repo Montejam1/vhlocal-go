@@ -1,0 +1,33 @@
+{
+  "accepted_decisions": 58,
+  "candidates": 64,
+  "incomplete": true,
+  "invalid_citation": 0,
+  "rejected": 8,
+  "session_aggregates": {
+    "amended_sessions": 0,
+    "calls": 451,
+    "explicit_unresolved": 1,
+    "occurrences_by_class": {
+      "invalid_submission": 11,
+      "invalid_tool_args": 12,
+      "tool_envelope": 1,
+      "turn_exhaustion": 6
+    },
+    "overlap_note": "occurrences count every failure; sessions_by_class counts sessions with at least one failure of that class; a session can appear under several classes and ends with exactly one stop reason, so these views do not sum to each other",
+    "sessions": 64,
+    "sessions_by_class": {
+      "invalid_submission": 10,
+      "invalid_tool_args": 4,
+      "tool_envelope": 1,
+      "turn_exhaustion": 6
+    },
+    "stop_reasons": {
+      "complete": 58,
+      "max_turns": 6
+    }
+  },
+  "superseded": 0,
+  "supported": 49,
+  "unresolved": 7
+}

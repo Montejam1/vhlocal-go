@@ -723,7 +723,7 @@
               <input id="concurrency" type="number" value="1" min="1" max="8">
             </div>
           </div>
-          <div class="hint">Parallel agents need <code>OLLAMA_NUM_PARALLEL</code> on Ollama; on OpenRouter they overlap freely (bounded by your rate limits).</div>
+          <div class="hint">Number of hunt agents to run at once (1–8). 1 = serial.</div>
 
           <label for="maxOutTokens">Max output tokens <span style="text-transform:none;font-weight:400;color:var(--text-3)">(cloud backends)</span></label>
           <input id="maxOutTokens" type="number" value="32768" min="0" step="1024">
@@ -747,11 +747,11 @@
           <div class="adv-group">Toggles</div>
           <div class="hint" style="margin:2px 0 6px">Connections (Ollama / OpenAI / OpenRouter) live in <b>Settings</b>. To continue an interrupted scan, open it under <b>Scans</b> and use <b>Resume</b>.</div>
           <label class="switch-row">
-            <span class="switch-txt"><b>Enforce coverage</b><small>trace every enumerated route — may add agents</small></span>
+            <span class="switch-txt"><b>Enforce coverage</b><small>on: augment the hunt plan to cover missed scope. Off: skip augmentation — uncovered scope is still measured and reported.</small></span>
             <span class="switch"><input type="checkbox" id="enforceCoverage" checked><span class="track"></span></span>
           </label>
           <label class="switch-row">
-            <span class="switch-txt"><b>Seed recon with route list</b><small>hand Phase 1 the full attack surface</small></span>
+            <span class="switch-txt"><b>Seed recon with route list</b><small>seed Phase-1 recon with the deterministic entry-point inventory as leads</small></span>
             <span class="switch"><input type="checkbox" id="seedRoutes"><span class="track"></span></span>
           </label>
           <label class="switch-row">
@@ -759,7 +759,7 @@
             <span class="switch"><input type="checkbox" id="iacLens" checked><span class="track"></span></span>
           </label>
           <label class="switch-row">
-            <span class="switch-txt"><b>Seed from prior report <span style="color:var(--warn)">(Mode B)</span></b><small>re-verify prior hot spots — correlates runs; off for benchmarking</small></span>
+            <span class="switch-txt"><b>Seed from prior report <span style="color:var(--warn)">(Mode B)</span></b><small>seed recon with an eligible prior report's findings as leads — independently re-verified</small></span>
             <span class="switch"><input type="checkbox" id="seedPrior"><span class="track"></span></span>
           </label>
         </div>
@@ -823,13 +823,48 @@
 // Escapes first, then applies inline/block rules — so model-authored content
 // can never inject markup into this page. Deliberately small: headings,
 // tables, code, lists, rules, links, emphasis. Anything else stays literal.
-function mdRender(src){
+// Feature 015 (C-A9): relative report links resolve through the owning report's
+// confined file endpoint; only http(s):/mailto: and #anchors pass; else text.
+const ALLOWED_SCHEMES = ["http:", "https:", "mailto:"];
+function mdHref(href, base){
+  href = String(href || "").trim();
+  if (!href) return null;
+  if (href[0] === "#") return href;
+  const m = href.match(/^([a-zA-Z][a-zA-Z0-9+.-]*:)/);
+  if (m) return ALLOWED_SCHEMES.indexOf(m[1].toLowerCase()) >= 0 ? href : null;
+  if (href.indexOf("//") === 0 || href[0] === "/") return null;
+  if (!base) return null;
+  return base + "?path=" + encodeURIComponent(href.replace(/^\.\//, "").split("#")[0]) + (href.indexOf("#") >= 0 ? "#" + href.split("#")[1] : "");
+}
+// Feature 015 (C-A16): this UI does not ship the Mermaid renderer; a diagram fence is
+// shown as a node/flow table plus its source, with a pointer to the main UI.
+function diagramTableHTML(src){
   const esc = t => t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const nodes = new Map(), edges = [];
+  const nodeRe = /^([A-Za-z_][A-Za-z0-9_-]*)(?:\[\(|\(\(|\[|\(|\{|>)?(?:"([^"]*)"|([^\]\)\}|]*))?/;
+  src.split('\n').slice(1).forEach(raw => {
+    const line = raw.replace(/%%[^\n]*/, '').trim();
+    if (!line || line === 'end' || /^(subgraph|style|classDef|class|click|linkStyle)\b/.test(line)) return;
+    let prev = null;
+    line.split(/\s*(-->|-\.->|==>|---|-\.-|===)\s*(?:\|[^|]*\|)?\s*/).forEach(p => {
+      const m = p.trim().match(nodeRe); if (!m) return;
+      if (!nodes.has(m[1])) nodes.set(m[1], (m[2] || m[3] || m[1]).trim());
+      if (prev) edges.push([prev, m[1]]); prev = m[1];
+    });
+  });
+  return `<div class="dgm-table"><b>Diagram as a table</b> <small>— diagram rendering is available in the main UI</small>
+    <table><tr><th>Node</th><th>Label</th></tr>${[...nodes].map(([id,l]) => `<tr><td><code>${esc(id)}</code></td><td>${esc(l)}</td></tr>`).join('') || '<tr><td colspan="2">none</td></tr>'}</table>
+    <table><tr><th>From</th><th></th><th>To</th></tr>${edges.map(([a,b]) => `<tr><td><code>${esc(a)}</code></td><td>→</td><td><code>${esc(b)}</code></td></tr>`).join('') || '<tr><td colspan="3">none</td></tr>'}</table>
+    <details><summary>Diagram source</summary><pre class="mdcode">${esc(src)}</pre></details></div>`;
+}
+function mdRender(src, base){
+  const esc = t => t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const link = (text, href) => { const h = mdHref(href, base); return h ? '<a href="' + h.replace(/"/g, '&quot;') + '"' + (h[0] === "#" ? "" : ' target="_blank" rel="noopener"') + '>' + text + '</a>' : text; };
   const inline = t => esc(t)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    .replace(/`([^`]+)`/g, '<code></code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong></strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '<em></em>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, href) => link(text, href));
 
   const lines = src.replace(/\r\n?/g,'\n').split('\n');
   const out = []; let i = 0;
@@ -843,6 +878,7 @@ function mdRender(src){
       const buf = []; i++;
       while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
       i++;
+      if (lang.toLowerCase() === 'mermaid'){ out.push(diagramTableHTML(buf.join('\n'))); continue; }
       out.push('<pre class="mdcode">'+esc(buf.join('\n'))+'</pre>');
       continue;
     }
@@ -945,12 +981,10 @@ async function loadProfiles() {
 const _PROFILE_FIELDS = {
   hunt_samples: ['huntSamples', 'val'], max_partitions: ['maxPart', 'val'],
   phase2_mode: ['phase2Mode', 'val'], phases: ['phases', 'val'],
-  concurrency: ['concurrency', 'val'], reasoning_effort: ['reasoningEffort', 'val'],
+  reasoning_effort: ['reasoningEffort', 'val'],
   max_output_tokens: ['maxOutTokens', 'val'], max_budget_usd: ['maxBudget', 'val'],
   iac_lens: ['iacLens', 'chk'], remediate: ['remediate', 'chk'],
   redact: ['redact', 'chk'], ledger: ['ledger', 'chk'],
-  seed_routes: ['seedRoutes', 'chk'], seed_prior: ['seedPrior', 'chk'],
-  enforce_coverage: ['enforceCoverage', 'chk'],
 };
 window.applyProfile = function(name) {
   const hint = $('profileHint');
@@ -968,7 +1002,13 @@ window.applyProfile = function(name) {
   // A profile that sets a positive budget also enables the cap toggle.
   if ((p.overrides || {}).max_budget_usd > 0) { $('budgetOn').checked = true; }
   toggleBudget();
-  if (hint) hint.textContent = p.description || '';
+  const overrides = p.overrides || {};
+  // Feature 013: these controls are functional; profiles apply them directly.
+  if (overrides.concurrency != null) $('concurrency').value = overrides.concurrency;
+  if (overrides.enforce_coverage != null) $('enforceCoverage').checked = !!overrides.enforce_coverage;
+  if (overrides.seed_routes != null) $('seedRoutes').checked = !!overrides.seed_routes;
+  if (overrides.seed_prior != null) $('seedPrior').checked = !!overrides.seed_prior;
+  if (hint) hint.textContent = (p.description || '');
 };
 
 // Budget cap is opt-in — the number field is live only when the box is ticked.
@@ -1857,14 +1897,27 @@ async function loadFiles(id) {
   }
 }
 
+// Feature 014: evidence-state messages (classic entrypoint keeps its layout; states
+// are explained instead of an empty pane or a prose sentinel).
+const EV_MSG = {
+  unknown: 'This scan is unknown to the server.', not_started: 'Queued — the engine has not started this scan yet.',
+  running_no_files: 'Scan is running — nothing has been written yet.', empty: 'This scan finished without writing any files.',
+  unavailable: 'The results directory is unavailable (missing or unreadable).', no_records: 'No prompt records were captured for this scan.',
+  not_recorded: 'Prompts were not recorded by this version of the scanner for this scan.', no_lines: 'No log lines were recorded for this scan.',
+};
+function evNote(d, fallback) {
+  const st = d && d.state; const cls = (st === 'unavailable' || st === 'unknown') ? 'err-box' : 'empty';
+  return `<div class="${cls}">${esc(EV_MSG[st] || fallback)}${d && d.reason ? ' (' + esc(d.reason) + ')' : ''}</div>`;
+}
 async function loadLog(id) {
   const body = $('tabbody');
   body.innerHTML = '<div class="empty">Loading…</div>';
   try {
-    const r = await fetch('/api/scans/' + id + '/log');
-    const t = await r.text();
+    const r = await fetch('/api/scans/' + id + '/log?tail=500');
+    const d = await r.json();
+    if (!d.lines || !d.lines.length) { body.innerHTML = evNote(d, 'No log lines.'); return; }
     body.innerHTML = `<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">`
-      + `This scan's lines from the central log.</div><pre>${esc(t)}</pre>`;
+      + `This scan's tagged lines from the central log.</div><pre>${esc(d.lines.join('\n'))}</pre>`;
     const pre = body.querySelector('pre');
     if (pre) pre.scrollTop = pre.scrollHeight;
   } catch (e) {
@@ -1893,13 +1946,15 @@ async function loadPrompts(id) {
   const body = $('tabbody');
   body.innerHTML = '<div class="empty">Loading…</div>';
   try {
-    const r = await fetch('/api/scans/' + id + '/file?path=prompts.jsonl');
-    if (!r.ok) { body.innerHTML = '<div class="empty">No prompts captured yet — they appear as each phase starts.</div>'; return; }
-    const txt = await r.text();
-    const recs = txt.trim().split('\n').filter(Boolean)
-      .map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean);
-    if (!recs.length) { body.innerHTML = '<div class="empty">No prompts captured yet.</div>'; return; }
-    body.innerHTML = promptsHTML(recs);
+    // Feature 014: real per-call prompt records (kind main/repair/canary/repartition).
+    const r = await fetch('/api/scans/' + id + '/prompts?limit=100');
+    const d = await r.json();
+    if (!d.records || !d.records.length) { body.innerHTML = evNote(d, 'No prompt records.'); return; }
+    body.innerHTML = '<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">'
+      + `The actual prompts sent to the model, one record per call (${d.total} total).</div>`
+      + d.records.map(x => `<details class="promptrec"><summary><b>${esc(x.label)}</b>`
+        + `<span class="pmeta">seq ${x.seq} · phase ${esc(x.phase)} · ${esc(x.role)}/${esc(x.model)} · ${esc(x.kind)}</span></summary>`
+        + `<pre>${esc(x.system||'')}</pre><pre>${esc(x.task||'')}</pre></details>`).join('');
   } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 }
 
@@ -1910,7 +1965,7 @@ window.viewFile = async function(id, path) {
     const r = await fetch(`/api/scans/${id}/file?path=` + encodeURIComponent(path));
     const t = await r.text();
     v.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
-      ? `<div class="md">${mdRender(t)}</div>` : `<pre>${esc(t)}</pre>`);
+      ? `<div class="md">${mdRender(t, '/api/scans/' + encodeURIComponent(id) + '/file')}</div>` : `<pre>${esc(t)}</pre>`);
     v.scrollIntoView({behavior:'smooth', block:'start'});
   } catch (e) { v.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
@@ -2086,7 +2141,7 @@ window.dashFile = async function(kind, id, path, into){
     if (!r.ok) throw new Error('could not read ' + path);
     const txt = await r.text();
     body.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
-      ? `<div class="md">${mdRender(txt)}</div>` : `<pre>${esc(txt)}</pre>`);
+      ? `<div class="md">${mdRender(txt, base + encodeURIComponent(id) + '/file')}</div>` : `<pre>${esc(txt)}</pre>`);
     body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (e) { body.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
@@ -2254,6 +2309,35 @@ function healthPanelHTML(fj) {
     <div class="hrow">${chip}${covLine}${findLine}${extra.join('')}</div>${reasonList}</div>`;
 }
 
+// Feature 015 (C-A10): summary counts from report_model.json; a scan without the
+// model is a pre-015 scan and is labelled as such rather than recomputed.
+// Feature 016 (FR-021, C-P27): the retained viewer reads the presentation projection when
+// the saved report carries one. Nothing here recomputes grouping, severity, counts or
+// guidance; a report without the projection falls back to the feature-015 summary below.
+function reportPresentationSummaryHTML(p){
+  if (!p) return '';
+  const c = p.counts || {}, sev = c.severity || {}, sc = p.scope || {}, id = p.identity || {}, op = p.opening || {};
+  const spread = ['Critical','High','Medium','Low','Informational','Unrated']
+    .filter(k => (sev[k]||0) > 0).map(k => `${sev[k]} ${k}`).join(', ') || 'none';
+  const prio = (p.priority || []).map(a => `<li>${esc(a.issue)} — <b>${esc(a.severity)}</b> · ${esc(a.affected_area||'')} · ${esc(a.action||'')}</li>`).join('');
+  return `<div class="metacard" style="margin:8px 0"><b>${esc(id.application||'Scan report')}</b>
+    <small>${id.scan_date ? `· scanned ${esc(id.scan_date)}${id.timezone?` (${esc(id.timezone)})`:''}` : '· scan date not recorded'} · report_model.json</small>
+    <p>${esc(op.risk_summary||'')}</p>
+    ${op.scope_sentence ? `<div class="hint">${esc(op.scope_sentence)}</div>` : ''}
+    <div><b>${c.issues_to_fix||0}</b> issues to fix (${esc(spread)}) · ${c.needs_review||0} need review — neither confirmed nor dismissed · ${c.dismissed||0} dismissed</div>
+    <div>review scope: execution <b>${esc(sc.execution||'Unknown')}</b> · ${sc.coverage_known ? `${sc.coverage_completed} of ${sc.coverage_total} entry points completed` : 'entry-point coverage not recorded'} · method <b>${esc(sc.method||'')}</b></div>
+    ${prio ? `<div style="margin-top:6px"><b>Start here</b><ol>${prio}</ol></div>` : ''}
+    <div class="hint">Scanner diagnostics (${c.candidates_examined||0} candidates examined, ${c.detections||0} supported detections) are in the full report under Scan details.</div></div>`;
+}
+
+function reportModelSummaryHTML(model){
+  if (!model) return '<div class="hint">counts from findings.json (pre-015 scan — no report model)</div>';
+  const c = model.counts || {}, s = model.summary || {};
+  return `<div class="metacard" style="margin:8px 0"><b>Executive summary</b> <small>(${s.words||0} words · report_model.json)</small><p>${esc(s.narrative||'')}</p>
+    <div>${c.supported} supported · ${c.remediation_groups} remediation groups · ${c.rejected} rejected · ${(c.unresolved_explicit||0)+(c.unresolved_failed||0)} unresolved (${c.unresolved_explicit||0} explicit, ${c.unresolved_failed||0} failed sessions) · ${c.total_candidates} candidates total — not a confirmed-vulnerability count</div>
+    <div>execution <b>${esc((model.status||{}).execution||'unknown')}</b> · coverage <b>${esc((model.status||{}).coverage||'unknown')}</b> · validation <b>${esc((model.status||{}).validation_mode||'unknown')}</b></div></div>`;
+}
+
 window.openReport = async function(id) {
   const v = $('reportView');
   v.innerHTML = '<div class="empty">Loading…</div>';
@@ -2264,6 +2348,8 @@ window.openReport = async function(id) {
     d.files.sort((a,b) => order(a.path)-order(b.path) || a.path.localeCompare(b.path));
     const has = (n) => d.files.some(f => f.path === n);
     const fileUrl = (n) => `/api/reports/${encodeURIComponent(id)}/file?path=${encodeURIComponent(n)}`;
+    let model = null;
+    if (has('report_model.json')) { try { const mr = await fetch(fileUrl('report_model.json')); if (mr.ok) model = await mr.json(); } catch (e) { model = null; } }
     // Scan Health from findings.json (best-effort).
     let health = '';
     if (has('findings.json')) {
@@ -2276,8 +2362,12 @@ window.openReport = async function(id) {
       has('findings.json') ? `<a class="fbtn" href="${fileUrl('findings.json')}" download="findings.json">findings.json ↓</a>` : '',
       has('run_manifest.json') ? `<a class="fbtn" href="${fileUrl('run_manifest.json')}" download="run_manifest.json">Manifest ↓</a>` : '',
     ].filter(Boolean).join('');
+    // Feature 016: one guard chooses the surface; both paths never render for
+    // one report (C-P28).
+    const usePresentation = !!(model && model.presentation && model.presentation.version);
     v.innerHTML = `<div class="view-head">${esc(id)}</div>
       <div style="font-family:var(--mono);font-size:11.5px;color:var(--text-3);margin-bottom:12px">${esc(d.root)}</div>
+      ${usePresentation ? reportPresentationSummaryHTML(model.presentation) : reportModelSummaryHTML(model)}
       ${health}
       <div class="dlrow">${dl}</div>
       <div class="metacard"><table><tr><th>File</th><th style="width:90px">Size</th></tr>` +
@@ -2297,7 +2387,7 @@ window.viewReportFile = async function(id, path) {
     const r = await fetch(`/api/reports/${encodeURIComponent(id)}/file?path=` + encodeURIComponent(path));
     const txt = await r.text();
     t.innerHTML = `<div class="view-head">${esc(path)}</div>` + (path.endsWith('.md')
-      ? `<div class="md">${mdRender(txt)}</div>` : `<pre>${esc(txt)}</pre>`);
+      ? `<div class="md">${mdRender(txt, '/api/reports/' + encodeURIComponent(id) + '/file')}</div>` : `<pre>${esc(txt)}</pre>`);
   } catch (e) { t.innerHTML = `<div class="err-box">${esc(e.message)}</div>`; }
 };
 
@@ -2333,20 +2423,21 @@ $('start').onclick = async function() {
     model: hunt.model, backend: hunt.backend, host: hunt.host || null,
     phases: phases,
     max_partitions: parseInt($('maxPart').value || '8', 10),
-    enforce_coverage: $('enforceCoverage').checked,
-    seed_routes: $('seedRoutes').checked,
-    seed_prior: $('seedPrior').checked,
     ledger: $('ledger').checked,
     redact: $('redact').checked,
     remediate: $('remediate').checked,
     phase2_mode: $('phase2Mode').value,
-    concurrency: parseInt($('concurrency').value || '1', 10),
     reasoning_effort: $('reasoningEffort').value || null,
     max_output_tokens: parseInt($('maxOutTokens').value || '32768', 10),
     hunt_samples: parseInt($('huntSamples').value || '1', 10),
     // Budget cap is opt-in: only enforced when the box is ticked; 0 = no cap.
     max_budget_usd: $('budgetOn').checked ? parseFloat($('maxBudget').value || '0') : 0,
     iac_lens: $('iacLens').checked,
+    // Feature 013: functional seeding / coverage / concurrency controls.
+    concurrency: parseInt($('concurrency').value || '1', 10),
+    enforce_coverage: $('enforceCoverage').checked,
+    seed_routes: $('seedRoutes').checked,
+    seed_prior: $('seedPrior').checked,
   };
   // Per-phase overrides only when "Multiple models" is on (each blank field
   // falls back to the hunt model). Otherwise one model runs every phase.
