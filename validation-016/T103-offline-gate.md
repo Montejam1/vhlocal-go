@@ -1,12 +1,12 @@
 # T103 — full offline gate (feature 016)
 
-Run 2026-10-03 from `/home/br0kan/Programs/vhlocal-go` with Go 1.27.1. Raw output is beside
+Run 2026-10-03 from `~/Programs/vhlocal-go` with Go 1.27.1. Raw output is beside
 this file: `gate-static.txt`, `offline-tests.txt`, `race-tests.txt`, `typecheck.txt`,
 `gate-status.txt`.
 
 | Step | Result |
 |---|---|
-| `gofmt -l .` (excluding the pre-existing `testdata/goapp/api/routes.go`) | clean — no output |
+| `gofmt -l .` | clean — no output. One fixture, `testdata/goapp/api/routes.go`, was excluded by hand during the gate and has since been formatted, so the whole tree is clean with no carve-out. |
 | `go vet ./...` | clean |
 | `go build ./...` | clean |
 | `CGO_ENABLED=0 go build -ldflags="-s -w" ./cmd/vhlocal` | ELF 64-bit, **statically linked**, stripped |

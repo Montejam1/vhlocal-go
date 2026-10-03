@@ -26,7 +26,7 @@ not change `.specify/feature.json`, which currently points to feature 013.
 
 - Job: `5a88287ce3f4`.
 - Report directory:
-  `/home/br0kan/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-28-135446`.
+  `~/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-28-135446`.
 - Model: `gpt-oss:120b`; elapsed time: 8,216.9 seconds (about 2 hours 17 minutes).
 - Job status: `done`; execution status: `partial`; coverage status: `degraded`.
   These describe different things: the job stopped, but its work was incomplete.

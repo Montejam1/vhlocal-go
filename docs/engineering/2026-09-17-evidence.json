@@ -1,7 +1,7 @@
 {
   "captured_at_utc": "2026-09-17T16:26:15.497722+00:00",
   "scope": "Read-only local API/source inspection; no browser reproduction, new scan, or regeneration.",
-  "report_directory": "/home/br0kan/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-17-003627",
+  "report_directory": "~/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-17-003627",
   "running_process": {
     "pid_at_inspection": 225612,
     "executable_sha256": "152db3f11ce8bae75af1f57b26d0fde6b2d7c1f6786f413f90d18473270e7f63",

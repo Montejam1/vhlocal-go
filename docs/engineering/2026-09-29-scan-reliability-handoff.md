@@ -27,7 +27,7 @@ operator-attested (all nine checklist items declared complete on build `cc3c1f0-
 ## The first live run on the 014 binary
 
 ```text
-/home/br0kan/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-28-221735
+~/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-28-221735
 ```
 
 gpt-oss:120b for every role (no `--verify-model`), phases `1 1t 2 2b 3 3d 4`, `phase2_mode=split`,

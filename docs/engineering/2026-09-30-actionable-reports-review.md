@@ -12,7 +12,7 @@ Specification: [016-actionable-vulnerability-reports/spec.md](../../specs/016-ac
 
 Latest saved report selected from the running application's reports listing:
 
-`/home/br0kan/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-30-003935`
+`~/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-30-003935`
 
 The job is listed as done; the assessment records execution `partial`, coverage `degraded`, and method `static_reasoning`. These are different facts, and the redesign must preserve that distinction in understandable language.
 

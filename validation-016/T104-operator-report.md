@@ -18,7 +18,7 @@ Nothing in this document should be read as establishing them.
 
 | Field | Value |
 |---|---|
-| Repository | `/home/br0kan/Programs/vhlocal-go` |
+| Repository | `~/Programs/vhlocal-go` |
 | Git HEAD | `cc3c1f0` (worktree dirty — this feature's work is uncommitted) |
 | Go toolchain | `go1.27.1 linux/amd64`, module target `go 1.23` |
 | Binary | `vhlocal`, `Version = "dev"` (`assets.go`), stdlib only, no `go.sum` |
@@ -51,7 +51,7 @@ Run immediately before this report; full detail in `validation-016/T103-offline-
 
 | Step | Result |
 |---|---|
-| `gofmt -l .` (excluding the pre-existing fixture) | clean |
+| `gofmt -l .` | clean (the one unformatted fixture was formatted afterwards, so no exclusion is needed) |
 | `go vet ./...` | clean |
 | `go build ./...` | clean |
 | static `CGO_ENABLED=0` build | statically linked, stripped |

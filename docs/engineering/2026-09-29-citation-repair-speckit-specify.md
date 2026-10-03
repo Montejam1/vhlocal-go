@@ -15,7 +15,7 @@ running scan. Preparing it does not change the active feature pointer.
 Live job `843875fb0919`, report directory:
 
 ```text
-/home/br0kan/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-28-221735
+~/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_gptoss120b_2026-09-28-221735
 ```
 
 At the inspected snapshot, 95 of 171 candidate verification sessions had finished:

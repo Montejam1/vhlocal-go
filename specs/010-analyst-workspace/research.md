@@ -1,6 +1,6 @@
 # Phase 0 Research: Evidence-centered analyst workspace
 
-Grounded in a full codebase inventory of `/home/br0kan/Programs/vhlocal-go` (HTTP API,
+Grounded in a full codebase inventory of `~/Programs/vhlocal-go` (HTTP API,
 persistence, comparison, status, provenance, and both front-end surfaces). Each decision cites
 what exists today so the plan reuses rather than duplicates, and names the real gaps.
 
