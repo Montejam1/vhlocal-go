@@ -71,3 +71,7 @@ and `~/.vhlocal/vhlocal.log` unchanged across a few minutes. Run
 
 Nothing here launched, interrupted, resumed or restarted a scan. No target code,
 PoC or exploit was executed. No operator report was regenerated.
+
+**Publication note.** The log excerpt beside this file carries one edit: the home prefix
+`/home/<user>/` was replaced with `~/` before the repository was pushed. Every other
+character, including the job id on every line, is as captured.

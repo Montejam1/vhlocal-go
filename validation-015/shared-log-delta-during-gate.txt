@@ -1,12 +1,18 @@
-2026-09-30T05:24:01Z INFO [c7514f55c559] [hunt:sg-26:inj.s2] output_written: path=/home/br0kan/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_qwen35122b_2026-09-29-172043/results/sg-26_inj.s2.md
+# Verbatim excerpt of the shared scan log during the feature-015 gate, with ONE edit:
+# the home prefix /home/<user>/ was replaced with ~/ before publication. Nothing else
+# in these lines was changed - the timestamps, the job id on every line, the agent
+# labels, the stop reasons and the turn counts are as captured. The point of the
+# excerpt is that every line carries the same job id c7514f55c559, which is what
+# attributes the writes to the operator's concurrent scan rather than to the gate.
+2026-09-30T05:24:01Z INFO [c7514f55c559] [hunt:sg-26:inj.s2] output_written: path=~/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_qwen35122b_2026-09-29-172043/results/sg-26_inj.s2.md
 2026-09-30T05:24:01Z INFO [c7514f55c559] [hunt:sg-26:inj.s2] agent_stop: stopped_reason=complete turns=31
 2026-09-30T05:24:01Z DEBUG [c7514f55c559] [hunt:sg-26:inj.s3] agent_start: class=INJ model=qwen3.5:122b partition=SG-26
-2026-09-30T05:26:03Z INFO [c7514f55c559] [hunt:sg-26:inj.s3] output_written: path=/home/br0kan/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_qwen35122b_2026-09-29-172043/results/sg-26_inj.s3.md
+2026-09-30T05:26:03Z INFO [c7514f55c559] [hunt:sg-26:inj.s3] output_written: path=~/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_qwen35122b_2026-09-29-172043/results/sg-26_inj.s3.md
 2026-09-30T05:26:03Z INFO [c7514f55c559] [hunt:sg-26:inj.s3] agent_stop: stopped_reason=complete turns=25
 2026-09-30T05:26:03Z DEBUG [c7514f55c559] [hunt:sg-26:nav.s1] agent_start: class=NAV model=qwen3.5:122b partition=SG-26
-2026-09-30T05:27:38Z INFO [c7514f55c559] [hunt:sg-26:nav.s1] output_written: path=/home/br0kan/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_qwen35122b_2026-09-29-172043/results/sg-26_nav.s1.md
+2026-09-30T05:27:38Z INFO [c7514f55c559] [hunt:sg-26:nav.s1] output_written: path=~/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_qwen35122b_2026-09-29-172043/results/sg-26_nav.s1.md
 2026-09-30T05:27:38Z INFO [c7514f55c559] [hunt:sg-26:nav.s1] agent_stop: stopped_reason=complete turns=16
 2026-09-30T05:27:38Z DEBUG [c7514f55c559] [hunt:sg-26:nav.s2] agent_start: class=NAV model=qwen3.5:122b partition=SG-26
-2026-09-30T05:34:06Z INFO [c7514f55c559] [hunt:sg-26:nav.s2] output_written: path=/home/br0kan/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_qwen35122b_2026-09-29-172043/results/sg-26_nav.s2.md
+2026-09-30T05:34:06Z INFO [c7514f55c559] [hunt:sg-26:nav.s2] output_written: path=~/vulnhunter-reports/vc-claude-code-seeded-v2-logistics-dispatch-fastapi_VULNHUNT_RESULTS_qwen35122b_2026-09-29-172043/results/sg-26_nav.s2.md
 2026-09-30T05:34:06Z INFO [c7514f55c559] [hunt:sg-26:nav.s2] agent_stop: stopped_reason=complete turns=16
 2026-09-30T05:34:06Z DEBUG [c7514f55c559] [hunt:sg-26:nav.s3] agent_start: class=NAV model=qwen3.5:122b partition=SG-26
